@@ -1,0 +1,52 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Build outputs
+/dist
+/build
+
+# Development
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache
+.npm
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+# Generated verification artifacts
+/test-results
+# Dependencies at any depth
+**/node_modules/
+
+# Persistent local pilot history
+/server/data/
+
+# Downloadable release output
+/release-artifacts/
+
+# Astra / dream-loop local working context
+/.dream-loop/
+
+# Suno raw WAV masters (source for scripts/audio/build-soundtrack.sh)
+/_raw/

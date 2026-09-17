@@ -21,9 +21,24 @@ export class ArenaRenderer {
     this.reticle=new THREE.Mesh(new THREE.RingGeometry(.5,.56,32),new THREE.MeshBasicMaterial({color:'#8defff',depthTest:false,transparent:true,opacity:.85}));this.reticle.rotation.x=-Math.PI/2;this.reticle.renderOrder=5;this.reticle.visible=false;this.scene.add(this.reticle);
     this.grenadeRing=new THREE.Mesh(new THREE.RingGeometry(4.96,5,64),new THREE.MeshBasicMaterial({color:'#ffb677',depthTest:false,transparent:true,opacity:.35}));this.grenadeRing.rotation.x=-Math.PI/2;this.grenadeRing.visible=false;this.scene.add(this.grenadeRing);
     this.shotGeometries={LASER:new THREE.CylinderGeometry(.055,.055,1.5,6).rotateX(Math.PI/2),BOUNCE:new THREE.CylinderGeometry(.10,.10,3,8).rotateX(Math.PI/2),GRENADE:new THREE.IcosahedronGeometry(.27,1)};this.shotMaterials=Object.fromEntries(Object.entries(WEAPONS).map(([key,w])=>[key,new THREE.MeshBasicMaterial({color:w.color})]));
-    this.resize();window.addEventListener('resize',()=>this.resize());this.buildArena(MAP);
+    this.resize();window.addEventListener('resize',()=>this.resize());
+    // Observe the CSS surface as mobile browser chrome changes its visible
+    // height, even when the layout viewport does not emit a window resize.
+    this.resizeObserver=typeof ResizeObserver==='function'?new ResizeObserver(()=>this.resize()):null;
+    this.resizeObserver?.observe(canvas);
+    this.visualViewport=window.visualViewport||null;
+    this.onVisualViewportResize=()=>this.resize();
+    this.visualViewport?.addEventListener('resize',this.onVisualViewportResize);
+    this.buildArena(MAP);
   }
-  resize(){this.renderer.setSize(innerWidth,innerHeight);this.camera.aspect=innerWidth/innerHeight;this.camera.updateProjectionMatrix();this.rig?.reset();}
+  resize(){
+    const rect=this.canvas.getBoundingClientRect(),width=Math.max(1,Math.round(rect.width)),height=Math.max(1,Math.round(rect.height));
+    const ratio=Math.min(devicePixelRatio,1.5);
+    if(this.width===width&&this.height===height&&this.pixelRatio===ratio)return;
+    this.width=width;this.height=height;this.pixelRatio=ratio;
+    this.renderer.setPixelRatio(ratio);this.renderer.setSize(width,height,false);
+    this.camera.aspect=width/height;this.camera.updateProjectionMatrix();this.rig?.reset();
+  }
   buildArena(map){this.map=map;this.world.build(map);this.renderer.shadowMap.needsUpdate=true;this.fx.clear();this.rig.reset();this.cameraReady=false;}
   setTimeOfDay(time){this.world.setTimeOfDay(time);this.renderer.shadowMap.needsUpdate=true;}
   makeShip(p){
@@ -94,8 +109,8 @@ export class ArenaRenderer {
     this.world.update(this.frameTime,dt);
     if(!worldOnly)this.fx.update({...state,players:rendered},dt,this.ships);else this.fx.clear();
     this.indicatorRoot.hidden=lobby||worldOnly;
-    if(!lobby&&!worldOnly)this.indicators.update({players:rendered,localId:playerId,camera:this.camera,width:innerWidth,height:innerHeight,time:state.time,aim});
+    if(!lobby&&!worldOnly)this.indicators.update({players:rendered,localId:playerId,camera:this.camera,width:this.width,height:this.height,time:state.time,aim});
     this.renderer.render(this.scene,this.camera);
   }
-  dispose(root){root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
+  dispose(root){this.resizeObserver?.disconnect();this.visualViewport?.removeEventListener('resize',this.onVisualViewportResize);root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
 }

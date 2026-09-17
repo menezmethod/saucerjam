@@ -95,6 +95,7 @@ button kbd {
   display: block;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   touch-action: none;
 }
 .overlay {

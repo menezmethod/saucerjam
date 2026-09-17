@@ -12,19 +12,20 @@ Updated: 2026-09-17
 
 ## Active cycle
 
-- Task: Establish a gameplay-first visual north star, then implement the smallest viable Nexus slice.
+- Task: Make a 128-pilot Confluence zone measurable before adding Nexus gameplay systems.
 - Owner: Astra implementation agent; orchestrator review follows.
-- Status: north-star complete; implementation has not started.
+- Status: baseline measured; recipient-specific replication is next.
 - Invariants: preserve authoritative simulation, independent aim, touch movement/fire, reconnect behavior, current desktop gameplay, and a readable top-down camera.
 
 ## Evidence
 
 - `CONTROLS_PASS_01.md`; focused input/view tests 20/20 pass; interface tests 2/2 pass; production build passes.
 - `north-star/01-nexus-tactical-v1.png` through `north-star/04-modular-kit-v1.png`; objective routes, world themes, modular kit, and performance constraints are explicit.
+- `SCALE_BASELINE_01.md`; idle local 128-pilot state is finite, but 44,652-byte full snapshots and current eight-pilot admission block a credible scale claim.
 
 ## NEXT_ACTION
 
-Implement one Nexus court slice using edge-compatible chunks: loops, cover, and two portal endpoints. Validate a small match, then a 128-player zone; no new mode or weapon until that evidence exists. Capture browser evidence, then validate desktop Chrome and iPhone/iPad Safari before opening a merge-ready PR.
+Implement recipient-specific spatial snapshots for one Confluence zone, then measure real socket replication at 8/32/64/128. Do not increase public room capacity or build portals, modes, weapons, or pickups until that evidence exists.
 
 ## Stop conditions
 

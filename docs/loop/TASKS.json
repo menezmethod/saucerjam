@@ -16,7 +16,7 @@
     },
     {"id":"combat-readability-01","title":"Make weapons and hit feedback instantly readable","priority":2,"status":"pending"},
     {"id":"cover-routes-01","title":"Improve Confluence cover rhythm and flank choices","priority":3,"status":"pending"},
-    {"id":"scale-measure-01","title":"Measure reproducible 8/32/64/128 pilot load","priority":4,"status":"pending"},
+    {"id":"scale-measure-01","title":"Measure reproducible 8/32/64/128 pilot load","priority":1,"status":"in_progress"},
     {"id":"pickups-01","title":"Prototype contested energy and health pickups","priority":5,"status":"pending"}
   ]
 }

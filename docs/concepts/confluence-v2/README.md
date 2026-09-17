@@ -45,3 +45,14 @@ This directory contains the visual concept sheets, architecture specifications, 
 * **[Meshy AI Modular Tiles Spec](./MESHY_AI_MODULAR_TILES_SPEC.md)** — Prompts, bounding boxes, and Python normalization scripts.
 * **[Agent-Human Spaceship Marketplace Plan](./SPACESHIP_MARKETPLACE_PLAN.md)** — Revenue model, hardpoint constraints, and 3D print fulfillment pipeline.
 * **[Individual Tile References](./images/tiles/)** — Generously padded, uncropped single-asset images for 3D modelers and AI agents.
+
+---
+
+## 8. Turnaround Single-Angle Ship Assets (3D Reconstruction Inputs)
+All 5 ship turnaround sheets have been split into isolated single-angle transparent PNGs (39 views total) with generous padding, zero clipped edges, and clean transparent backgrounds ready for Meshy AI / Blender 3D generation:
+
+* **[`ship_01/`](./images/ships/ship_01/)** — 7 isolated views (hero 3/4 perspective, front, rear, profiles, top/bottom plans).
+* **[`ship_02/`](./images/ships/ship_02/)** — 8 isolated views (hero 3/4 perspective, forward/aft aspects, port/starboard elevations, orthographics).
+* **[`ship_03/`](./images/ships/ship_03/)** — 8 isolated views (hero top-down perspective, front, rear, side profiles, orthographic projections).
+* **[`ship_04/`](./images/ships/ship_04/)** — 8 isolated views (hero 3/4 perspective, nose, thruster exhausts, side profiles, detail plans).
+* **[`ship_05/`](./images/ships/ship_05/)** — 8 isolated views (hero 3/4 perspective, front/aft angles, profiles, orthogonal plans).

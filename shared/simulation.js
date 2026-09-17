@@ -691,7 +691,21 @@ class Simulation {
     }
     for (const p of this.players.values()) this.spawn(p);
   }
-  snapshot() {
+  snapshotFor(playerId, radius = 32) {
+    const local = this.players.get(playerId);
+    if (!local) return this.snapshot();
+    const snapshot = this.snapshot(
+      (player) => player.id === playerId || distance(player, local) <= radius,
+      (projectile) => distance(projectile, local) <= radius + 4,
+    );
+    for (const player of snapshot.players) {
+      delete player.nextFire;
+      delete player.lastDamage;
+      if (player.id !== playerId) delete player.profileId;
+    }
+    return snapshot;
+  }
+  snapshot(includePlayer = () => true, includeProjectile = () => true) {
     return {
       mapId:this.map.id,
       mapStage:this.map.stage,
@@ -703,10 +717,10 @@ class Simulation {
       restartAt: this.restartAt,
       winner: this.winner,
       fragLimit: this.fragLimit,
-      players: [...this.players.values()].map(
+      players: [...this.players.values()].filter(includePlayer).map(
         ({ input, path, navigateAt, lastInput, ...p }) => ({ ...p }),
       ),
-      projectiles: [...this.projectiles.values()].map((p) => ({ ...p })),
+      projectiles: [...this.projectiles.values()].filter(includeProjectile).map((p) => ({ ...p })),
     };
   }
   drainEvents() {

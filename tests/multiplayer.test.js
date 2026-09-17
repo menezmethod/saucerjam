@@ -59,7 +59,7 @@ test("real sockets share an authoritative room: movement, shots, death, respawn,
     name: "Bravo",
   });
   assert.equal(roomA.map.id, roomB.map.id);
-  assert.equal(roomB.state.players.length, 2);
+  assert.ok(roomB.state.players.some((p) => p.id === roomB.playerId));
   const roomC = await join(c, { mode: "create", name: "Charlie", bots: false });
   assert.notEqual(roomA.code, roomC.code);
   let stateA, stateB, stateC;
@@ -69,8 +69,9 @@ test("real sockets share an authoritative room: movement, shots, death, respawn,
   c.on("state", (s) => (stateC = s));
   a.on("events", (events) => eventsA.push(...events));
   await until(() => stateA && stateB && stateC);
-  assert.equal(stateC.players.length, 1);
-  assert.equal(stateA.players.length, 2);
+  assert.ok(stateC.players.every((p) => p.id === c.id));
+  assert.ok(stateA.players.some((p) => p.id === a.id));
+  assert.ok(stateB.players.some((p) => p.id === b.id));
   const room = game.rooms.get(roomA.code),
     pa = room.sim.players.get(a.id),
     pb = room.sim.players.get(b.id);
@@ -106,10 +107,10 @@ test("real sockets share an authoritative room: movement, shots, death, respawn,
   assert.equal(stateB.players.find((p) => p.id === a.id).kills, 1);
   assert.ok(pa.health <= 100);
   await until(
-    () => stateA.players.find((p) => p.id === b.id)?.alive === true,
+    () => stateB.players.find((p) => p.id === b.id)?.alive === true,
     4500,
   );
-  assert.equal(stateA.players.find((p) => p.id === b.id).health, 100);
+  assert.equal(stateB.players.find((p) => p.id === b.id).health, 100);
   assert.equal(stateC.players.length, 1);
   assert.equal(stateC.players[0].kills, 0);
   const oldId = b.id;
@@ -122,7 +123,7 @@ test("real sockets share an authoritative room: movement, shots, death, respawn,
     code: roomA.code,
     name: "Bravo",
   });
-  assert.equal(rejoined.state.players.length, 2);
+  assert.ok(rejoined.state.players.some((p) => p.id === rejoined.playerId));
   assert.notEqual(rejoined.playerId, oldId);
   a.disconnect();
   replacement.disconnect();
@@ -144,8 +145,9 @@ test("invalid rooms, malformed packets, capacity, bot fill, and HTTP serving", a
   assert.match(invalid.error, /not found/);
   await wait(420);
   const created = await join(a, { mode: "create", bots: true });
-  assert.equal(created.state.players.length, 4);
-  assert.equal(created.state.players.filter((p) => p.bot).length, 3);
+  assert.ok(created.state.players.some((p) => p.id === created.playerId));
+  assert.equal(game.rooms.get(created.code).sim.players.size, 4);
+  assert.equal([...game.rooms.get(created.code).sim.players.values()].filter((p) => p.bot).length, 3);
   for (let i = 1; i < 9; i++) {
     const socket = await connect(url);
     clients.push(socket);
@@ -181,4 +183,18 @@ test("configured room capacity rejects new rooms while allowing an existing room
   await wait(420);
   const admitted=await join(b,{mode:'join',code:first.code});
   assert.equal(admitted.code,first.code);
+});
+
+test("configured pilot capacity applies to each room", async t => {
+  const game=createGameServer({maxPlayersPerRoom:2});
+  await new Promise(r=>game.server.listen(0,'127.0.0.1',r));
+  const url=`http://127.0.0.1:${game.server.address().port}`;
+  const clients=[];
+  t.after(async()=>{clients.forEach(socket=>socket.disconnect());await game.close();});
+  for(let i=0;i<3;i++)clients.push(await connect(url));
+  const first=await join(clients[0],{mode:'create',bots:false});
+  await wait(420);
+  assert.ok((await join(clients[1],{mode:'join',code:first.code})).playerId);
+  await wait(420);
+  assert.match((await join(clients[2],{mode:'join',code:first.code})).error,/full/);
 });

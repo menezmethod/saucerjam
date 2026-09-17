@@ -1,0 +1,65 @@
+# Tile generation prompts
+
+Use one prompt per asset. Keep the common suffix from [`MESHY_AI_MODULAR_TILES_SPEC.md`](./MESHY_AI_MODULAR_TILES_SPEC.md) on every request.
+
+## Clean reference-board prompt
+
+Use this when regenerating the tile sheets themselves:
+
+> Create a production reference board for one modular SaucerJam arena asset. Show the same single object in three-quarter, top, front, and side orthographic views on a neutral charcoal background. Add a faint 1m grid and four edge socket dots, but no labels, dimensions, logos, HUD, decorative frame, extra props, or presentation pedestal. Keep the object centered, fully visible, and consistent across every view. The asset must have a flat closed underside and a clean square 8m tile boundary.
+
+For an assembled-chunk board, use:
+
+> Show one exact 8×8 arrangement of square 8m SaucerJam tiles in a clean isometric technical view. Every seam is flush, every tile center lies on the grid, walls occupy only their declared envelopes, and props stay inside their tiles. Use restrained industrial graphite, cyan utility lights, amber safety accents, and one green Reactor Bloom. No gameplay HUD, text, logos, floating platforms, overlapping walls, or impossible geometry.
+
+## 01 — standard deck
+
+> An 8 meter square modular sci-fi arena floor deck, dark graphite alloy panels, restrained cyan power seams, four clean straight tile edges, shallow beveled panel joints, practical industrial construction, readable from a three-quarter top-down camera. No raised wall, no props, no hazard stripes across the playable center.
+
+Acceptance: flat 8×8m footprint, 0.2m height, walkable center, seams stop at the boundary.
+
+## 02 — conveyor lane
+
+> An 8 meter square modular industrial conveyor floor tile, recessed parallel rollers in a central lane, narrow yellow-black safety edging only at the lane borders, dark steel frame, service panels, visible direction arrows expressed through geometry not text. The surrounding tile boundary remains square and flush with neighboring deck tiles.
+
+Acceptance: rollers do not protrude beyond the footprint; carry direction is stored as metadata, not inferred from the art.
+
+## 03 — ice drift
+
+> An 8 meter square modular cryogenic floor tile, thin translucent blue-white ice over a reinforced deck, subtle frozen cracks and coolant channels, low profile, readable grid edges, no snow mound and no jagged border.
+
+Acceptance: 0.15m height, flat boundary, no transparent collision ambiguity; friction is manifest data.
+
+## 04 — straight barrier
+
+> A single straight 8 meter modular arena barrier, 1.2 meter thick and 3.5 meters tall, dark segmented armor ribs, a restrained cyan light strip inset into the face, reinforced end caps that meet a neighboring wall cleanly, closed solid back.
+
+Acceptance: exact 8m span, 1.2m thickness, no base plate extending into adjacent tiles, opaque collision face.
+
+## 05 — 90-degree corner
+
+> A single 90-degree L-shaped modular arena barrier made from the same language as the straight barrier, two 8 meter legs, 1.2 meter thickness, one reinforced outside corner, cyan conduit accents, clean interior playable corner.
+
+Acceptance: both legs terminate on grid sockets; no diagonal cut, no overlapping corner volume, no extra floor.
+
+## 06 — portal arch
+
+> A compact upright quantum portal arch on a low integrated footprint, dark machined ring, blue-white edge emitters, empty center opening with a separate placeholder disc for the warp effect, short access lip, readable from all gameplay angles.
+
+Acceptance: prop stays inside a 4.5×5×2m envelope; the vortex is a runtime effect, not baked geometry.
+
+## 07 — Reactor Bloom
+
+> A compact circular Reactor Bloom pedestal, mechanical three-part base, green energy coil recess, a simple empty center socket for a runtime pickup orb, low profile, high contrast silhouette, no medical cross, no text, no floating beam.
+
+Acceptance: prop stays inside a 3.2×2.2×3.2m envelope; pickup radius is metadata; glow is a separate emissive mesh.
+
+## 08 — blast pillar
+
+> A heavy hexagonal blast-cover pillar, dark titanium plates, recessed amber service lights, subtle structural seams, stable square footprint, readable silhouette from top-down play, no attached floor tile.
+
+Acceptance: circular collision proxy radius 1.4m; visual cannot create an overhang that changes cover unfairly.
+
+## Regeneration rule
+
+Regenerate a tile sheet when it shows presentation UI, inconsistent scale, baked effects, ambiguous sockets, or a decorative base that would collide. Do not regenerate solely to chase more detail; detail is useful only after the repeatable shape works.

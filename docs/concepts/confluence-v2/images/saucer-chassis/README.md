@@ -1,29 +1,13 @@
-# Saucer Chassis — 3D Modeling Reference Sheets
+# Saucer chassis — reference index
 
-Multi-view reference sheets prepared for Meshy AI / Blender conversion.
+The canonical inputs are the five multi-view sheets supplied in `/Users/luisgimenez/Development/SaucerJam`. The tracked `images/ships/ship_0N/` folders contain isolated views for agents that need one angle at a time.
 
-## Asset layout
-
-| Chassis | File | Primary details |
+| Chassis | Reference folder | Prompt |
 |---|---|---|
-| Vector Interceptor | `vector-interceptor.png` | Top/front/side/rear/underside, ion trails, agility thrusters, laser cannons |
-| Titan Dreadnought | `titan-dreadnought.png` | Heavy armor, dual plasma turret, flak cannon, engine exhaust, underside |
-| Ghost Infiltrator | `ghost-infiltrator.png` | Stealth coating, glowing seams, silent thrusters, void missile bay |
-| Pulsar Classic | `pulsar-classic.png` | Ring assembly, navigation array, neon pulse blaster, thrusters, underside |
-| Bio-Matrix | `bio-matrix.png` | Organic hull, hive thrusters, acidic spore launcher, underside core |
+| Vector Interceptor | `../ships/ship_01/` | [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md#ship-01--vector-interceptor) |
+| Titan Dreadnought | `../ships/ship_02/` | [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md#ship-02--titan-dreadnought) |
+| Ghost Infiltrator | `../ships/ship_03/` | [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md#ship-03--ghost-infiltrator) |
+| Pulsar Classic | `../ships/ship_04/` | [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md#ship-04--pulsar-classic) |
+| Bio-Matrix | `../ships/ship_05/` | [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md#ship-05--bio-matrix) |
 
-## Meshy workflow
-
-Use each sheet as the visual reference for a separate chassis model. The orthographic views should control silhouette and proportions; the 3/4 view should control overall form language; the detail callouts should guide weapons, vents, hull treatment, and engine geometry.
-
-Treat exhaust/plasma/spore trails as separate VFX rather than baked hull geometry when producing the game-ready model.
-
-### Recommended outputs
-
-- Game-ready GLB/GLTF with PBR materials
-- Separate emissive material slots for chassis glow
-- Separate hardpoints for weapons / modular equipment
-- Thruster locator empties/bones for runtime VFX
-- LOD0 + simplified LOD1 for multiplayer rendering
-
-> Source reference sheets were generated from the Confluence V2 modular saucer lineup concept and are intended as modeling references rather than final production geometry.
+Use the sheets for silhouette and proportions only. Exhaust, plasma, spore trails, weapons, and shield bubbles are runtime attachments, not baked hull geometry. Export requirements and hardpoint names are defined in [`SHIP_PROMPTS.md`](../../SHIP_PROMPTS.md) and [`BLENDER_MCP_RUNBOOK.md`](../../BLENDER_MCP_RUNBOOK.md).

@@ -1,58 +1,31 @@
-# Saucer Jam — Modular Tile World & Spaceship Marketplace Concepts
+# Confluence V2: production asset handoff
 
-This directory contains the visual concept sheets, architecture specifications, and modular 3D tile blueprints for Saucer Jam's modular tile arena evolution and agent-human spaceship marketplace.
+This folder is the design handoff for SaucerJam's reusable arena tiles and ship chassis. It is a plan, not a claim that the tile runtime or marketplace already exists.
 
----
+## Source of truth
 
-## 1. Modular Tile Arena Battlefield
-![Modular Tile World](./images/modular_tile_world.jpg)
-*Sprawling combat arena built entirely out of repeating, snapped 8x8m modular floor panels, conveyor lanes, straight barrier walls, corner barricades, and reactor bloom objective pads.*
+1. [`ASSET_PRODUCTION_PLAN.md`](./ASSET_PRODUCTION_PLAN.md) — scope, gates, runtime contract, and rollout.
+2. [`TILE_PROMPTS.md`](./TILE_PROMPTS.md) — generator prompts and per-tile acceptance criteria.
+3. [`SHIP_PROMPTS.md`](./SHIP_PROMPTS.md) — prompts for the five supplied chassis references.
+4. [`BLENDER_MCP_RUNBOOK.md`](./BLENDER_MCP_RUNBOOK.md) — deterministic Blender cleanup/export steps.
+5. [`BLENDER_MODULAR_KIT_SPEC.md`](./BLENDER_MODULAR_KIT_SPEC.md) — dimensions, sockets, budgets, and manifest shape.
+6. [`MESHY_AI_MODULAR_TILES_SPEC.md`](./MESHY_AI_MODULAR_TILES_SPEC.md) — Meshy handoff format and failure handling.
+7. [`SPACESHIP_MARKETPLACE_PLAN.md`](./SPACESHIP_MARKETPLACE_PLAN.md) — deferred marketplace boundaries.
 
----
+The existing JPG/PNG boards remain visual inspiration. They are not production geometry: perspective, presentation bases, labels, baked exhaust, and inconsistent scale must not be copied into game assets.
 
-## 2. Multi-District Modular Arena (Industrial, Central & Cryo)
-![Multi-District Modular Arena](./images/modular_arena_districts.jpg)
-*Large-scale tactical arena featuring an Industrial Conveyor District (left), Central Metal Deck Zone (center), and Cryo Ice Drift Zone (right), all constructed from modular snapped grid tiles.*
+Reference boards: [`modular_tile_world.jpg`](./images/modular_tile_world.jpg), [`modular_arena_districts.jpg`](./images/modular_arena_districts.jpg), [`modular_tiles_blender.jpg`](./images/modular_tiles_blender.jpg), [`assembled_arena_chunk.jpg`](./images/assembled_arena_chunk.jpg), and [`spaceship_lineup_sheet.jpg`](./images/spaceship_lineup_sheet.jpg). Individual tile boards live in [`images/tiles/`](./images/tiles/); ship views are indexed in [`images/saucer-chassis/README.md`](./images/saucer-chassis/README.md).
 
----
+## First deliverable
 
-## 3. Blender Modular Arena Asset Kit
-![Blender Modular Arena Asset Kit](./images/modular_tiles_blender.jpg)
-*Standardized 8x8m snap-to-grid modular tiles for straight walls, corners, conveyors, cryo ice, floor decks, and special props.*
+Ship one playable vertical slice before generating a library:
 
----
+`floor_deck_standard` + `wall_straight_barrier` + `wall_corner_90` + `prop_reactor_bloom` + `prop_quantum_portal` + `ship_01`.
 
-## 4. Assembled Arena Chunk
-![Assembled Arena Chunk](./images/assembled_arena_chunk.jpg)
-*Demonstration of modular tiles snapped together on the 3D grid in Blender to form an active combat room.*
+The slice must assemble on an 8m grid, use the same collision metadata on server and client, and pass validation before additional tiles are commissioned.
 
----
+## Current status
 
-## 5. Modular Saucer Chassis Lineup
-![Modular Saucer Lineup](./images/spaceship_lineup_sheet.jpg)
-*Five distinct modular flying saucer chassis archetypes: Vector Interceptor, Titan Dreadnought, Ghost Infiltrator, Pulsar Classic, and Bio-Matrix.*
-
----
-
-## 6. Agent-Human Spaceship Marketplace & 3D Print Portal
-![Spaceship Marketplace Portal](./images/spaceship_marketplace_portal.jpg)
-*Community storefront where AI agents and human designers sell custom 3D saucer chassis with an 85% creator / 15% platform infrastructure revenue split, in-game equipping, and physical 3D printing.*
-
----
-
-## 7. Technical Specifications
-* **[Blender Modular Asset Kit Spec](./BLENDER_MODULAR_KIT_SPEC.md)** — Metric dimensions, snap sockets, and Blender MCP automation.
-* **[Meshy AI Modular Tiles Spec](./MESHY_AI_MODULAR_TILES_SPEC.md)** — Prompts, bounding boxes, and Python normalization scripts.
-* **[Agent-Human Spaceship Marketplace Plan](./SPACESHIP_MARKETPLACE_PLAN.md)** — Revenue model, hardpoint constraints, and 3D print fulfillment pipeline.
-* **[Individual Tile References](./images/tiles/)** — Generously padded, uncropped single-asset images for 3D modelers and AI agents.
-
----
-
-## 8. Turnaround Single-Angle Ship Assets (3D Reconstruction Inputs)
-All 5 ship turnaround sheets have been split into isolated single-angle transparent PNGs (39 views total) with generous padding, zero clipped edges, and clean transparent backgrounds ready for Meshy AI / Blender 3D generation:
-
-* **[`ship_01/`](./images/ships/ship_01/)** — 7 isolated views (hero 3/4 perspective, front, rear, profiles, top/bottom plans).
-* **[`ship_02/`](./images/ships/ship_02/)** — 8 isolated views (hero 3/4 perspective, forward/aft aspects, port/starboard elevations, orthographics).
-* **[`ship_03/`](./images/ships/ship_03/)** — 8 isolated views (hero top-down perspective, front, rear, side profiles, orthographic projections).
-* **[`ship_04/`](./images/ships/ship_04/)** — 8 isolated views (hero 3/4 perspective, nose, thruster exhausts, side profiles, detail plans).
-* **[`ship_05/`](./images/ships/ship_05/)** — 8 isolated views (hero 3/4 perspective, front/aft angles, profiles, orthogonal plans).
+- The merged gameplay branch uses hand-authored maps and optimized procedural primitives.
+- This branch fixes the asset documentation and generation contract only.
+- GLB generation, tile streaming, custom ship loading, and marketplace transactions are future implementation work.

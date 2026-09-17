@@ -977,8 +977,9 @@ class Game {
         : this.connected
           ? `${this.ping} ms · Connected`
           : "Reconnecting…";
-    $("pilot-count").textContent =
-      `${state.players.filter((q) => !q.bot).length} human${state.players.filter((q) => !q.bot).length === 1 ? "" : "s"} / ${state.players.length} pilots`;
+    const humans = Number.isFinite(state.humanCount) ? state.humanCount : state.players.filter((q) => !q.bot).length;
+    const pilots = Number.isFinite(state.pilotCount) ? state.pilotCount : state.players.length;
+    $("pilot-count").textContent = `${humans} human${humans === 1 ? "" : "s"} / ${pilots} pilots`;
     $("death-panel").hidden = p.alive || !!state.restartAt;
     $("respawn-time").textContent = Math.max(
       1,

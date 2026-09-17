@@ -80,7 +80,7 @@
         </div>
         <div class="session-tools">
           <span id="connection">Offline practice</span
-          ><button id="menu-button" class="small">Menu <kbd>Esc</kbd></button>
+          ><button id="menu-button" class="small">Menu <kbd class="desktop-key">Esc</kbd></button>
         </div>
       </header>
       <div id="kill-feed" aria-live="polite"></div>
@@ -144,12 +144,26 @@
         </div>
       </div>
     </section>
+    <section id="touch-onboarding" class="modal" hidden>
+      <div class="dialog touch-guide">
+        <span class="guide-kicker">QUICK BRIEFING</span>
+        <h2>Fly by feel.</h2>
+        <div class="guide-steps">
+          <p><b>1</b><span><strong>Left thumb</strong><br />Steer and drift.</span></p>
+          <p><b>2</b><span><strong>Right side</strong><br />Tap or hold to aim and fire.</span></p>
+          <p><b>3</b><span><strong>Weapon icons</strong><br />Tap to switch your shot.</span></p>
+        </div>
+        <p class="guide-tip">Keep moving. Your hull repairs after a few seconds without damage.</p>
+        <button id="dismiss-touch-onboarding" class="primary">Start flying</button>
+      </div>
+    </section>
     <section id="menu" class="modal" hidden>
       <div class="dialog">
         <h2>Flight menu</h2>
         <p id="pause-message">Online matches keep running.</p>
         <button id="resume" class="primary">Resume flight</button
         ><button id="help-button">Controls & weapons</button
+        ><button id="fullscreen-button">Enter full screen</button
         ><button id="leave-game">Leave arena</button>
         <p id="menu-status" role="status"></p>
         <!-- .flight-tools (Arena/Scores/Sound) is moved in here on touch -->

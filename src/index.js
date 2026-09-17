@@ -158,8 +158,16 @@ class Game {
     $("menu-button").onclick = () => this.menu(true);
     $("resume").onclick = () => this.menu(false);
     $("leave-game").onclick = () => this.leave();
+    $("fullscreen-button").onclick = () => this.toggleFullscreen();
+    for (const event of ["fullscreenchange", "webkitfullscreenchange"])
+      document.addEventListener(event, () => this.updateFullscreenLabel());
     $("help-button").onclick = $("lobby-help").onclick = () => {
       this.panel("help",true);
+      this.clearInput();
+    };
+    $("dismiss-touch-onboarding").onclick = () => {
+      storage.set("qd-touch-guide", "seen");
+      $("touch-onboarding").hidden = true;
       this.clearInput();
     };
     $("close-help").onclick = () => {
@@ -556,6 +564,35 @@ class Game {
     this._audioState.roundOver = false;
     this.unlockAudio();
     this.syncMusicToMode();
+    this.showTouchOnboarding();
+  }
+  showTouchOnboarding() {
+    if (!document.body.classList.contains("touch-active")) return;
+    if (storage.get("qd-touch-guide", "") === "seen") return;
+    $("touch-onboarding").hidden = false;
+    this.clearInput();
+  }
+  updateFullscreenLabel() {
+    const full = document.fullscreenElement || document.webkitFullscreenElement;
+    $("fullscreen-button").textContent = full ? "Exit full screen" : "Enter full screen";
+  }
+  async toggleFullscreen() {
+    const full = document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      if (full) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else await document.webkitExitFullscreen?.();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      } else if (document.documentElement.webkitRequestFullscreen) {
+        await document.documentElement.webkitRequestFullscreen();
+      } else {
+        this.notice("Use Share → Add to Home Screen for an app-like view.", 5);
+      }
+    } catch {
+      this.notice("Use Share → Add to Home Screen for an app-like view.", 5);
+    }
+    this.updateFullscreenLabel();
   }
   practice() {
     this.socket?.disconnect();
@@ -666,6 +703,7 @@ class Game {
     this.setBusy(false);
     $("lobby").hidden = false;
     $("hud").hidden = $("menu").hidden = true;
+    $("touch-onboarding").hidden = true;
     $("lobby-status").textContent = message;
     this.syncMusicToMode();
   }

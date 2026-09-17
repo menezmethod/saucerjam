@@ -16,62 +16,25 @@ async function measure(population) {
   await new Promise((resolve) => game.server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${game.server.address().port}`;
   const clients = [];
-  const packets = [];
   try {
     const first = await connect(url);
     clients.push(first);
-    packets.push({ stateBytes: 0, stateSamples: 0, eventBytes: 0, eventSamples: 0, visiblePilots: 0 });
     const room = await join(first, { mode: "create", bots: false });
     for (let i = 1; i < population; i++) {
       const client = await connect(url);
       clients.push(client);
-      packets.push({ stateBytes: 0, stateSamples: 0, eventBytes: 0, eventSamples: 0, visiblePilots: 0 });
       await join(client, { mode: "join", code: room.code, bots: false });
     }
-    clients.forEach((client, index) => {
-      client.on("state", (state) => {
-        const size = Buffer.byteLength(JSON.stringify(state));
-        packets[index].stateBytes += size;
-        packets[index].stateSamples++;
-        packets[index].visiblePilots += state.players.length;
-      });
-      client.on("events", (events) => {
-        packets[index].eventBytes += Buffer.byteLength(JSON.stringify(events));
-        packets[index].eventSamples++;
-      });
-    });
-    await wait(150);
-    for (const packet of packets) Object.assign(packet, { stateBytes: 0, stateSamples: 0, eventBytes: 0, eventSamples: 0, visiblePilots: 0 });
-    const start = performance.now();
-    const startTick = game.rooms.get(room.code).sim.tick;
-    const sequence = Array.from({ length: population }, () => 0);
-    const inputTimer = setInterval(() => clients.forEach((client, index) => client.emit("input", {
-      seq: ++sequence[index],
-      move: { x: index % 2 ? 1 : -1, z: index % 3 ? 0.5 : -0.5 },
-      fire: true,
-      weapon: "LASER",
-      aim: { x: 0, z: 0 },
-    })), 50);
-    await wait(1500);
-    clearInterval(inputTimer);
-    await wait(150);
-    const elapsedSeconds = (performance.now() - start) / 1000;
-    const totals = packets.reduce((total, packet) => ({
-      stateBytes: total.stateBytes + packet.stateBytes,
-      stateSamples: total.stateSamples + packet.stateSamples,
-      eventBytes: total.eventBytes + packet.eventBytes,
-      eventSamples: total.eventSamples + packet.eventSamples,
-      visiblePilots: total.visiblePilots + packet.visiblePilots,
-    }), { stateBytes: 0, stateSamples: 0, eventBytes: 0, eventSamples: 0, visiblePilots: 0 });
+    const states = [];
+    first.on("state", (state) => states.push(state));
+    await wait(300);
+    const bytes = states.map((state) => Buffer.byteLength(JSON.stringify(state)));
     return {
       population,
-      durationSeconds: Number(elapsedSeconds.toFixed(2)),
-      serverTickHz: Number(((game.rooms.get(room.code).sim.tick - startTick) / elapsedSeconds).toFixed(1)),
-      aggregateStateBytesPerSecond: Math.round(totals.stateBytes / elapsedSeconds),
-      aggregateEventBytesPerSecond: Math.round(totals.eventBytes / elapsedSeconds),
-      meanSnapshotBytes: Math.round(totals.stateBytes / Math.max(1, totals.stateSamples)),
-      meanEventBytes: Math.round(totals.eventBytes / Math.max(1, totals.eventSamples)),
-      meanVisiblePilots: Number((totals.visiblePilots / Math.max(1, totals.stateSamples)).toFixed(1)),
+      stateSamples: states.length,
+      meanSnapshotBytes: Math.round(bytes.reduce((sum, size) => sum + size, 0) / Math.max(1, bytes.length)),
+      maxSnapshotBytes: Math.max(0, ...bytes),
+      meanVisiblePilots: Number((states.reduce((sum, state) => sum + state.players.length, 0) / Math.max(1, states.length)).toFixed(1)),
     };
   } finally {
     clients.forEach((socket) => socket.disconnect());

@@ -8,9 +8,6 @@ const RULES = Object.freeze({
   turnSpeed: 2.5,
   acceleration: 12,
   energyRegen: 24,
-  pickupHealth: 35,
-  pickupEnergy: 50,
-  pickupRespawn: 18,
   respawn: 3,
   protection: 1.5,
   roundTime: 300,
@@ -18,8 +15,7 @@ const RULES = Object.freeze({
 });
 const WEAPONS = Object.freeze({
   LASER: {
-    name: "Plasma Beam",
-    hint: "Fast, precise bursts · hold fire",
+    name: "Laser",
     cost: 25,
     cooldown: 0.25,
     speed: 58,
@@ -28,8 +24,7 @@ const WEAPONS = Object.freeze({
     color: "#5eeaff",
   },
   GRENADE: {
-    name: "Nova Charge",
-    hint: "Arc to your cursor · area burst",
+    name: "Grenade",
     cost: 100,
     cooldown: 1,
     speed: 22,
@@ -40,8 +35,7 @@ const WEAPONS = Object.freeze({
     color: "#ffae69",
   },
   BOUNCE: {
-    name: "Ricochet Disc",
-    hint: "Banks off walls · three rebounds",
+    name: "Ricochet",
     cost: 50,
     cooldown: 0.5,
     speed: 39,
@@ -86,9 +80,6 @@ const MAP = {
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const portalAt = (player, map) => (map.portals || []).find((portal) =>
-  Math.hypot(player.x - portal.x, player.z - portal.z) <= portal.radius,
-);
 const finite = (v, fallback = 0) =>
   typeof v === "number" && Number.isFinite(v) ? v : fallback;
 function sanitizeInput(raw = {}) {
@@ -303,7 +294,6 @@ class Simulation {
     this.winnerId = null;
     this.players = new Map();
     this.projectiles = new Map();
-    this.loadPickups();
     this.events = [];
     this.time = 0;
     this.tick = 0;
@@ -317,13 +307,6 @@ class Simulation {
   }
   emit(type, data) {
     this.events.push({ id: ++this.nextId, type, ...data });
-  }
-  loadPickups() {
-    const previous = this.pickups || new Map();
-    this.pickups = new Map((this.map.pickups || []).map((pickup) => {
-      const old = previous.get(pickup.id);
-      return [pickup.id, {...pickup, available:old?.available ?? true, respawnAt:old?.respawnAt ?? 0}];
-    }));
   }
   addPlayer(id, name, bot = false, restore = null) {
     if (this.players.has(id)) return this.players.get(id);
@@ -359,11 +342,10 @@ class Simulation {
       lastInput: this.time,
       path: [],
       navigateAt: 0,
-      portalLockUntil: 0,
     };
     this.players.set(id, p);
     if(restore){
-      for(const key of ['name','x','z','angle','aimAngle','health','energy','alive','kills','deaths','damageDealt','shotsFired','shotsHit','weapon','nextFire','respawnAt','protectedUntil','lastDamage','portalLockUntil'])p[key]=restore[key];
+      for(const key of ['name','x','z','angle','aimAngle','health','energy','alive','kills','deaths','damageDealt','shotsFired','shotsHit','weapon','nextFire','respawnAt','protectedUntil','lastDamage'])p[key]=restore[key];
     }else this.spawn(p);
     return p;
   }
@@ -406,7 +388,6 @@ class Simulation {
       lastInput: this.time,
       path: [],
       navigateAt: 0,
-      portalLockUntil: 0,
     });
     p.angle = Math.atan2(-p.x, -p.z);
     p.aimAngle = p.angle;
@@ -420,38 +401,6 @@ class Simulation {
     p.input = input;
     p.ack = input.seq;
     p.lastInput = this.time;
-  }
-  traversePortal(p) {
-    if (this.time < p.portalLockUntil) return;
-    const entrance = portalAt(p, this.map);
-    if (!entrance) return;
-    const exit = (this.map.portals || []).find((portal) => portal.id === entrance.target);
-    if (!exit || blocked(entrance.exitX, entrance.exitZ, RULES.radius, this.map)) return;
-    if ([...this.players.values()].some((other) => other.id !== p.id && other.alive &&
-      Math.hypot(other.x - entrance.exitX, other.z - entrance.exitZ) < RULES.radius * 2.4)) return;
-    this.emit("portalEnter", { player: p.id, portal: entrance.id, x: entrance.x, z: entrance.z });
-    p.x = entrance.exitX;
-    p.z = entrance.exitZ;
-    p.portalLockUntil = this.time + 0.75;
-    this.emit("portalExit", { player: p.id, portal: exit.id, x: p.x, z: p.z });
-  }
-  collectPickups(p) {
-    for (const pickup of this.pickups.values()) {
-      if (!pickup.available || distance(p, pickup) > pickup.radius || (p.health >= 100 && p.energy >= 100)) continue;
-      const health = Math.min(100, p.health + (pickup.health || RULES.pickupHealth));
-      const energy = Math.min(100, p.energy + (pickup.energy || RULES.pickupEnergy));
-      pickup.available = false;
-      pickup.respawnAt = this.time + (pickup.respawn || RULES.pickupRespawn);
-      p.health = health;
-      p.energy = energy;
-      this.emit("pickup", {player:p.id, pickup:pickup.id, x:pickup.x, z:pickup.z, health, energy});
-    }
-  }
-  updatePickups() {
-    for (const pickup of this.pickups.values()) if (!pickup.available && this.time >= pickup.respawnAt) {
-      pickup.available = true;
-      this.emit("pickupSpawn", {pickup:pickup.id, x:pickup.x, z:pickup.z});
-    }
   }
   botInput(p) {
     const targets = [...this.players.values()].filter(
@@ -581,7 +530,7 @@ class Simulation {
   }
   explode(shot) {
     const w = WEAPONS.GRENADE;
-    this.emit("explosion", { x: shot.x, z: shot.z, radius: w.radius, owner: shot.owner });
+    this.emit("explosion", { x: shot.x, z: shot.z, radius: w.radius });
     for (const p of this.players.values()) {
       const d = distance(p, shot);
       if (d >= w.radius) continue;
@@ -602,7 +551,7 @@ class Simulation {
     if(target<=this.map.stage){this.expansionSince=null;return;}
     if(this.expansionSince===null||target!==this.expansionTarget){this.expansionSince=this.time;this.expansionTarget=target;}
     if(this.time-this.expansionSince>=5){
-      this.map=getWorld(target);this.loadPickups();this.expansionSince=null;
+      this.map=getWorld(target);this.expansionSince=null;
       for(const p of this.players.values()){p.path=null;p.navigateAt=0;}
       this.emit('mapChanged',{map:this.map,announcement:this.map.districts.filter(z=>z.open).map(z=>z.name).join(' · ')+' open'});
     }
@@ -619,7 +568,6 @@ class Simulation {
       return;
     }
     this.updateTerritory();
-    this.updatePickups();
     for (const p of this.players.values()) {
       if (!p.alive) {
         if (this.time >= p.respawnAt) this.spawn(p);
@@ -629,8 +577,6 @@ class Simulation {
       else if (this.time - p.lastInput > 0.3)
         p.input = { ...sanitizeInput(), weapon: p.weapon };
       movePlayer(p, p.input, dt, this.map);
-      this.traversePortal(p);
-      this.collectPickups(p);
       p.weapon = p.input.weapon;
       p.aimAngle = p.input.aim
         ? Math.atan2(p.input.aim.x - p.x, p.input.aim.z - p.z)
@@ -697,9 +643,9 @@ class Simulation {
           shot.x += hit.nx * 0.02;
           shot.z += hit.nz * 0.02;
           remaining *= 1 - hit.t;
-          this.emit("bounce", { x: shot.x, z: shot.z, nx: hit.nx, nz: hit.nz, weapon: shot.weapon, owner: shot.owner });
+          this.emit("bounce", { x: shot.x, z: shot.z, nx: hit.nx, nz: hit.nz, weapon: shot.weapon });
         } else {
-          this.emit("impact", { x: shot.x, z: shot.z, weapon: shot.weapon, owner: shot.owner });
+          this.emit("impact", { x: shot.x, z: shot.z, weapon: shot.weapon });
           this.projectiles.delete(id);
           break;
         }
@@ -729,7 +675,6 @@ class Simulation {
     this.recap = null; this.winnerId = null; this.departed.clear();
     if(this.map.id==='confluence'){
       if(this.populationExpansion)this.map=getWorld(stageForHumans([...this.players.values()].filter(p=>!p.bot).length));
-      this.loadPickups();
       this.expansionSince=null;this.emit('mapChanged',{map:this.map});
     } else if (this.mapRotation.length) {
       const index = this.mapRotation.findIndex(map => map.id === this.map.id);
@@ -746,52 +691,18 @@ class Simulation {
     }
     for (const p of this.players.values()) this.spawn(p);
   }
-  recapFor(playerId) {
-    if (!this.recap) return null;
-    const localProfileId = this.players.get(playerId)?.profileId;
-    const isLocal = (player) =>
-      player.id === playerId ||
-      (localProfileId && player.profileId === localProfileId);
-    return {
-      ...this.recap,
-      winnerId: this.recap.players.some((player) => player.id === this.recap.winnerId && isLocal(player))
-        ? playerId
-        : null,
-      players: this.recap.players.map((player) => {
-        if (isLocal(player))
-          return { ...player, id: playerId, profileId: localProfileId || player.profileId };
-        const { id, profileId, ...publicPlayer } = player;
-        return publicPlayer;
-      }),
-    };
-  }
-  eventsFor(playerId, events, radius = 32) {
-    const local = this.players.get(playerId);
-    return events.flatMap((event) => {
-      if (event.type === "roundEnd") return [{ ...event, recap: this.recapFor(playerId) }];
-      const own = [event.player, event.attacker, event.owner].includes(playerId);
-      if (own || !local || !Number.isFinite(event.x) || !Number.isFinite(event.z) || distance(event, local) <= radius + 4)
-        return [{ ...event }];
-      return [];
-    });
-  }
   snapshotFor(playerId, radius = 32) {
     const local = this.players.get(playerId);
     if (!local) return this.snapshot();
     const snapshot = this.snapshot(
       (player) => player.id === playerId || distance(player, local) <= radius,
-      (projectile) => projectile.owner === playerId || distance(projectile, local) <= radius + 4,
+      (projectile) => distance(projectile, local) <= radius + 4,
     );
     for (const player of snapshot.players) {
       delete player.nextFire;
       delete player.lastDamage;
-      delete player.portalLockUntil;
       if (player.id !== playerId) delete player.profileId;
     }
-    snapshot.standings = [...this.players.values()].map(({ id, name, bot, kills, deaths }) => ({
-      id, name, bot, kills, deaths,
-    }));
-    snapshot.recap = this.recapFor(playerId);
     return snapshot;
   }
   snapshot(includePlayer = () => true, includeProjectile = () => true) {
@@ -806,9 +717,6 @@ class Simulation {
       restartAt: this.restartAt,
       winner: this.winner,
       fragLimit: this.fragLimit,
-      humanCount: [...this.players.values()].filter((player) => !player.bot).length,
-      pilotCount: this.players.size,
-      pickups: [...this.pickups.values()].map(({respawnAt, ...pickup}) => ({...pickup})),
       players: [...this.players.values()].filter(includePlayer).map(
         ({ input, path, navigateAt, lastInput, ...p }) => ({ ...p }),
       ),

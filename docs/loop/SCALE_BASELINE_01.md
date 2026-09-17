@@ -13,6 +13,21 @@ The authoritative simulation can retain finite 128-player state for one simulate
 
 At 128 pilots, full-state replication is roughly 893 KB/s per recipient before Socket.IO framing, projectiles, events, or packet loss. The current next packet is recipient-specific spatial snapshots; capacity is not raised first.
 
+## Idle socket replication 01
+
+Command: `node scripts/verification/scale-server.cjs`. One local Socket.IO client was sampled for 300 ms while 8/32/64/128 idle clients joined a staging-configured 128-pilot room. This is a local sample, not a capacity pass.
+
+| Pilots | Mean snapshot bytes | Mean visible pilots |
+| ---: | ---: | ---: |
+| 8 | 906 | 2 |
+| 32 | 3,571 | 10 |
+| 64 | 7,289 | 21 |
+| 128 | 17,063 | 50 |
+
+Recipient snapshots now retain the local pilot, nearby combat, and the local canonical identity only; they remove server-only fire/damage timing and other pilots' stable IDs. At 128 this is a 62% raw-state reduction from 44,652 bytes, but still about 341 KB/s per sampled recipient at 20 Hz before events. No public cap was raised.
+
+The re-critic found the next integrity gap: combat events and round recaps are still room-wide, and AOI-filtered state would undercount pilots in the HUD. Scope location-bearing events and public recaps before any active 128-pilot load test.
+
 ## Independent critic triage
 
 - Architecture: the eight-pilot room limit, 96-connection deployment cap, full-state broadcast, projectile/player all-pairs checks, and superlinear spawn search block a credible 128-player claim.

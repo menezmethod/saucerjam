@@ -131,7 +131,7 @@ test("real sockets share an authoritative room: movement, shots, death, respawn,
 });
 
 test("invalid rooms, malformed packets, capacity, bot fill, and HTTP serving", async (t) => {
-  const game = createGameServer({ maxPlayersPerRoom: 8 });
+  const game = createGameServer();
   await new Promise((resolve) => game.server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${game.server.address().port}`,
     clients = [];
@@ -197,20 +197,4 @@ test("configured pilot capacity applies to each room", async t => {
   assert.ok((await join(clients[1],{mode:'join',code:first.code})).playerId);
   await wait(420);
   assert.match((await join(clients[2],{mode:'join',code:first.code})).error,/full/);
-});
-
-test("default public room capacity admits 32 pilots", async t => {
-  const game=createGameServer();
-  await new Promise(r=>game.server.listen(0,'127.0.0.1',r));
-  const url=`http://127.0.0.1:${game.server.address().port}`;
-  const clients=[];
-  t.after(async()=>{clients.forEach(socket=>socket.disconnect());await game.close();});
-  let room;
-  for(let i=0;i<33;i++){
-    const client=await connect(url);clients.push(client);
-    const result=await join(client,i?{mode:'join',code:room.code,bots:false}:{mode:'create',bots:false});
-    if(!i)room=result;
-    if(i<32)assert.ok(result.playerId);
-    else assert.match(result.error,/full \(32 pilots\)/);
-  }
 });

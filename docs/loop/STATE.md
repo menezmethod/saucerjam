@@ -7,23 +7,24 @@ Updated: 2026-09-17
 - Branch: `codex/saucerjam-loop-v2`
 - Default game branch remains untouched.
 - Production build succeeds.
-- Core test result: 83/85 passed locally; two interface tests were blocked by missing Playwright Chromium in the execution environment.
+- Focused input/view tests pass (20/20), the interface tests pass (2/2), and the production build succeeds. Full browser acceptance remains in progress; physical iPhone/iPad Safari evidence is still required.
 - Multiplayer, simulation, maps, rankings, and build suites pass.
 
 ## Active cycle
 
-- Task: Improve control responsiveness and device compatibility.
+- Task: Establish a gameplay-first visual north star, then implement the smallest viable Nexus slice.
 - Owner: Astra implementation agent; orchestrator review follows.
-- Status: WIP checkpoint; implementation complete, acceptance blocked on browser/device evidence.
-- Invariants: preserve authoritative simulation, independent aim, touch movement/fire, reconnect behavior, and current desktop gameplay.
+- Status: north-star complete; implementation has not started.
+- Invariants: preserve authoritative simulation, independent aim, touch movement/fire, reconnect behavior, current desktop gameplay, and a readable top-down camera.
 
 ## Evidence
 
-- `CONTROLS_PASS_01.md`; focused input tests 13/13 pass; production build passes; fresh critic found no critical code defect.
+- `CONTROLS_PASS_01.md`; focused input/view tests 20/20 pass; interface tests 2/2 pass; production build passes.
+- `north-star/01-nexus-tactical-v1.png` through `north-star/04-modular-kit-v1.png`; objective routes, world themes, modular kit, and performance constraints are explicit.
 
 ## NEXT_ACTION
 
-Run browser tests where Chromium is available, then validate desktop Chrome and iPhone/iPad Safari before opening a merge-ready PR.
+Implement one Nexus court slice using edge-compatible chunks: loops, cover, and two portal endpoints. Validate a small match, then a 128-player zone; no new mode or weapon until that evidence exists. Capture browser evidence, then validate desktop Chrome and iPhone/iPad Safari before opening a merge-ready PR.
 
 ## Stop conditions
 

@@ -9,6 +9,6 @@ Command: `node scripts/verification/scale-server.cjs` on 2026-09-17. Each local 
 | 64 | 59.3 | 22,012,579 | 1,784,856 | 17,220 | 31.8 |
 | 128 | 59.8 | 89,349,653 | 8,438,568 | 35,009 | 71.5 |
 
-The server maintained approximately 60 Hz in this local run, but 128-pilot active payloads total about 98 MB/s raw before Socket.IO framing, packet loss, real network latency, client rendering, or a production deployment. This fails the evidence gate for raising the public eight-pilot cap.
+The server maintained approximately 60 Hz locally. The verified first public admission step is **32 pilots**: about 6.5 MB/s aggregate raw payload before Socket.IO framing, packet loss, real network latency, client rendering, or a production deployment. A real-host and real-device run remains required before promotion to 64.
 
-Root cause is the current expected design: moving pilots and their projectiles change in recipient snapshots at 20 Hz, while fire/impact events fan out to every nearby observer. The next change must reduce that active replication surface without hiding local feedback or weakening server authority. Do not treat this local run as player capacity proof.
+At 64 and especially 128, moving pilots and their projectiles change in recipient snapshots at 20 Hz while fire/impact events fan out to nearby observers. Do not promote 64 from this local result alone. The 128 result remains a hostile dense-hotspot ceiling, not player-capacity proof.

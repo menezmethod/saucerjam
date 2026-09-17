@@ -31,6 +31,12 @@ function createGameServer({
     for (const id of room.humans)
       io.sockets.sockets.get(id)?.emit("state", room.sim.snapshotFor(id));
   };
+  const sendEvents = (room, events) => {
+    for (const id of room.humans) {
+      const visible = room.sim.eventsFor(id, events);
+      if (visible.length) io.sockets.sockets.get(id)?.emit("events", visible);
+    }
+  };
   const rankings = new RankingStore({filePath:rankingsFile});
   const pendingSaves = new Set();
   let rankingError = null;
@@ -196,7 +202,7 @@ function createGameServer({
             pendingSaves.add(save);
           }
         }
-        if (events.length) io.to(room.code).emit("events", events);
+        if (events.length) sendEvents(room, events);
         // ponytail: radial AOI scans this zone's players; replace with a spatial
         // grid only if the 128-pilot socket measurement makes it necessary.
         if (room.sim.tick % 3 === 0) sendSnapshots(room);

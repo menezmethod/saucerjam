@@ -530,7 +530,7 @@ class Simulation {
   }
   explode(shot) {
     const w = WEAPONS.GRENADE;
-    this.emit("explosion", { x: shot.x, z: shot.z, radius: w.radius });
+    this.emit("explosion", { x: shot.x, z: shot.z, radius: w.radius, owner: shot.owner });
     for (const p of this.players.values()) {
       const d = distance(p, shot);
       if (d >= w.radius) continue;
@@ -643,9 +643,9 @@ class Simulation {
           shot.x += hit.nx * 0.02;
           shot.z += hit.nz * 0.02;
           remaining *= 1 - hit.t;
-          this.emit("bounce", { x: shot.x, z: shot.z, nx: hit.nx, nz: hit.nz, weapon: shot.weapon });
+          this.emit("bounce", { x: shot.x, z: shot.z, nx: hit.nx, nz: hit.nz, weapon: shot.weapon, owner: shot.owner });
         } else {
-          this.emit("impact", { x: shot.x, z: shot.z, weapon: shot.weapon });
+          this.emit("impact", { x: shot.x, z: shot.z, weapon: shot.weapon, owner: shot.owner });
           this.projectiles.delete(id);
           break;
         }
@@ -691,18 +691,39 @@ class Simulation {
     }
     for (const p of this.players.values()) this.spawn(p);
   }
+  recapFor(playerId) {
+    if (!this.recap) return null;
+    return {
+      ...this.recap,
+      winnerId: this.recap.winnerId === playerId ? playerId : null,
+      players: this.recap.players.map(({ id, profileId, ...player }) =>
+        id === playerId ? { ...player, id, profileId } : player,
+      ),
+    };
+  }
+  eventsFor(playerId, events, radius = 32) {
+    const local = this.players.get(playerId);
+    return events.flatMap((event) => {
+      if (event.type === "roundEnd") return [{ ...event, recap: this.recapFor(playerId) }];
+      const own = [event.player, event.attacker, event.owner].includes(playerId);
+      if (own || !local || !Number.isFinite(event.x) || !Number.isFinite(event.z) || distance(event, local) <= radius + 4)
+        return [{ ...event }];
+      return [];
+    });
+  }
   snapshotFor(playerId, radius = 32) {
     const local = this.players.get(playerId);
     if (!local) return this.snapshot();
     const snapshot = this.snapshot(
       (player) => player.id === playerId || distance(player, local) <= radius,
-      (projectile) => distance(projectile, local) <= radius + 4,
+      (projectile) => projectile.owner === playerId || distance(projectile, local) <= radius + 4,
     );
     for (const player of snapshot.players) {
       delete player.nextFire;
       delete player.lastDamage;
       if (player.id !== playerId) delete player.profileId;
     }
+    snapshot.recap = this.recapFor(playerId);
     return snapshot;
   }
   snapshot(includePlayer = () => true, includeProjectile = () => true) {
@@ -717,6 +738,8 @@ class Simulation {
       restartAt: this.restartAt,
       winner: this.winner,
       fragLimit: this.fragLimit,
+      humanCount: [...this.players.values()].filter((player) => !player.bot).length,
+      pilotCount: this.players.size,
       players: [...this.players.values()].filter(includePlayer).map(
         ({ input, path, navigateAt, lastInput, ...p }) => ({ ...p }),
       ),

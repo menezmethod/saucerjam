@@ -13,23 +13,6 @@ The authoritative simulation can retain finite 128-player state for one simulate
 
 At 128 pilots, full-state replication is roughly 893 KB/s per recipient before Socket.IO framing, projectiles, events, or packet loss. The current next packet is recipient-specific spatial snapshots; capacity is not raised first.
 
-## Idle socket replication 01
-
-Command: `node scripts/verification/scale-server.cjs`. One local Socket.IO client was sampled for 300 ms while 8/32/64/128 idle clients joined a staging-configured 128-pilot room. This is a local sample, not a capacity pass.
-
-| Pilots | Mean snapshot bytes | Mean visible pilots |
-| ---: | ---: | ---: |
-| 8 | 936 | 2 |
-| 32 | 3,603 | 10 |
-| 64 | 7,215 | 21 |
-| 128 | 17,142 | 50 |
-
-Recipient snapshots now retain the local pilot, nearby combat, and the local canonical identity only; they remove server-only fire/damage timing and other pilots' stable IDs. At 128 this is a 62% raw-state reduction from 44,652 bytes, but still about 343 KB/s per sampled recipient at 20 Hz before events. No public cap was raised.
-
-Location-bearing combat events now follow the recipient's area of interest while retaining each pilot's own feedback. Round recaps retain the local pilot's canonical identity only; authoritative `humanCount` and `pilotCount` keep the HUD correct when the recipient snapshot is filtered. Unit coverage proves those boundaries. Brave acceptance also passes without browser errors or failed app requests.
-
-The next integrity gap is evidence, not architecture: this measurement is idle, local, and samples one recipient. Measure deterministic movement/fire load across every recipient and a reconnect before changing the public cap.
-
 ## Independent critic triage
 
 - Architecture: the eight-pilot room limit, 96-connection deployment cap, full-state broadcast, projectile/player all-pairs checks, and superlinear spawn search block a credible 128-player claim.
@@ -41,5 +24,5 @@ Real-player/community feedback reinforced the order: make movement/control roles
 ## Guardrails for the next packet
 
 - Preserve server-authoritative input/simulation and shared collision map data.
-- Do not raise the public room cap or promise 128 support before active all-recipient socket measurement and reconnect evidence.
+- Do not raise the public room cap or promise 128 support before a recipient-specific snapshot test and a live socket measurement.
 - Keep one Confluence zone in-process. No sharding, database, cross-zone transfer, teams, flags, or pickup system in this packet.

@@ -1,16 +1,6 @@
 # Tile generation prompts
 
-Use one prompt per asset. Keep the common suffix from [`MESHY_AI_MODULAR_TILES_SPEC.md`](./MESHY_AI_MODULAR_TILES_SPEC.md) on every request.
-
-## Clean reference-board prompt
-
-Use this when regenerating the tile sheets themselves:
-
-> Create a production reference board for one modular SaucerJam arena asset. Show the same single object in three-quarter, top, front, and side orthographic views on a neutral charcoal background. Add a faint 1m grid and four edge socket dots, but no labels, dimensions, logos, HUD, decorative frame, extra props, or presentation pedestal. Keep the object centered, fully visible, and consistent across every view. The asset must have a flat closed underside and a clean square 8m tile boundary.
-
-For an assembled-chunk board, use:
-
-> Show one exact 8×8 arrangement of square 8m SaucerJam tiles in a clean isometric technical view. Every seam is flush, every tile center lies on the grid, walls occupy only their declared envelopes, and props stay inside their tiles. Use restrained industrial graphite, cyan utility lights, amber safety accents, and one green Reactor Bloom. No gameplay HUD, text, logos, floating platforms, overlapping walls, or impossible geometry.
+Use one payload per asset with the master GPT turnaround prompt in [`MESHY_AI_MODULAR_TILES_SPEC.md`](./MESHY_AI_MODULAR_TILES_SPEC.md). These are image-direction prompts, not Meshy text-to-3D prompts.
 
 ## 01 — standard deck
 

@@ -17,7 +17,7 @@ Create a small, copyright-safe, browser-friendly asset kit that can be recombine
 |---|---|
 | Tile footprint | 8m × 8m on X/Z |
 | Coordinate convention | Three.js/glTF Y-up; X width, Z depth |
-| Tile origin | bottom center at (0, 0, 0) |
+| Tile root | grid-cell center; floor bottom at Y=0 |
 | Grid seam | tile centers at integer multiples of 8m |
 | Wall height | 3.5m maximum |
 | Full wall thickness | 1.2m maximum |
@@ -28,6 +28,8 @@ Create a small, copyright-safe, browser-friendly asset kit that can be recombine
 | Runtime effects | separate meshes/particles, never baked into collision geometry |
 
 Collision is data, not inferred from the render mesh. Every asset ships with a small proxy description (`box`, `circle`, or `trigger`) consumed by both server simulation and renderer.
+
+The current ship forward direction is runtime `+Z`. Blender authoring is Z-up, so use one explicit `(x,y,z) → (x,-z,y)` conversion and validate the exported GLB in runtime coordinates. The corner wall is a centerline N→E elbow with short contiguous arms; do not generate two full 8m legs.
 
 ## Production sequence
 

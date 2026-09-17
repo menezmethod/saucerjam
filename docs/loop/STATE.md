@@ -28,6 +28,14 @@ Updated: 2026-09-17
 
 Exercise 32 real-device clients and a real host before promoting to 64. For 64, lower active recipient traffic without weakening nearby combat; 128 requires bounded portal-linked hotspots rather than one dense bowl.
 
+## Asset cycle
+
+- Branch: `design/confluence-v2-production-plan`
+- Checkpoint: [`ASSET_VERTICAL_SLICE_01.md`](./ASSET_VERTICAL_SLICE_01.md)
+- Scope: prompts, manifest/validator, and one procedural 8×8 chunk only.
+- Astra handoff: one bounded design/Blender normalization pass; no bulk generation.
+- Deferred: new weapon systems, marketplace, infinite streaming, and full ship/tile library.
+
 ## Stop conditions
 
 - No evidence of a player-facing improvement.

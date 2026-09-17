@@ -2,6 +2,8 @@
 
 The five sheets in `/Users/luisgimenez/Development/SaucerJam` are the canonical project references. Use each sheet as an image reference, but ask the generator for a clean mesh without the sheet's exhaust, labels, or callout panels.
 
+Runtime orientation: the ship nose faces `+Z` at zero rotation. Keep the hull centered, within a 0.8m X/Z collision radius, and treat engine/exhaust direction as a runtime attachment rather than part of the silhouette.
+
 ## Clean ship-sheet prompt
 
 > Create a production turnaround sheet for one original SaucerJam ship. Show one consistent chassis in three-quarter, top, front, rear, and side orthographic views on a neutral charcoal background. Keep the nose direction identical in every view. No text, callouts, logos, UI, display stand, pilot, exhaust plume, weapon beam, or duplicate ship. Include a faint scale grid and leave generous transparent padding around the silhouette.
@@ -33,6 +35,8 @@ The five sheets in `/Users/luisgimenez/Development/SaucerJam` are the canonical 
 ## Ship acceptance
 
 - Collision sphere/radius remains identical for every chassis.
+- Ship 01 target envelope: length 1.56m, width ≤1.28m, height ≤0.46m; validate actual X/Z vertices against radius 0.8m.
+- Hardpoints: `mount_primary` (0,0,0.78), `mount_thruster_left` (-0.32,-0.02,-0.59), `mount_thruster_right` (0.32,-0.02,-0.59).
 - Weapon muzzle and two thruster empties are present and named.
 - LOD0 ≤5,000 visible triangles; LOD1 ≤1,500.
 - Effects are runtime attachments.

@@ -9,7 +9,7 @@ This is the deterministic cleanup contract after Meshy or another 3D agent retur
 3. Identify structural meshes and keep emissive/effect meshes separate.
 4. Apply transforms and measure the world-space bounding box.
 5. Fit the mesh to the declared envelope without changing the X/Z aspect ratio.
-6. Place origin at the center of the lowest X/Z face; set the lowest exported Y to 0.
+6. Keep the tile root at its grid-cell center; set the lowest exported Y to 0. Do not recenter an asymmetric corner by its bounds.
 7. Add `SOCKET_N/E/S/W` empties at the exact 8m edge coordinates.
 8. Remove hidden faces, duplicate objects, non-manifold underside geometry, and accidental presentation bases.
 9. Create or export collision metadata separately; never use the detailed render mesh as physics.
@@ -28,4 +28,4 @@ This is the deterministic cleanup contract after Meshy or another 3D agent retur
 
 Fail the job on any of the following: wrong axis, non-zero floor, off-grid socket, oversized bounds, open underside, unexpected material count, texture over 1024px, triangle budget overrun, missing hardpoint, or failed Three.js GLB load.
 
-Blender's authoring Z-up and glTF's runtime Y-up are not interchangeable. Validate the exported GLB in the same coordinate system used by the browser.
+Blender's authoring Z-up and glTF's runtime Y-up are not interchangeable. Use `to_blender((x,y,z)) -> (x,-z,y)` once when authoring runtime coordinates, enable the normal glTF export conversion, and validate the exported GLB in the same coordinate system used by the browser. Do not add a second corrective rotation.

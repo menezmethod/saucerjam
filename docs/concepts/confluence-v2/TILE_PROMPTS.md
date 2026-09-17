@@ -38,9 +38,9 @@ Acceptance: exact 8m span, 1.2m thickness, no base plate extending into adjacent
 
 ## 05 — 90-degree corner
 
-> A single 90-degree L-shaped modular arena barrier made from the same language as the straight barrier, two 8 meter legs, 1.2 meter thickness, one reinforced outside corner, cyan conduit accents, clean interior playable corner.
+> A single centerline 90-degree N-to-E modular arena barrier inside one 8 meter grid cell, two contiguous short arms meeting at the center, 1.2 meter thickness, one reinforced outside corner, cyan conduit accents, clean interior playable corner, no full-length overlapping legs.
 
-Acceptance: both legs terminate on grid sockets; no diagonal cut, no overlapping corner volume, no extra floor.
+Acceptance: north and east sockets land exactly on the cell edges; the two arms share one corner without overlap; no diagonal cut and no extra floor.
 
 ## 06 — portal arch
 

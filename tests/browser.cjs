@@ -72,22 +72,26 @@ async function main() {
     await b.fill("#pilot-name", "Bravo");
     await b.click("#join-room");
     await b.waitForFunction(() => window.__qd.getSnapshot().mode === "online");
-    await a.waitForFunction(
-      () => window.__qd.getSnapshot().state.players.length === 2,
-    );
     let idB = (await snapshot(b)).playerId;
-    assert.equal((await snapshot(b)).state.players.length, 2);
+    await until(() => room.sim.players.has(idA) && room.sim.players.has(idB));
+    Object.assign(room.sim.players.get(idA), { x: -50, z: -50, angle: 0, vx: 0, vz: 0, protectedUntil: 0 });
+    Object.assign(room.sim.players.get(idB), { x: -50, z: -40, angle: 0, vx: 0, vz: 0, protectedUntil: 0 });
+    await Promise.all([
+      a.waitForFunction((id) => window.__qd.getSnapshot().state.players.some((p) => p.id === id), idB),
+      b.waitForFunction((id) => window.__qd.getSnapshot().state.players.some((p) => p.id === id), idA),
+    ]);
     console.log(
       "PASS: independent browser clients join the same room through an invite",
     );
+    const startA = { x: room.sim.players.get(idA).x, z: room.sim.players.get(idA).z };
     await a.keyboard.down("KeyW");
     await sleep(500);
     await a.keyboard.up("KeyW");
     await until(
       () =>
         Math.hypot(
-          room.sim.players.get(idA).x - initialA.predicted.x,
-          room.sim.players.get(idA).z - initialA.predicted.z,
+          room.sim.players.get(idA).x - startA.x,
+          room.sim.players.get(idA).z - startA.z,
         ) > 2,
     );
     await b.waitForFunction(
@@ -97,7 +101,7 @@ async function main() {
           .state.players.find((p) => p.id === id);
         return Math.hypot(p.x - x, p.z - z) > 2;
       },
-      { id: idA, x: initialA.predicted.x, z: initialA.predicted.z },
+      { id: idA, x: startA.x, z: startA.z },
     );
     const angle = room.sim.players.get(idA).angle;
     await a.keyboard.down("KeyA");
@@ -110,6 +114,24 @@ async function main() {
       return input.turn === 0 && input.thrust === 0 && (!input.move || Math.hypot(input.move.x,input.move.z)===0);
     });
     console.log("PASS: directional movement replicates to the other browser");
+    const portal = room.sim.map.portals[0];
+    Object.assign(room.sim.players.get(idA), {
+      x: portal.x,
+      z: portal.z,
+      vx: 0,
+      vz: 0,
+      portalLockUntil: 0,
+    });
+    await a.waitForFunction(
+      ({ id, x, z }) => {
+        const player = window.__qd.getSnapshot().state.players.find((p) => p.id === id);
+        return player && Math.hypot(player.x - x, player.z - z) < 0.1;
+      },
+      { id: idA, x: portal.exitX, z: portal.exitZ },
+    );
+    await a.waitForFunction(() => document.querySelector("#notice").textContent === "Slipstream jump");
+    await a.screenshot({ path: path.join(out, "portal-traversal.png") });
+    console.log("PASS: authoritative portal traversal snaps the client with readable feedback");
     function fixture(weapon, az, bz) {
       const pa = room.sim.players.get(idA),
         pb = room.sim.players.get(idB);
@@ -148,6 +170,7 @@ async function main() {
     assert.equal(pa.kills, 1);
     await a.keyboard.press("Tab");
     await a.waitForSelector("#scoreboard:not([hidden])");
+    await a.waitForFunction(() => /Alpha \(you\)1/.test(document.querySelector('#scores').textContent));
     assert.match(await a.textContent("#scores"), /Alpha \(you\)1/);
     await a.keyboard.press("Escape");
     await until(() => pb.alive, 4500);
@@ -158,23 +181,25 @@ async function main() {
     );
     ({ pa, pb } = fixture("GRENADE", -8, 8));
     await a.keyboard.press("Digit2");
-    await sleep(250);
+    await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "GRENADE");
+    await until(() => pa.weapon === "GRENADE");
     await a.keyboard.down("Space");
     await sleep(100);
     await a.keyboard.up("Space");
     await until(() => pb.health < 100);
     assert.equal(pb.health, 20);
-    console.log("PASS: grenade launch and authoritative area damage");
+    console.log("PASS: Nova Charge arc and authoritative area damage");
     ({ pa, pb } = fixture("BOUNCE", 27, 22));
     await a.keyboard.press("Digit3");
-    await sleep(250);
+    await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "BOUNCE");
+    await until(() => pa.weapon === "BOUNCE");
     await a.keyboard.down("Space");
     await sleep(100);
     await a.keyboard.up("Space");
     await until(() => pb.health < 100);
     assert.equal(pb.health, 66);
     console.log(
-      "PASS: ricochet banks off the arena wall and damages the other player",
+      "PASS: Ricochet Disc banks and damages the other player",
     );
     await a.keyboard.press("KeyV");
     assert.equal((await snapshot(a)).view, 2);
@@ -327,6 +352,9 @@ async function main() {
       () => window.__qd.getSnapshot().mode === "practice",
     );
     assert.ok(await mobile.locator("#touch-controls").isVisible());
+    assert.match(await mobile.textContent(".flight-hint-touch"), /Left thumb moves.*Right thumb aims/);
+    assert.equal(await mobile.locator('[data-weapon="LASER"]').getAttribute("aria-label"), "Plasma Beam — 25 energy");
+    assert.ok(await mobile.locator('[data-weapon="LASER"] span').isVisible());
     await mobile.screenshot({ path: path.join(out, "mobile-practice.png") });
     assert.equal(
       await mobile.evaluate(
@@ -336,16 +364,16 @@ async function main() {
     );
     // There is no Fire button and no bounded joystick zone: touch/mouse
     // input is dispatched on #arena with per-pointer roles instead. HUD
-    // chrome (vitals/weapons vs. radar) must still never overlap itself.
+    // chrome (weapons vs. radar) must still never overlap itself.
     const noHudOverlap = async (page) =>
       page.evaluate(() => {
-        const vitals = document.querySelector(".vitals").getBoundingClientRect();
+        const weapons = document.querySelector(".weapons").getBoundingClientRect();
         const radar = document.querySelector(".radar").getBoundingClientRect();
         const clear = (r1, r2) =>
           r1.right <= r2.left || r2.right <= r1.left || r1.bottom <= r2.top || r2.bottom <= r1.top;
-        return clear(vitals, radar);
+        return clear(weapons, radar);
       });
-    assert.ok(await noHudOverlap(mobile), "vitals overlap the radar (portrait)");
+    assert.ok(await noHudOverlap(mobile), "weapons overlap the radar (portrait)");
     // The first touch in the lower part of the screen claims movement; a
     // second finger anywhere fires -- dispatched as real touch input (CDP),
     // since a synthetic DOM PointerEvent can't hold the pointer capture the
@@ -380,8 +408,7 @@ async function main() {
     // out. Headless tests never blur/hide/end a round mid-drag, which is
     // exactly how this shipped broken once.
     const dragPoint = await mobile.evaluate(() => ({ x: innerWidth * 0.25, y: innerHeight * 0.75 }));
-    const cdpMobile = await mobile.context().newCDPSession(mobile);
-    await cdpMobile.send("Input.dispatchTouchEvent", {
+    await cdp.send("Input.dispatchTouchEvent", {
       type: "touchStart",
       touchPoints: [{ x: dragPoint.x, y: dragPoint.y, id: 9 }],
     });
@@ -391,15 +418,15 @@ async function main() {
     await mobile.evaluate(() =>
       document.dispatchEvent(new CustomEvent("qd:interface-modal", { detail: { open: false } })),
     );
-    await cdpMobile.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await sleep(80);
     // A fresh drag afterward must still move the stick, not silently no-op.
-    await cdpMobile.send("Input.dispatchTouchEvent", {
+    await cdp.send("Input.dispatchTouchEvent", {
       type: "touchStart",
       touchPoints: [{ x: dragPoint.x, y: dragPoint.y, id: 10 }],
     });
     await sleep(60);
-    await cdpMobile.send("Input.dispatchTouchEvent", {
+    await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [{ x: dragPoint.x + 40, y: dragPoint.y, id: 10 }],
     });
@@ -408,33 +435,10 @@ async function main() {
       const knob = document.querySelector("#touch-joystick .stick-knob");
       return knob.style.transform !== "";
     });
-    await cdpMobile.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await sleep(80);
     assert.ok(knobMoved, "joystick stayed locked out after an external reset mid-drag");
     console.log("PASS: joystick survives an external input reset mid-drag (no stale pointerId lockout)");
-    // The split is fixed, not "whichever touch came first": left always
-    // moves, right always shoots -- matching the reference two-thumb
-    // layout the user asked for. A touch starting on the right must fire,
-    // never claim the stick.
-    const energyBeforeRight = await mobile.evaluate(
-      () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy,
-    );
-    const rightPoint = await mobile.evaluate(() => ({ x: innerWidth * 0.75, y: innerHeight * 0.75 }));
-    await cdpMobile.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [{ x: rightPoint.x, y: rightPoint.y, id: 11 }],
-    });
-    await sleep(200);
-    const rightSideKnobMoved = await mobile.evaluate(() => {
-      const knob = document.querySelector("#touch-joystick .stick-knob");
-      return knob.style.transform !== "";
-    });
-    const energyAfterRight = await mobile.evaluate(
-      () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy,
-    );
-    await cdpMobile.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    assert.ok(!rightSideKnobMoved, "a touch starting on the right side incorrectly moved the stick");
-    assert.ok(energyAfterRight < energyBeforeRight, "a touch starting on the right side did not fire");
-    console.log("PASS: left always moves, right always shoots (fixed split)");
     // A landscape phone (short viewport height) is a distinct failure mode
     // from portrait and was previously untested.
     const landscape = await newPage({

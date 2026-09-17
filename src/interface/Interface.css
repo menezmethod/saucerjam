@@ -40,7 +40,7 @@
 .qd-map-status { font-size: 10px; color: #c1cdd3; min-height: 12px; margin: 7px 0 0; }
 .qd-interface .top-bar { background: linear-gradient(#081016e8, #08101600); }
 .qd-interface .match-clock strong { font-weight: 600; letter-spacing: -.05em; }
-.qd-interface .radar, .qd-interface .vitals, .qd-interface .weapon { border-radius: 3px; background-color: #0b171fe8; }
+.qd-interface .radar, .qd-interface .weapon { border-radius: 3px; background-color: #0b171fe8; }
 .qd-interface .weapon.selected { background-color: #1b343d; }
 .qd-camera-controls { padding: 14px 0; margin: 3px 0; border-block: 1px solid var(--qd-rule); display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 14px; }
 .qd-camera-controls label { font-size: 12px; color: #c4d0d4; }

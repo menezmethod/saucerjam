@@ -14,6 +14,7 @@ function createGameServer({
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
+  maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
   maxConnections = Math.max(8, Math.min(1000, Number(process.env.MAX_CONNECTIONS) || 96)),
 } = {}) {
   const app = express(),
@@ -26,6 +27,16 @@ function createGameServer({
   });
   io.use((socket, next) => next(io.engine.clientsCount > maxConnections ? new Error("Server is full. Please try again shortly.") : undefined));
   const rooms = new Map();
+  const sendSnapshots = (room) => {
+    for (const id of room.humans)
+      io.sockets.sockets.get(id)?.emit("state", room.sim.snapshotFor(id));
+  };
+  const sendEvents = (room, events) => {
+    for (const id of room.humans) {
+      const visible = room.sim.eventsFor(id, events);
+      if (visible.length) io.sockets.sockets.get(id)?.emit("events", visible);
+    }
+  };
   const rankings = new RankingStore({filePath:rankingsFile});
   const pendingSaves = new Set();
   let rankingError = null;
@@ -97,7 +108,7 @@ function createGameServer({
       let room;
       if (mode === "quick") {
         room = [...rooms.values()].find(
-          (r) => r.code.startsWith("PUBLIC") && r.humans.size < 8 && r.sim.map.id === getMap(requestedMap).id,
+          (r) => r.code.startsWith("PUBLIC") && r.humans.size < maxPlayersPerRoom && r.sim.map.id === getMap(requestedMap).id,
         );
         if (!room) {
           if (rooms.size >= maxRooms)
@@ -131,8 +142,8 @@ function createGameServer({
           });
       } else
         return ack({ error: "Choose quick play, create room, or join room." });
-      if (room.humans.size >= 8 && !room.humans.has(socket.id))
-        return ack({ error: "This room is full (8 pilots)." });
+      if (room.humans.size >= maxPlayersPerRoom && !room.humans.has(socket.id))
+        return ack({ error: `This room is full (${maxPlayersPerRoom} pilots).` });
       if ([...room.sim.players.values()].some(p=>p.profileId===profileId && p.id!==socket.id)) return ack({error:"This pilot is already flying in this room. Use a different browser profile for another pilot."});
       if (socket.data.room !== room.code) leave(socket);
       socket.join(room.code);
@@ -152,7 +163,7 @@ function createGameServer({
         profileId,
         code: room.code,
         map: room.sim.map,
-        state: room.sim.snapshot(),
+        state: room.sim.snapshotFor(socket.id),
       });
     });
     socket.on("input", (input) => {
@@ -191,9 +202,10 @@ function createGameServer({
             pendingSaves.add(save);
           }
         }
-        if (events.length) io.to(room.code).emit("events", events);
-        if (room.sim.tick % 3 === 0)
-          io.to(room.code).emit("state", room.sim.snapshot());
+        if (events.length) sendEvents(room, events);
+        // ponytail: radial AOI scans this zone's players; replace with a spatial
+        // grid only if the 128-pilot socket measurement makes it necessary.
+        if (room.sim.tick % 3 === 0) sendSnapshots(room);
       }
       accumulator -= STEP;
     }

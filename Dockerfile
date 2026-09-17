@@ -9,7 +9,7 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production PORT=8080 MAX_ROOMS=8 MAX_CONNECTIONS=96
+ENV NODE_ENV=production PORT=8080 MAX_ROOMS=8 MAX_CONNECTIONS=96 MAX_ROOM_PLAYERS=32
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist

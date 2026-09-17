@@ -43,6 +43,7 @@ class Game {
     this.pending = [];
     this.mouse = null;
     this.firing = false;
+    this.firePointerId = null;
     this.aim = null;
     this.stick = { x: 0, z: 0, active: false };
     this.stickOrigin = null;
@@ -181,6 +182,10 @@ class Game {
     window.addEventListener("keyup", (e) => this.key(e, false));
     window.addEventListener("blur", () => this.clearInput());
     document.addEventListener("visibilitychange", () => this.clearInput());
+    window.addEventListener("orientationchange", () => this.clearInput());
+    document.addEventListener("focusin", (e) => {
+      if (e.target.closest?.('input,textarea,select,[contenteditable="true"]')) this.clearInput();
+    });
     // All pointer input (mouse aim/fire, and touch move+fire) is dispatched
     // directly on #arena by assigning each pointer a role, rather than a
     // bounded hit-region div for movement. A bounded zone means a touch
@@ -189,51 +194,11 @@ class Game {
     // for one thumb and not the other, and stop working after backgrounding
     // and re-gripping at a slightly different spot. Real twin-stick mobile
     // games assign roles per pointer on the full surface instead.
-    $("arena").addEventListener("pointerdown", (e) => {
-      if (!this.active()) return;
-      if (e.pointerType === "mouse") {
-        if (e.button === 0) this.startFire(e);
-        return;
-      }
-      // Left thumb always moves, right thumb (or anything else) always
-      // shoots wherever it lands -- a fixed split, not "whichever touch
-      // came first," so it's exactly as predictable as the two-joystick
-      // reference: the left side is always the stick, full stop.
-      const movementClaimed = [...this.touchRoles.values()].includes("move");
-      if (!movementClaimed && e.clientX < innerWidth * 0.5) {
-        this.touchRoles.set(e.pointerId, "move");
-        this.unlockAudio();
-        this.stickOrigin = { x: e.clientX, y: e.clientY };
-        this.placeStick(this.stickOrigin);
-        $("touch-joystick").classList.add("dragging");
-        $("arena").setPointerCapture(e.pointerId);
-      } else {
-        this.touchRoles.set(e.pointerId, "fire");
-        this.startFire(e);
-      }
-    });
-    $("arena").addEventListener("pointermove", (e) => {
-      if (this.touchRoles.get(e.pointerId) === "move") {
-        const point = { x: e.clientX, y: e.clientY };
-        this.stickOrigin = reanchor(this.stickOrigin, point, 52);
-        this.placeStick(this.stickOrigin);
-        this.stick = stickVector(this.stickOrigin, point, 52);
-        const knob = $("touch-joystick").querySelector(".stick-knob");
-        knob.style.transform = this.stick.active
-          ? `translate(${this.stick.x * 22}px, ${-this.stick.z * 22}px)`
-          : "";
-        return;
-      }
-      this.mouse = { x: e.clientX, y: e.clientY };
-    });
-    // Scoped per pointer: with a movement thumb also down, lifting the fire
-    // thumb must not stop fire from the other one, or vice versa.
-    window.addEventListener("pointerup", (e) => {
-      if (this.touchRoles.get(e.pointerId) === "move") this.resetStick();
-      this.touchRoles.delete(e.pointerId);
-      if (e.pointerId === this.firePointerId) this.firing = false;
-    });
-    window.addEventListener("pointercancel", () => this.clearInput());
+    $("arena").addEventListener("pointerdown", (e) => this.pointerDown(e));
+    $("arena").addEventListener("pointermove", (e) => this.pointerMove(e));
+    for (const type of ["pointerup", "pointercancel"])
+      window.addEventListener(type, (e) => this.pointerEnd(e));
+    $("arena").addEventListener("lostpointercapture", (e) => this.pointerEnd(e));
     $("arena").addEventListener("contextmenu", (e) => e.preventDefault());
     document.querySelectorAll("[data-control]").forEach((button) => {
       button.addEventListener("pointerdown", (e) => {
@@ -247,6 +212,68 @@ class Game {
           this.keys.delete(button.dataset.control),
         );
     });
+    this.bindInputChrome();
+  }
+  pointerDown(e) {
+      if (!this.active()) return;
+      if (e.pointerType === "mouse") {
+        if (e.button === 0) this.startFire(e);
+        return;
+      }
+      // Left thumb always moves, right thumb (or anything else) always
+      // shoots wherever it lands -- a fixed split, not "whichever touch
+      // came first," so it's exactly as predictable as the two-joystick
+      // reference: the left side is always the stick, full stop.
+      const movementClaimed = [...this.touchRoles.values()].includes("move");
+      const rect = $("arena").getBoundingClientRect();
+      if (!movementClaimed && e.clientX < rect.left + rect.width * 0.5) {
+        this.touchRoles.set(e.pointerId, "move");
+        this.unlockAudio();
+        this.stickOrigin = { x: e.clientX, y: e.clientY };
+        this.placeStick(this.stickOrigin);
+        $("touch-joystick").classList.add("dragging");
+        $("arena").setPointerCapture(e.pointerId);
+      } else if (this.firePointerId === null) {
+        this.touchRoles.set(e.pointerId, "fire");
+        this.startFire(e);
+      }
+  }
+  pointerMove(e) {
+      if (!this.active()) return;
+      // Chorded mouse buttons emit pointerup only when the last button is
+      // released. The primary-button transition arrives as pointermove.
+      if (e.pointerType === "mouse" && e.pointerId === this.firePointerId && !(e.buttons & 1))
+        this.pointerEnd(e);
+      if (this.touchRoles.get(e.pointerId) === "move") {
+        const point = { x: e.clientX, y: e.clientY };
+        this.stickOrigin = reanchor(this.stickOrigin, point, 52);
+        this.placeStick(this.stickOrigin);
+        this.stick = stickVector(this.stickOrigin, point, 52);
+        const knob = $("touch-joystick").querySelector(".stick-knob");
+        knob.style.transform = this.stick.active
+          ? `translate(${this.stick.x * 22}px, ${-this.stick.z * 22}px)`
+          : "";
+        return;
+      }
+      // Only the firing pointer owns aim during a shot. Hover remains
+      // available for mouse aim, but stale/extra touches cannot steal it.
+      if (e.pointerId === this.firePointerId ||
+          (e.pointerType === "mouse" && this.firePointerId === null))
+        this.mouse = { x: e.clientX, y: e.clientY };
+  }
+  pointerEnd(e) {
+      // Releasing a secondary mouse button must not end a held primary shot.
+      if (e.type === "pointerup" && e.pointerType === "mouse" && (e.buttons & 1)) return;
+      if (this.touchRoles.get(e.pointerId) === "move") this.resetStick();
+      this.touchRoles.delete(e.pointerId);
+      if (e.pointerId === this.firePointerId) {
+        this.firing = false;
+        this.firePointerId = null;
+      }
+      const arena = $("arena");
+      if (arena.hasPointerCapture(e.pointerId)) arena.releasePointerCapture(e.pointerId);
+  }
+  bindInputChrome() {
     // ponytail: throwaway on-device diagnostic, ?debug=touch only -- a live
     // readout of pointer roles and coordinates so a device input bug is one
     // screenshot instead of a guess-rebuild-reship round trip.
@@ -303,6 +330,7 @@ class Game {
   // clicks and any touch assigned the "fire" role (see the arena pointer
   // handlers in bind()).
   startFire(e) {
+    if (this.firePointerId !== null) return;
     this.unlockAudio();
     this.mouse = { x: e.clientX, y: e.clientY };
     this.firing = true;
@@ -357,12 +385,22 @@ class Game {
     );
   }
   clearInput() {
+    const pointers = new Set(this.touchRoles.keys());
+    if (this.firePointerId !== null) pointers.add(this.firePointerId);
     this.keys.clear();
     this.firing = false;
+    this.firePointerId = null;
+    this.mouse = null;
+    this.aim = null;
     this.touchRoles.clear();
     this.resetStick();
+    const arena = $("arena");
+    for (const id of pointers)
+      if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
   }
   key(e, down) {
+    // Keyup may target a newly focused form field: always release first.
+    if (!down) this.keys.delete(e.code);
     const modal=['help','scoreboard','menu'].map($).find(el=>!el.hidden);
     if(modal){
       this.clearInput();
@@ -377,7 +415,7 @@ class Game {
       }
       return;
     }
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.target.closest?.('input,textarea,select,[contenteditable="true"]')) return;
     if(e.target instanceof HTMLButtonElement && !this.active() && e.code==="Space")return;
     const recognized = [
       "KeyW",
@@ -444,7 +482,9 @@ class Game {
       );
   }
   selectWeapon(weapon) {
+    if (!Object.hasOwn(WEAPONS, weapon)) return;
     this.weapon = weapon;
+    $("weapon-hint").textContent = WEAPONS[weapon].hint;
     document.querySelectorAll("[data-weapon]").forEach((b) => {
       b.classList.toggle("selected", b.dataset.weapon === weapon);
       b.setAttribute("aria-pressed", String(b.dataset.weapon === weapon));
@@ -749,6 +789,14 @@ class Game {
       this.notice(e.announcement,6);
       this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4});
     }
+    if(e.type==='portalExit'&&e.player===this.playerId){
+      this.notice('Slipstream jump',1.2);
+      this.vibrate(18);
+    }
+    if(e.type==='pickup'&&e.player===this.playerId){
+      this.notice(`Reactor bloom · hull ${e.health} · energy ${e.energy}`,1.8);
+      this.vibrate([12,30,12]);
+    }
     this.renderer.event(e);
     if (e.type === "fire")
       this.playSound(e.weapon, e.player === this.playerId ? 1 : 0.18);
@@ -923,11 +971,6 @@ class Game {
       `${Math.floor(remain / 60)}:${String(remain % 60).padStart(2, "0")}`;
     $("round-label").textContent =
       `Round ${state.round} · ${this.map.districts?.find(d=>Math.abs(p.x-d.x)<30&&Math.abs(p.z-d.z)<30)?.label || "Confluence"} · ${(this.map.stage??3)+1}/4 open`;
-    $("health-value").textContent = Math.ceil(p.health);
-    $("energy-value").textContent = Math.floor(p.energy);
-    $("health-bar").style.width = `${p.health}%`;
-    $("energy-bar").style.width = `${p.energy}%`;
-    document.querySelector(".vitals").classList.toggle("low", p.health < 30);
     for (const button of document.querySelectorAll("[data-weapon]"))
       button.classList.toggle(
         "depleted",
@@ -939,8 +982,9 @@ class Game {
         : this.connected
           ? `${this.ping} ms · Connected`
           : "Reconnecting…";
-    $("pilot-count").textContent =
-      `${state.players.filter((q) => !q.bot).length} human${state.players.filter((q) => !q.bot).length === 1 ? "" : "s"} / ${state.players.length} pilots`;
+    const humans = Number.isFinite(state.humanCount) ? state.humanCount : state.players.filter((q) => !q.bot).length;
+    const pilots = Number.isFinite(state.pilotCount) ? state.pilotCount : state.players.length;
+    $("pilot-count").textContent = `${humans} human${humans === 1 ? "" : "s"} / ${pilots} pilots`;
     $("death-panel").hidden = p.alive || !!state.restartAt;
     $("respawn-time").textContent = Math.max(
       1,

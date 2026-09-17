@@ -11,6 +11,7 @@ const {
   sanitizeInput,
   traceWalls,
 } = require("../shared/simulation");
+const { getWorld } = require("../shared/maps/world");
 const empty = { id: "test", size: 25, obstacles: [] };
 function duel(map = empty) {
   const sim = new Simulation({ map });
@@ -54,6 +55,9 @@ test("untrusted input cannot set position, damage, health, speed, or invalid num
   const malformed = { toString: null, valueOf: null };
   assert.equal(sanitizeInput({ weapon: malformed }).weapon, "LASER");
   assert.equal(sim.addPlayer("malformed", malformed).name, "Pilot");
+  const stripped = sanitizeInput({ shield: true, fire: true });
+  assert.equal(stripped.fire, true);
+  assert.equal(Object.hasOwn(stripped, "shield"), false);
 });
 test("same movement at different render frequencies, normalized diagonal speed, solid arena walls", () => {
   const initial = { alive: true, x: 0, z: 0, vx: 0, vz: 0, angle: 0 };
@@ -194,6 +198,52 @@ test("spawn protection prevents damage and ends immediately when firing", () => 
   assert.equal(b.protectedUntil, 0);
   sim.damage(b, 24, { owner: a.id, weapon: "LASER" });
   assert.equal(b.health, 76);
+});
+test("energy is a weapon capacitor and does not mitigate hull damage", () => {
+  const { sim, a, b } = duel();
+  sim.damage(b, 24, { owner: a.id, weapon: "LASER" });
+  assert.equal(b.health, 76);
+  b.health = 100;
+  b.energy = 0;
+  sim.damage(b, 24, { owner: a.id, weapon: "LASER" });
+  assert.equal(b.health, 76);
+  b.health = 100;
+  b.energy = 100;
+  sim.damage(b, 24, { owner: a.id, weapon: "LASER" });
+  assert.equal(b.health, 76, "full energy still takes full hull damage");
+});
+test("reactor blooms restore hull and energy, then return on their cooldown", () => {
+  const map = getWorld(0), sim = new Simulation({map, populationExpansion:false});
+  const pilot = sim.addPlayer("pilot", "Pilot"), bloom = map.pickups[0];
+  Object.assign(pilot, {x:bloom.x, z:bloom.z, health:42, energy:18, protectedUntil:0, lastDamage:sim.time});
+  sim.step();
+  assert.equal(Math.round(pilot.health), 77);
+  assert.equal(Math.round(pilot.energy), 68);
+  assert.equal(sim.snapshot().pickups[0].available, false);
+  advance(sim, bloom.respawn + 0.1);
+  assert.equal(sim.snapshot().pickups[0].available, true);
+});
+test("paired Confluence portals preserve aim, reject occupied exits, and emit local events", () => {
+  const map = getWorld(0);
+  const sim = new Simulation({ map, populationExpansion: false });
+  const pilot = sim.addPlayer("pilot", "Pilot");
+  const [entrance, exit] = map.portals;
+  Object.assign(pilot, { x: entrance.x, z: entrance.z, angle: 1.2, aimAngle: 1.2, protectedUntil: 0 });
+  sim.drainEvents();
+  sim.step();
+  assert.equal(pilot.x, entrance.exitX);
+  assert.equal(pilot.z, entrance.exitZ);
+  assert.equal(pilot.angle, 1.2);
+  const events = sim.drainEvents();
+  assert.deepEqual(events.map((event) => event.type), ["portalEnter", "portalExit"]);
+  assert.equal(sim.eventsFor("pilot", events).length, 2);
+  pilot.portalLockUntil = 0;
+  Object.assign(pilot, { x: exit.x, z: exit.z });
+  const blocker = sim.addPlayer("blocker", "Blocker");
+  Object.assign(blocker, { x: exit.exitX, z: exit.exitZ, protectedUntil: 0 });
+  sim.step();
+  assert.equal(pilot.x, exit.x);
+  assert.equal(pilot.z, exit.z);
 });
 test("frag limit and round timer finish matches and start a fresh round", () => {
   const { sim, a, b } = duel();

@@ -12,6 +12,18 @@ const forests=[...[-1,1].flatMap(x=>[-1,1].map(z=>box(x*12,z*9,5,7,2.2,'planter'
 const rails=[...[-1,1].flatMap(z=>[-1,1].map(x=>box(x*12,z*10,16,3,2.2,'rail-platform'))),box(0,0,5,7,2.8,'relay-housing')];
 const ice=[...[-1,1].flatMap(x=>[-1,1].map(z=>box(x*12,z*10,10,3,2.7,'ice-baffle'))),...[-1,1].map(x=>({type:'cylinder',x:x*22,z:0,r:2,h:3.2,role:'relay-pylon',color:'#95b4c4'}))];
 const kits=[junction.obstacles,forests,rails,ice];
+// A paired one-way-looking shortcut that is actually bidirectional. The exits
+// face open deck so the shared simulation can reject an occupied arrival.
+const portals=[
+ {id:'forge-gate',target:'relay-gate',x:-48,z:-12,exitX:-18,exitZ:-45,radius:2.3},
+ {id:'relay-gate',target:'forge-gate',x:-18,z:-48,exitX:-45,exitZ:-18,radius:2.3},
+];
+const pickups=[
+ {id:'forge-bloom',x:-30,z:-30,sector:0},
+ {id:'garden-bloom',x:-30,z:30,sector:1},
+ {id:'dock-bloom',x:25,z:-30,sector:2},
+ {id:'relay-bloom',x:25,z:25,sector:3},
+].map(p=>({...p,radius:1.7,health:35,energy:50,respawn:18}));
 const cache=new Map();
 function getWorld(stage=0){
  stage=Math.max(0,Math.min(3,Math.floor(Number(stage)||0)));
@@ -29,7 +41,7 @@ function getWorld(stage=0){
   obstacles.push({...box(0,c+offset,2,length,3),divider:true});
  }
  const spawnPoints=districts.filter(z=>z.open).flatMap(z=>[-1,1].flatMap(x=>[-1,1].map(s=>({x:z.x+x*22,z:z.z+s*22}))));
- const map={id:'confluence',name:'Confluence',subtitle:'One connected world · industry, forest, orbital rails & ice',theme:'foundry',size:60,stage,districts,obstacles,spawnPoints,props:[],palette:{floor:'#18232b',cover:'#53616a',accent:'#ffad69',background:'#090f18'}};
+ const map={id:'confluence',name:'Confluence',subtitle:'One connected world · industry, forest, orbital rails & ice',theme:'foundry',size:60,stage,districts,obstacles,portals,pickups:pickups.filter(p=>p.sector<=stage),spawnPoints,props:[],palette:{floor:'#18232b',cover:'#53616a',accent:'#ffad69',background:'#090f18'}};
  cache.set(stage,map);return map;
 }
 function stageForHumans(count){return count>=7?3:count>=5?2:count>=3?1:0;}

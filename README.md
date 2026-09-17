@@ -63,7 +63,7 @@ Touch screens get a floating drag joystick (appears wherever you first touch the
 npm run dev          # Client rebuilds on :8080, server on :3000 through a proxy
 npm run build        # Production client in dist/
 npm run serve        # Serve an existing build on :8080
-npm test             # Simulation and real Socket.IO integration tests
+npm test             # Builds the client, then runs simulation and Socket.IO tests
 npm run test:browser # Production-browser end-to-end tests; run build first
 ```
 

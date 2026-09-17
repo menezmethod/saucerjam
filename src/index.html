@@ -60,7 +60,7 @@
           </p>
         </div>
         <div class="lobby-footer">
-          <span>Laser / Grenade / Ricochet</span
+          <span>Plasma Beam / Nova Charge / Ricochet Disc</span
           ><button id="lobby-help" class="text-button">How to fly</button>
         </div>
       </div>
@@ -109,22 +109,16 @@
         <p id="next-round"></p>
       </div>
       <footer class="combat-bar">
-        <div class="vitals">
-          <div><span>Hull</span><strong id="health-value">100</strong></div>
-          <div class="meter"><i id="health-bar"></i></div>
-          <div><span>Energy</span><strong id="energy-value">100</strong></div>
-          <div class="meter energy"><i id="energy-bar"></i></div>
-        </div>
         <div class="weapons">
-          <button data-weapon="LASER" class="weapon selected">
+          <button data-weapon="LASER" class="weapon selected" aria-label="Plasma Beam — 25 energy" title="Fast plasma bursts · hold fire">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h13M12 5l7 7-7 7"/></svg
-            ><kbd>1</kbd><span>Laser<small>25 energy</small></span></button
-          ><button data-weapon="GRENADE" class="weapon">
+            ><kbd>1</kbd><span>Plasma Beam<small>25 energy</small></span></button
+          ><button data-weapon="GRENADE" class="weapon" aria-label="Nova Charge — 100 energy" title="Arc to your cursor · area burst">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="7"/><path d="M12 7V4m0 0l2.5-2M9.5 2L12 4"/></svg
-            ><kbd>2</kbd><span>Grenade<small>100 energy</small></span></button
-          ><button data-weapon="BOUNCE" class="weapon">
+            ><kbd>2</kbd><span>Nova Charge<small>100 energy</small></span></button
+          ><button data-weapon="BOUNCE" class="weapon" aria-label="Ricochet Disc — 50 energy" title="Banks off walls · three rebounds">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-10 4 7 3-5 6 8"/></svg
-            ><kbd>3</kbd><span>Ricochet<small>50 energy</small></span>
+            ><kbd>3</kbd><span>Ricochet Disc<small>50 energy</small></span>
           </button>
         </div>
         <div class="flight-tools">
@@ -136,11 +130,12 @@
         </div>
       </footer>
       <div class="flight-hint">
+        <span id="weapon-hint" role="status">Fast plasma bursts · hold fire</span><br />
         <span class="flight-hint-desktop"
           >WASD / arrows move <span>·</span> Mouse aim <span>·</span> Hold
           click or Space to fire</span
         ><span class="flight-hint-touch" hidden
-          >Left thumb moves <span>·</span> Tap anywhere to fire</span
+          >Left thumb moves <span>·</span> Right thumb aims &amp; fires</span
         >
       </div>
       <div id="touch-controls">
@@ -176,19 +171,18 @@
           </div>
           <div>
             <h3>Loadout</h3>
-            <p><kbd>1</kbd> <b>Laser</b> — fast, precise bursts. 25 energy.</p>
+            <p><kbd>1</kbd> <b>Plasma Beam</b> — fast, precise bursts. 25 energy.</p>
             <p>
-              <kbd>2</kbd> <b>Grenade</b> — arcs to your cursor, up to 20m. 100
-              energy. Cover blocks blast damage; nearby blasts can hurt you.
+              <kbd>2</kbd> <b>Nova Charge</b> — arcs to your cursor, up to 20m. 100 energy.
+              Cover blocks blast damage; nearby blasts can hurt you.
             </p>
             <p>
-              <kbd>3</kbd> <b>Ricochet</b> — banks off walls three times. 50
-              energy.
+              <kbd>3</kbd> <b>Ricochet Disc</b> — banks off walls three times. 50 energy.
             </p>
             <p><kbd>X</kbd> Cycle weapons</p>
             <p>
-              Energy recharges. Hull repairs after 5 seconds without damage.
-              Spawn protection lasts 1.5 seconds or until you fire.
+              Energy is a weapon capacitor — it fuels shots and recharges; it does not block damage.
+              Hull repairs after 5 seconds without damage. Spawn protection lasts 1.5 seconds or until you fire.
             </p>
           </div>
         </div>

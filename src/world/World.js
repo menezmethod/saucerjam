@@ -144,7 +144,7 @@ export class World {
     this.previousBackground = scene.background;
     this.previousFog = scene.fog;
     this.background = new THREE.Color();
-    this.fog = new THREE.Fog(this.background, 100, 205);
+    this.fog = new THREE.Fog(this.background, 100, 240);
     this.disposed = false;
   }
 
@@ -168,6 +168,8 @@ export class World {
     });
     this.clear();
     this.map = map;
+    this.fog.near = Math.max(80, map.size * 3);
+    this.fog.far = Math.max(300, map.size * 6);
     this.theme = themeFor(map);
     this.palette = PALETTES[this.theme];
     const p = this.palette;
@@ -187,6 +189,7 @@ export class World {
       body: this.material(p.body, { map: cladding }), cap: this.material(p.cap, { map: cladding }), dark: this.material(p.dark),
       accent: this.material(p.accent), secondary: this.material(p.secondary),
       glow: this.material(p.glow, { emissive: p.glow, emissiveIntensity: 0.65, roughness: 0.45 }),
+      portal: this.material("#c7b8ff", { emissive: "#7457ff", emissiveIntensity: 1.7, roughness: 0.25, metalness: 0.28 }),
       foliage: this.material("#426e58", { side: THREE.DoubleSide, metalness: 0 }),
       leafTip: this.material("#78a78a", { side: THREE.DoubleSide, metalness: 0 }),
       bark: this.material("#536c60", { metalness: 0 }),
@@ -214,6 +217,7 @@ export class World {
       this.cover(obstacle,index);
     });
     this.m=baseMaterials;this.theme=baseTheme;
+    for (const portal of map.portals || []) this.portal(portal);
     this.centralInlay();
     this.routeCallouts();
     if (this.theme === "canopy") this.canopy();
@@ -264,6 +268,15 @@ export class World {
 
   ring(material, x, y, z, radius, rotation = [Math.PI / 2, 0, 0]) {
     this.part("ring", material, [x, y, z], [radius, radius, radius], rotation);
+  }
+
+  portal({ x, z }) {
+    this.part("cylinder", this.m.dark, [x, 0.06, z], [3.25, 0.12, 3.25]);
+    this.ring(this.m.portal, x, 0.14, z, 2.8);
+    this.ring(this.m.portal, x, 1.85, z, 2.45, [0, 0, 0]);
+    this.ring(this.m.glow, x, 1.85, z, 1.85, [0, 0, 0]);
+    for (const side of [-1, 1]) this.box(this.m.dark, x + side * 2.15, 1.25, z, 0.28, 2.5, 0.5);
+    this.box(this.m.portal, x, 3.15, z, 4.5, 0.16, 0.32);
   }
 
   flush() {
@@ -513,17 +526,18 @@ export class World {
     // Flush machinery, botanical water lens or relay calibration rose. Never
     // creates a central obstacle when the authoritative layout has none.
     const radius = Math.min(5.6, this.map.size * 0.18);
-    this.part("cylinder", this.m.dark, [0, 0.012, 0], [radius, 0.016, radius]);
-    this.part("cylinder", this.m.body, [0, 0.024, 0], [radius * 0.93, 0.008, radius * 0.93]);
-    this.part("cylinder", this.m.dark, [0, 0.034, 0], [radius * 0.85, 0.008, radius * 0.85]);
+    const x = this.map.id === "confluence" ? -30 : 0, z = this.map.id === "confluence" ? -30 : 0;
+    this.part("cylinder", this.m.dark, [x, 0.012, z], [radius, 0.016, radius]);
+    this.part("cylinder", this.m.body, [x, 0.024, z], [radius * 0.93, 0.008, radius * 0.93]);
+    this.part("cylinder", this.m.dark, [x, 0.034, z], [radius * 0.85, 0.008, radius * 0.85]);
     // Torus tube height scaled independently to stay below hover/collision y.
-    this.part("ring", this.m.route, [0, 0.05, 0], [radius * 0.72, radius * 0.72, 0.25], [Math.PI / 2, 0, 0]);
+    this.part("ring", this.m.route, [x, 0.05, z], [radius * 0.72, radius * 0.72, 0.25], [Math.PI / 2, 0, 0]);
     const count = this.theme === "glacier" ? 8 : 12;
     for (let i = 0; i < count; i++) {
       const a = i * TAU / count, r = radius * 0.52;
-      this.box(this.m.body, Math.sin(a) * r, 0.045, Math.cos(a) * r, radius * 0.08, 0.012, radius * 0.46, a);
+      this.box(this.m.body, x + Math.sin(a) * r, 0.045, z + Math.cos(a) * r, radius * 0.08, 0.012, radius * 0.46, a);
     }
-    this.part("cylinder", this.m.secondary, [0, 0.056, 0], [0.42, 0.01, 0.42]);
+    this.part("cylinder", this.m.secondary, [x, 0.056, z], [0.42, 0.01, 0.42]);
   }
 
   routeCallouts() {

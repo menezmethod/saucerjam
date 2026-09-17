@@ -21,7 +21,7 @@ test('projectile trails preserve emission density across frame rates and clean u
   const counts=[30,60,120].map(emitted);
   assert.ok(Math.max(...counts)-Math.min(...counts)<=2,JSON.stringify(counts));
 });
-test('grenade warning follows authoritative fuse and releases geometry on removal',async()=>{
+test('grenade warning releases geometry on removal',async()=>{
   const {CombatFX,THREE}=await moduleUnderTest();const scene=new THREE.Scene(),fx=new CombatFX(scene);
   fx.update({players:[],projectiles:[{id:'g',weapon:'GRENADE',targetX:4,targetZ:5,age:.425}]},.016,new Map());
   const ring=fx.targets.get('g');assert.equal(ring.material.uniforms.progress.value,.5);assert.equal(ring.position.x,4);

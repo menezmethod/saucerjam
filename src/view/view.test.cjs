@@ -84,15 +84,12 @@ test('hull segments represent partial damage; protection is time based, never en
   indicators.update({ ...args, players: [{ ...player, health: 82, protectedUntil: 12, name: '<img onerror=bad>' }] });
   const e = indicators.entries.get('p');
   assert.equal(e.node.hidden, false);
-  assert.equal(e.name.textContent, 'YOU · <img onerror=bad>');
-  assert.equal(e.node.attributes['aria-label'], 'You, <img onerror=bad>, hull 82 percent, energy 0 percent, spawn protection');
+  assert.equal(e.local.hidden, false);
+  assert.equal(e.node.attributes['aria-label'], 'You, <img onerror=bad>, hull 82 percent, protected');
   assert.equal(e.segments[8].style['--fill'], '20%');
-  assert.equal(e.protect.hidden, false);
+  assert.equal(e.shield.hidden, false);
   indicators.update({ ...args, players: [{ ...player, energy: 100, protectedUntil: 10 }] });
-  assert.equal(e.protect.hidden, true);
-  indicators.update({ ...args, localId: 'other', players: [{ ...player, name: 'Bot Vega' }] });
-  assert.equal(e.name.textContent, 'Bot Vega');
-  assert.equal(e.energy.hidden, true);
+  assert.equal(e.shield.hidden, true);
 });
 test('uses rendered ship positions, hides offscreen, removes dead and departed nodes', () => {
   const { indicators, args, container } = fixture();

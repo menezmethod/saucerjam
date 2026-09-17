@@ -21,6 +21,19 @@ export class CombatFX {
   }
   event(e){
     const color=WEAPONS[e.weapon]?.color||'#8bedff';
+    if(e.type==='portalEnter'||e.type==='portalExit'){
+      this.ring(e.x,e.z,'#8bedff',3.4,.55);
+      for(let i=0;i<18;i++){
+        const angle=i*2.39996;
+        this.particle(e.x,.7,e.z,Math.cos(angle)*3,1.2,Math.sin(angle)*3,i%3?'#8bedff':'#fff3d1',.36,.09);
+      }
+      return;
+    }
+    if(e.type==='pickup'||e.type==='pickupSpawn'){
+      this.ring(e.x,e.z,'#7beaff',2.2,.46);
+      for(let i=0;i<14;i++){const angle=i*2.39996;this.particle(e.x,.5,e.z,Math.cos(angle)*2.6,.9,Math.sin(angle)*2.6,'#b5fbff',.32,.08);}
+      return;
+    }
     if(e.type==='fire'){
       this.ring(e.x,e.z,color,.8,.14);
       return;

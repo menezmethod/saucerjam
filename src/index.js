@@ -482,7 +482,9 @@ class Game {
       );
   }
   selectWeapon(weapon) {
+    if (!Object.hasOwn(WEAPONS, weapon)) return;
     this.weapon = weapon;
+    $("weapon-hint").textContent = WEAPONS[weapon].hint;
     document.querySelectorAll("[data-weapon]").forEach((b) => {
       b.classList.toggle("selected", b.dataset.weapon === weapon);
       b.setAttribute("aria-pressed", String(b.dataset.weapon === weapon));
@@ -787,6 +789,14 @@ class Game {
       this.notice(e.announcement,6);
       this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4});
     }
+    if(e.type==='portalExit'&&e.player===this.playerId){
+      this.notice('Slipstream jump',1.2);
+      this.vibrate(18);
+    }
+    if(e.type==='pickup'&&e.player===this.playerId){
+      this.notice(`Reactor bloom · hull ${e.health} · energy ${e.energy}`,1.8);
+      this.vibrate([12,30,12]);
+    }
     this.renderer.event(e);
     if (e.type === "fire")
       this.playSound(e.weapon, e.player === this.playerId ? 1 : 0.18);
@@ -961,11 +971,6 @@ class Game {
       `${Math.floor(remain / 60)}:${String(remain % 60).padStart(2, "0")}`;
     $("round-label").textContent =
       `Round ${state.round} · ${this.map.districts?.find(d=>Math.abs(p.x-d.x)<30&&Math.abs(p.z-d.z)<30)?.label || "Confluence"} · ${(this.map.stage??3)+1}/4 open`;
-    $("health-value").textContent = Math.ceil(p.health);
-    $("energy-value").textContent = Math.floor(p.energy);
-    $("health-bar").style.width = `${p.health}%`;
-    $("energy-bar").style.width = `${p.energy}%`;
-    document.querySelector(".vitals").classList.toggle("low", p.health < 30);
     for (const button of document.querySelectorAll("[data-weapon]"))
       button.classList.toggle(
         "depleted",

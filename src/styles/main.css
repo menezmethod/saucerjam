@@ -167,7 +167,7 @@ h1 {
 }
 .primary-actions .primary {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
 }
 .room-divider {
@@ -403,47 +403,6 @@ body.hud-idle .flight-hint {
 .combat-bar > div {
   pointer-events: auto;
 }
-.vitals {
-  width: 195px;
-  padding: 13px 15px;
-  background: #0c1628d9;
-  border: 1px solid #35506975;
-  border-radius: 8px;
-}
-.vitals > div:not(.meter) {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: #b4c9de;
-}
-.vitals strong {
-  font-size: 15px;
-  color: white;
-  font-variant-numeric: tabular-nums;
-}
-.meter {
-  height: 5px;
-  background: #2c3f53;
-  margin: 5px 0 10px;
-  border-radius: 2px;
-  overflow: hidden;
-}
-.meter:last-child {
-  margin-bottom: 0;
-}
-.meter i {
-  display: block;
-  height: 100%;
-  background: #99efbd;
-  transition: width 0.08s;
-}
-.meter.energy i {
-  background: #69cde9;
-}
-.vitals.low .meter:not(.energy) i {
-  background: #ff7199;
-}
 .weapons {
   display: flex;
   gap: 6px;
@@ -485,12 +444,12 @@ body.hud-idle .flight-hint {
   box-shadow: inset 0 -2px #5eeaff;
 }
 .weapon[data-weapon="GRENADE"].selected {
-  border-color: #ffae69;
-  box-shadow: inset 0 -2px #ffae69;
+  border-color: #bc91ff;
+  box-shadow: inset 0 -2px #bc91ff;
 }
 .weapon[data-weapon="BOUNCE"].selected {
-  border-color: #95ff9f;
-  box-shadow: inset 0 -2px #95ff9f;
+  border-color: #ff91d5;
+  box-shadow: inset 0 -2px #ff91d5;
 }
 .weapon.depleted {
   opacity: 0.55;
@@ -500,6 +459,7 @@ body.hud-idle .flight-hint {
   flex-direction: column;
   gap: 5px;
 }
+.combat-bar > .flight-tools { position: absolute; right: 0; bottom: 0; }
 .flight-hint {
   position: fixed;
   bottom: 14px;
@@ -514,6 +474,7 @@ body.hud-idle .flight-hint {
   margin: 0 8px;
   opacity: 0.5;
 }
+#weapon-hint { opacity: 1; color: #d9ecff; }
 .modal {
   position: fixed;
   inset: 0;
@@ -653,9 +614,6 @@ th {
     padding: 11px;
     gap: 8px;
   }
-  .vitals {
-    width: 165px;
-  }
   .session-tools {
     flex-direction: column;
     gap: 6px;
@@ -754,16 +712,6 @@ th {
     left: 10px;
     right: 10px;
   }
-  .vitals {
-    width: 124px;
-    padding: 8px 10px;
-  }
-  .vitals strong {
-    font-size: 13px;
-  }
-  .vitals > div:not(.meter) {
-    font-size: 10px;
-  }
   .weapon {
     min-width: 0;
     padding: 10px 8px;
@@ -852,6 +800,10 @@ th {
   .weapon kbd,
   .weapon span {
     display: none;
+  }
+  .weapon.selected span,
+  .weapon.selected small {
+    display: block;
   }
   .weapon-icon {
     display: block;
@@ -947,7 +899,7 @@ body.touch-active #touch-joystick {
 /* Arena/Scores/Sound move into the Flight menu on touch (see
    relocateFlightTools in index.js). The whole bottom of the screen is a
    gesture surface now (joystick zone bottom-left, tap-to-fire everywhere
-   else), so vitals + weapons move up to the top-right, clear of both the
+   else), so weapons move up to the top-right, clear of both the
    radar (top-left) and every gesture zone. */
 body.touch-active .combat-bar {
   /* The top bar's real rendered height varies by device/browser-chrome in
@@ -960,9 +912,6 @@ body.touch-active .combat-bar {
   flex-direction: column;
   align-items: end;
   gap: 8px;
-}
-body.touch-active .vitals {
-  width: 150px;
 }
 #menu .flight-tools {
   flex-direction: row;

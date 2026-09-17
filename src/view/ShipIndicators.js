@@ -3,7 +3,7 @@ import './indicators.css';
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const intersects = (a, b) => a.left < b.right + 5 && a.right > b.left - 5 && a.top < b.bottom + 5 && a.bottom > b.top - 5;
-const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .vitals, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-controls';
+const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-controls';
 
 export function hullState(player, time = 0) {
   const max = Number.isFinite(player.maxHealth) && player.maxHealth > 0 ? player.maxHealth : 100;
@@ -17,7 +17,7 @@ export class ShipIndicators {
     this.document = container.ownerDocument;
     this.root = this.document.createElement('div');
     this.root.className = 'qd-ship-indicators';
-    this.root.setAttribute('aria-label', 'Pilot hull and protection');
+    this.root.setAttribute('aria-label', 'Pilot hull, energy, and spawn protection');
     container.appendChild(this.root);
     this.entries = new Map();
     this.point = new Vector3();
@@ -26,9 +26,8 @@ export class ShipIndicators {
   create(id) {
     const node = this.document.createElement('div');
     node.className = 'qd-ship-indicator';
-    const local = this.document.createElement('span');
-    local.className = 'qd-local-marker';
-    local.textContent = 'YOU';
+    const name = this.document.createElement('span');
+    name.className = 'qd-pilot-name';
     const hull = this.document.createElement('div');
     hull.className = 'qd-pilot-hull';
     const track = this.document.createElement('span');
@@ -39,12 +38,17 @@ export class ShipIndicators {
       return segment;
     });
     hull.append(track);
-    const shield = this.document.createElement('span');
-    shield.className = 'qd-protection';
-    shield.textContent = '⬡';
-    node.append(local, hull, shield);
+    const energy = this.document.createElement('div');
+    energy.className = 'qd-local-energy';
+    const energyFill = this.document.createElement('i');
+    energy.append(energyFill);
+    const protect = this.document.createElement('span');
+    protect.className = 'qd-protection';
+    protect.textContent = '⬡';
+    protect.title = 'Spawn protection';
+    node.append(name, hull, energy, protect);
     this.root.appendChild(node);
-    const entry = { node, local, segments, shield };
+    const entry = { node, name, segments, energy, energyFill, protect };
     this.entries.set(id, entry);
     return entry;
   }
@@ -72,7 +76,7 @@ export class ShipIndicators {
       if (!p.alive) continue;
       present.add(p.id);
       const entry = this.entries.get(p.id) || this.create(p.id);
-      const { node, local, segments, shield } = entry;
+      const { node, name, segments, energy, energyFill, protect } = entry;
       const position = p.renderPosition || p;
       this.point.set(position.x, Number.isFinite(position.y) ? position.y + 1.15 : 2.05, position.z).project(camera);
       node.hidden = !Number.isFinite(this.point.x) || !Number.isFinite(this.point.y) || this.point.z < -1 || this.point.z > 1 || Math.abs(this.point.x) > 1 || Math.abs(this.point.y) > 1;
@@ -81,14 +85,16 @@ export class ShipIndicators {
       node.dataset.condition = state.percent <= 25 ? 'critical' : state.percent <= 50 ? 'damaged' : 'healthy';
       const isLocal = p.id === localId;
       node.dataset.local = String(isLocal);
-      local.hidden = !isLocal;
-      shield.hidden = !state.protected;
-      node.setAttribute('aria-label', `${isLocal ? 'You, ' : ''}${String(p.name || 'Pilot')}, hull ${state.percent} percent${state.protected ? ', protected' : ''}`);
+      name.textContent = `${isLocal ? 'YOU · ' : ''}${String(p.name || 'Pilot')}`;
+      energy.hidden = !isLocal;
+      energyFill.style.width = `${clamp(Number.isFinite(p.energy) ? p.energy : 0, 0, 100)}%`;
+      protect.hidden = !state.protected;
+      node.setAttribute('aria-label', `${isLocal ? 'You, ' : ''}${String(p.name || 'Pilot')}, hull ${state.percent} percent${isLocal ? `, energy ${Math.round(clamp(Number.isFinite(p.energy) ? p.energy : 0, 0, 100))} percent` : ''}${state.protected ? ', spawn protection' : ''}`);
       segments.forEach((segment, i) => segment.style.setProperty('--fill', `${clamp(state.percent - i * 10, 0, 10) * 10}%`));
       const anchorX = (this.point.x + 1) * width / 2;
       const anchorY = (1 - this.point.y) * height / 2;
       const compact=width<600;
-      const cardWidth = compact?42:52, cardHeight = compact?5:6;
+      const cardWidth = compact?42:52, cardHeight = isLocal ? (compact?24:26) : (compact?16:18);
       let placement;
       // Keep each label close to its ship; suppress if every slot is obstructed.
       // All slots stay above the projected anchor to preserve the forward reticle.

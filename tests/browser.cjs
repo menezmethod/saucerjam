@@ -114,6 +114,24 @@ async function main() {
       return input.turn === 0 && input.thrust === 0 && (!input.move || Math.hypot(input.move.x,input.move.z)===0);
     });
     console.log("PASS: directional movement replicates to the other browser");
+    const portal = room.sim.map.portals[0];
+    Object.assign(room.sim.players.get(idA), {
+      x: portal.x,
+      z: portal.z,
+      vx: 0,
+      vz: 0,
+      portalLockUntil: 0,
+    });
+    await a.waitForFunction(
+      ({ id, x, z }) => {
+        const player = window.__qd.getSnapshot().state.players.find((p) => p.id === id);
+        return player && Math.hypot(player.x - x, player.z - z) < 0.1;
+      },
+      { id: idA, x: portal.exitX, z: portal.exitZ },
+    );
+    await a.waitForFunction(() => document.querySelector("#notice").textContent === "Slipstream jump");
+    await a.screenshot({ path: path.join(out, "portal-traversal.png") });
+    console.log("PASS: authoritative portal traversal snaps the client with readable feedback");
     function fixture(weapon, az, bz) {
       const pa = room.sim.players.get(idA),
         pb = room.sim.players.get(idB);
@@ -152,6 +170,7 @@ async function main() {
     assert.equal(pa.kills, 1);
     await a.keyboard.press("Tab");
     await a.waitForSelector("#scoreboard:not([hidden])");
+    await a.waitForFunction(() => /Alpha \(you\)1/.test(document.querySelector('#scores').textContent));
     assert.match(await a.textContent("#scores"), /Alpha \(you\)1/);
     await a.keyboard.press("Escape");
     await until(() => pb.alive, 4500);
@@ -162,23 +181,25 @@ async function main() {
     );
     ({ pa, pb } = fixture("GRENADE", -8, 8));
     await a.keyboard.press("Digit2");
-    await sleep(250);
+    await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "GRENADE");
+    await until(() => pa.weapon === "GRENADE");
     await a.keyboard.down("Space");
     await sleep(100);
     await a.keyboard.up("Space");
     await until(() => pb.health < 100);
     assert.equal(pb.health, 20);
-    console.log("PASS: grenade launch and authoritative area damage");
+    console.log("PASS: Nova Charge arc and authoritative area damage");
     ({ pa, pb } = fixture("BOUNCE", 27, 22));
     await a.keyboard.press("Digit3");
-    await sleep(250);
+    await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "BOUNCE");
+    await until(() => pa.weapon === "BOUNCE");
     await a.keyboard.down("Space");
     await sleep(100);
     await a.keyboard.up("Space");
     await until(() => pb.health < 100);
     assert.equal(pb.health, 66);
     console.log(
-      "PASS: ricochet banks off the arena wall and damages the other player",
+      "PASS: Ricochet Disc banks and damages the other player",
     );
     await a.keyboard.press("KeyV");
     assert.equal((await snapshot(a)).view, 2);
@@ -331,6 +352,9 @@ async function main() {
       () => window.__qd.getSnapshot().mode === "practice",
     );
     assert.ok(await mobile.locator("#touch-controls").isVisible());
+    assert.match(await mobile.textContent(".flight-hint-touch"), /Left thumb moves.*Right thumb aims/);
+    assert.equal(await mobile.locator('[data-weapon="LASER"]').getAttribute("aria-label"), "Plasma Beam — 25 energy");
+    assert.ok(await mobile.locator('[data-weapon="LASER"] span').isVisible());
     await mobile.screenshot({ path: path.join(out, "mobile-practice.png") });
     assert.equal(
       await mobile.evaluate(
@@ -340,16 +364,16 @@ async function main() {
     );
     // There is no Fire button and no bounded joystick zone: touch/mouse
     // input is dispatched on #arena with per-pointer roles instead. HUD
-    // chrome (vitals/weapons vs. radar) must still never overlap itself.
+    // chrome (weapons vs. radar) must still never overlap itself.
     const noHudOverlap = async (page) =>
       page.evaluate(() => {
-        const vitals = document.querySelector(".vitals").getBoundingClientRect();
+        const weapons = document.querySelector(".weapons").getBoundingClientRect();
         const radar = document.querySelector(".radar").getBoundingClientRect();
         const clear = (r1, r2) =>
           r1.right <= r2.left || r2.right <= r1.left || r1.bottom <= r2.top || r2.bottom <= r1.top;
-        return clear(vitals, radar);
+        return clear(weapons, radar);
       });
-    assert.ok(await noHudOverlap(mobile), "vitals overlap the radar (portrait)");
+    assert.ok(await noHudOverlap(mobile), "weapons overlap the radar (portrait)");
     // The first touch in the lower part of the screen claims movement; a
     // second finger anywhere fires -- dispatched as real touch input (CDP),
     // since a synthetic DOM PointerEvent can't hold the pointer capture the

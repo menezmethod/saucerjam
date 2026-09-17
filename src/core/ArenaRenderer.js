@@ -131,5 +131,5 @@ export class ArenaRenderer {
     if(!lobby&&!worldOnly)this.indicators.update({players:rendered,localId:playerId,camera:this.camera,width:this.width,height:this.height,time:state.time,aim});
     this.renderer.render(this.scene,this.camera);
   }
-  dispose(root){root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
+  dispose(root){this.resizeObserver?.disconnect();this.visualViewport?.removeEventListener('resize',this.onVisualViewportResize);root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
 }

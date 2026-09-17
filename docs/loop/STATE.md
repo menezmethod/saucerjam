@@ -7,26 +7,23 @@ Updated: 2026-09-17
 - Branch: `codex/saucerjam-loop-v2`
 - Default game branch remains untouched.
 - Production build succeeds.
-- Full automated suite passes (100/100), production build succeeds, and Brave browser acceptance passes. Physical iPhone/iPad Safari evidence is still required.
+- Core test result: 83/85 passed locally; two interface tests were blocked by missing Playwright Chromium in the execution environment.
 - Multiplayer, simulation, maps, rankings, and build suites pass.
 
 ## Active cycle
 
-- Task: Promote Confluence through measured 32-, 64-, then 128-pilot admission steps before adding Nexus gameplay systems.
+- Task: Improve control responsiveness and device compatibility.
 - Owner: Astra implementation agent; orchestrator review follows.
-- Status: 32-pilot public admission is enabled from measured local evidence; 64 and 128 remain gated.
-- Invariants: preserve authoritative simulation, independent aim, touch movement/fire, reconnect behavior, current desktop gameplay, and a readable top-down camera.
+- Status: WIP checkpoint; implementation complete, acceptance blocked on browser/device evidence.
+- Invariants: preserve authoritative simulation, independent aim, touch movement/fire, reconnect behavior, and current desktop gameplay.
 
 ## Evidence
 
-- `CONTROLS_PASS_01.md`; focused input/view tests 20/20 pass; interface tests 2/2 pass; production build passes.
-- `north-star/01-nexus-tactical-v1.png` through `north-star/04-modular-kit-v1.png`; objective routes, world themes, modular kit, and performance constraints are explicit.
-- `SCALE_BASELINE_01.md`; 128-pilot idle recipient snapshots average 17,142 bytes / 50 visible pilots. Events, recaps, and HUD population counts are recipient-safe.
-- `ACTIVE_SCALE_02.md`; 32 moving/firing pilots hold 60 Hz locally at about 6.5 MB/s raw aggregate; 64 and 128 remain gated by active traffic evidence.
+- `CONTROLS_PASS_01.md`; focused input tests 13/13 pass; production build passes; fresh critic found no critical code defect.
 
 ## NEXT_ACTION
 
-Exercise 32 real-device clients and a real host before promoting to 64. For 64, lower active recipient traffic without weakening nearby combat; 128 requires bounded portal-linked hotspots rather than one dense bowl.
+Run browser tests where Chromium is available, then validate desktop Chrome and iPhone/iPad Safari before opening a merge-ready PR.
 
 ## Stop conditions
 

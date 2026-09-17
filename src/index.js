@@ -72,8 +72,6 @@ class Game {
       $("room-code").value = invite.toUpperCase();
       $("lobby-status").textContent =
         "Room invite ready. Enter your callsign and choose Join.";
-      $("quick-play").hidden = true;
-      $("join-room").classList.add("primary");
     }
     this.bind();
     this.interface=new Interface({maps:MAPS,onMap:id=>this.chooseMap(id),onLeaderboard:scope=>this.loadLeaderboard(scope),onPractice:()=>this.practice(),onOnline:scope=>{if(scope&&scope!=='overall')this.chooseMap(scope);this.online('quick');},onCamera:view=>this.setView(view),onZoom:zoom=>{this.renderer.zoom=Number(zoom);}});
@@ -160,16 +158,8 @@ class Game {
     $("menu-button").onclick = () => this.menu(true);
     $("resume").onclick = () => this.menu(false);
     $("leave-game").onclick = () => this.leave();
-    $("fullscreen-button").onclick = () => this.toggleFullscreen();
-    for (const event of ["fullscreenchange", "webkitfullscreenchange", "webkitfullscreenerror"])
-      document.addEventListener(event, () => this.updateFullscreenLabel());
     $("help-button").onclick = $("lobby-help").onclick = () => {
       this.panel("help",true);
-      this.clearInput();
-    };
-    $("dismiss-touch-onboarding").onclick = () => {
-      storage.set("qd-touch-guide", "seen");
-      $("touch-onboarding").hidden = true;
       this.clearInput();
     };
     $("close-help").onclick = () => {
@@ -186,34 +176,13 @@ class Game {
     };
     $("share-room").onclick = () => this.share();
     document.querySelectorAll("[data-weapon]").forEach((button) => {
-      const select = () => this.selectWeapon(button.dataset.weapon);
-      button.onclick = select;
-      button.addEventListener("pointerdown", (e) => {
-        if (e.pointerType !== "mouse") {
-          e.preventDefault();
-          select();
-        }
-      });
+      button.onclick = () => this.selectWeapon(button.dataset.weapon);
     });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
     window.addEventListener("blur", () => this.clearInput());
     document.addEventListener("visibilitychange", () => this.clearInput());
     window.addEventListener("orientationchange", () => this.clearInput());
-    // iOS can treat a held movement thumb plus a weapon tap as a page-zoom
-    // gesture. The game owns the viewport, so keep Safari's gesture events
-    // from escaping the controls.
-    const gameplaySurface = () =>
-      ["practice", "online"].includes(this.mode) &&
-      $("menu").hidden && $("help").hidden && $("scoreboard").hidden;
-    const stopViewportGesture = (e) => {
-      if (gameplaySurface()) e.preventDefault();
-    };
-    for (const type of ["gesturestart", "gesturechange", "gestureend"])
-      document.addEventListener(type, stopViewportGesture, { passive: false });
-    document.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1 && gameplaySurface()) e.preventDefault();
-    }, { passive: false });
     document.addEventListener("focusin", (e) => {
       if (e.target.closest?.('input,textarea,select,[contenteditable="true"]')) this.clearInput();
     });
@@ -411,7 +380,6 @@ class Game {
       $("menu").hidden &&
       $("help").hidden &&
       $("scoreboard").hidden &&
-      $("touch-onboarding").hidden &&
       !document.hidden && !this.interfaceModal &&
       (this.mode !== "online" || this.connected)
     );
@@ -433,12 +401,12 @@ class Game {
   key(e, down) {
     // Keyup may target a newly focused form field: always release first.
     if (!down) this.keys.delete(e.code);
-    const modal=['help','scoreboard','menu','touch-onboarding'].map($).find(el=>!el.hidden);
+    const modal=['help','scoreboard','menu'].map($).find(el=>!el.hidden);
     if(modal){
       this.clearInput();
       if(down&&e.code==='Escape'){
         e.preventDefault();
-        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else if(modal.id==='touch-onboarding')return;else this.panel('help',false);
+        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else this.panel('help',false);
       }else if(down&&e.code==='Tab'){
         e.preventDefault();
         const targets=[...modal.querySelectorAll('button,input,select,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
@@ -472,7 +440,6 @@ class Game {
       "Digit3",
     ];
     if (!recognized.includes(e.code)) return;
-    if (e.code === "Tab" && !["practice", "online"].includes(this.mode)) return;
     e.preventDefault();
     if (!down) {
       this.keys.delete(e.code);
@@ -515,18 +482,11 @@ class Game {
       );
   }
   selectWeapon(weapon) {
-    if (!Object.hasOwn(WEAPONS, weapon)) return;
     this.weapon = weapon;
-    $("weapon-hint").textContent = WEAPONS[weapon].hint;
     document.querySelectorAll("[data-weapon]").forEach((b) => {
       b.classList.toggle("selected", b.dataset.weapon === weapon);
       b.setAttribute("aria-pressed", String(b.dataset.weapon === weapon));
     });
-  }
-  cycleWeapon(direction = 1) {
-    const weapons = ["LASER", "GRENADE", "BOUNCE"];
-    const index = weapons.indexOf(this.weapon);
-    this.selectWeapon(weapons[(index + direction + weapons.length) % weapons.length]);
   }
   cycleView() {
     this.setView(this.renderer.view===2?0:2);
@@ -594,40 +554,6 @@ class Game {
     this._audioState.roundOver = false;
     this.unlockAudio();
     this.syncMusicToMode();
-    this.showTouchOnboarding();
-  }
-  showTouchOnboarding() {
-    if (!document.body.classList.contains("touch-active")) return;
-    if (storage.get("qd-touch-guide", "") === "seen") return;
-    $("touch-onboarding").hidden = false;
-    this.clearInput();
-  }
-  updateFullscreenLabel() {
-    const full = document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement;
-    $("fullscreen-button").textContent = full ? "Exit full screen" : "Enter full screen";
-  }
-  async toggleFullscreen() {
-    const full = document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement;
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    try {
-      if (full) {
-        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
-        if (exit) await exit.call(document);
-      } else {
-        const element = document.documentElement;
-        const enter = element.requestFullscreen || element.webkitRequestFullscreen || element.webkitRequestFullScreen;
-        if (enter) await enter.call(element);
-        else throw new Error("fullscreen unavailable");
-      }
-    } catch {
-      const message = ios
-        ? "On iPhone/iPad: use Share → Add to Home Screen for full-screen play."
-        : "Full screen is unavailable in this browser.";
-      $("menu-status").textContent = message;
-      this.notice(message, 7);
-    }
-    this.updateFullscreenLabel();
   }
   practice() {
     this.socket?.disconnect();
@@ -676,7 +602,7 @@ class Game {
     this.socket.on("connect_error", () => {
       if (this.mode === "connecting")
         this.failJoin(
-          "Cannot reach the arena. Check your connection or choose Practice.",
+          "Cannot reach the game server. Start it with npm start, or play practice.",
         );
       else if (this.mode === "online")
         this.notice("Connection lost. Retrying… Open Menu to leave.", 30);
@@ -738,7 +664,6 @@ class Game {
     this.setBusy(false);
     $("lobby").hidden = false;
     $("hud").hidden = $("menu").hidden = true;
-    $("touch-onboarding").hidden = true;
     $("lobby-status").textContent = message;
     this.syncMusicToMode();
   }
@@ -861,14 +786,6 @@ class Game {
     if(e.type==='mapChanged'&&e.announcement){
       this.notice(e.announcement,6);
       this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4});
-    }
-    if(e.type==='portalExit'&&e.player===this.playerId){
-      this.notice('Slipstream jump',1.2);
-      this.vibrate(18);
-    }
-    if(e.type==='pickup'&&e.player===this.playerId){
-      this.notice(`Reactor bloom · hull ${e.health} · energy ${e.energy}`,1.8);
-      this.vibrate([12,30,12]);
     }
     this.renderer.event(e);
     if (e.type === "fire")
@@ -1044,6 +961,11 @@ class Game {
       `${Math.floor(remain / 60)}:${String(remain % 60).padStart(2, "0")}`;
     $("round-label").textContent =
       `Round ${state.round} · ${this.map.districts?.find(d=>Math.abs(p.x-d.x)<30&&Math.abs(p.z-d.z)<30)?.label || "Confluence"} · ${(this.map.stage??3)+1}/4 open`;
+    $("health-value").textContent = Math.ceil(p.health);
+    $("energy-value").textContent = Math.floor(p.energy);
+    $("health-bar").style.width = `${p.health}%`;
+    $("energy-bar").style.width = `${p.energy}%`;
+    document.querySelector(".vitals").classList.toggle("low", p.health < 30);
     for (const button of document.querySelectorAll("[data-weapon]"))
       button.classList.toggle(
         "depleted",
@@ -1055,9 +977,8 @@ class Game {
         : this.connected
           ? `${this.ping} ms · Connected`
           : "Reconnecting…";
-    const humans = Number.isFinite(state.humanCount) ? state.humanCount : state.players.filter((q) => !q.bot).length;
-    const pilots = Number.isFinite(state.pilotCount) ? state.pilotCount : state.players.length;
-    $("pilot-count").textContent = `${humans} human${humans === 1 ? "" : "s"} / ${pilots} pilots`;
+    $("pilot-count").textContent =
+      `${state.players.filter((q) => !q.bot).length} human${state.players.filter((q) => !q.bot).length === 1 ? "" : "s"} / ${state.players.length} pilots`;
     $("death-panel").hidden = p.alive || !!state.restartAt;
     $("respawn-time").textContent = Math.max(
       1,
@@ -1109,7 +1030,7 @@ class Game {
     }
   }
   renderScores() {
-    const rows = [...(this.state.standings || this.state.players)]
+    const rows = [...this.state.players]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
       .map((p) => {
         const row = document.createElement("tr");

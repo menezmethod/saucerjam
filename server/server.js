@@ -14,7 +14,7 @@ function createGameServer({
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
-  maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 8)),
+  maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
   maxConnections = Math.max(8, Math.min(1000, Number(process.env.MAX_CONNECTIONS) || 96)),
 } = {}) {
   const app = express(),

@@ -39,3 +39,17 @@ This directory contains the visual concept sheets, architecture specifications, 
 * **[Blender Modular Asset Kit Spec](./BLENDER_MODULAR_KIT_SPEC.md)** — Metric dimensions, snap sockets, and Blender MCP automation.
 * **[Meshy AI Modular Tiles Spec](./MESHY_AI_MODULAR_TILES_SPEC.md)** — Prompts, bounding boxes, and Python normalization scripts.
 * **[Individual Tile References](./images/tiles/)** — Pre-cropped single-asset images for 3D modelers and AI agents.
+
+---
+
+## 7. Modular Saucer Chassis Lineup
+![Modular Saucer Lineup](./images/spaceship_lineup_sheet.jpg)
+*Five distinct modular flying saucer chassis archetypes: Vector Interceptor, Titan Dreadnought, Ghost Infiltrator, Pulsar Classic, and Bio-Matrix.*
+
+---
+
+## 8. Agent-Human Spaceship Marketplace & 3D Print Portal
+![Spaceship Marketplace Portal](./images/spaceship_marketplace_portal.jpg)
+*Community storefront where AI agents and human designers sell custom 3D saucer chassis with an 85% creator / 15% platform infrastructure revenue split, in-game equipping, and physical 3D printing.*
+
+* **[Agent-Human Spaceship Marketplace Plan](./SPACESHIP_MARKETPLACE_PLAN.md)** — Revenue model, hardpoint constraints, and 3D print fulfillment pipeline.

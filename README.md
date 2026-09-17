@@ -16,17 +16,17 @@ Open **http://localhost:8080**. `npm start` builds the client and starts the ser
 - **Practice with bots** starts immediately and runs locally in your browser. Once loaded, practice does not need a network connection. Menu pauses practice.
 - **Play online** joins a public arena. Bots fill vacant seats up to four pilots and leave as humans join.
 - **Create room** gives you a private room code. Turn off bot fill for human-only matches.
-- **Copy invite** copies a link for friends. They enter a callsign and press Join. Up to eight humans fit in a room.
+- **Copy invite** copies a link for friends. They enter a callsign and press Join. The server's default admission limit is 32 humans per room; that is not a tested performance target.
 - Rounds end after 20 eliminations or five minutes. The next round starts automatically after ten seconds.
 - A generated soundtrack and SFX play by default; toggle with **Sound on/off**. See [docs/AUDIO.md](docs/AUDIO.md) for the cue map and how to rebuild the assets.
 
 For another computer on your LAN, open the **LAN play** address printed by the server (for example `http://192.168.0.9:8080`). Create/copy the invite from that address so friends get a reachable link; `localhost` always means their own computer. Allow incoming connections to the chosen port if your firewall prompts.
 
-For friends outside your LAN, run the same server on a reachable host or use a shared private network such as Tailscale. The production deployment uses Coolify; see [hosting and operations](docs/HOSTING.md). Serve it through HTTPS for public browser access and clipboard support. Active rooms are in memory. An intentional last-human exit closes the room; transport loss keeps it paused for 30 seconds so automatic reconnect can recover it. Completed online round results persist in `server/data/rankings.json` (override with `RANKINGS_FILE`). Rejoining an active round under the same browser pilot identity preserves its combat resources, death timers and performance counters. If everyone disconnected and the room closed, create a new one.
+For friends outside your LAN, run the same server on a reachable host or use a shared private network such as Tailscale. The Coolify deployment setup and public verification steps are in [hosting and operations](docs/HOSTING.md). Serve it through HTTPS for public browser access and clipboard support. Active rooms are in memory. An intentional last-human exit closes the room; transport loss keeps it paused for 30 seconds so automatic reconnect can recover it. Completed online round results persist in `server/data/rankings.json` (override with `RANKINGS_FILE`). Rejoining an active round under the same browser pilot identity preserves its combat resources, death timers and performance counters. If everyone disconnected and the room closed, create a new one.
 
-## v1.0 release
+## Browser release
 
-Browser arena shooter with one connected, expanding world, bot practice, private invites, and server-authoritative multiplayer. Download a ready-built Node server from [GitHub Releases](https://github.com/menezmethod/saucerjam/releases). Extract it, run `npm ci --omit=dev`, then `npm run serve`. Node.js 20+ is required; there is no native desktop installer.
+The current source version is 1.3.0. For a tagged release, download the prebuilt browser client and Node server from [GitHub Releases](https://github.com/menezmethod/saucerjam/releases). Extract it, run `npm ci --omit=dev`, then `npm run serve`. Node.js 20+ is required; there is no native desktop installer. A public play URL should be advertised only after the [live deployment checks](docs/HOSTING.md) pass.
 
 See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), and the [next milestones](docs/ROADMAP.md).
 
@@ -47,7 +47,7 @@ See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), and the [next mil
 | C | Controls and weapon guide |
 | Escape | Flight menu |
 
-Touch screens get a floating drag joystick (appears wherever you first touch the lower-left) for movement and a dedicated Fire button; aim independently by touching the arena, or fire follows the last movement direction without a target. Keyboard and mouse give the most precise control.
+Touch screens get a drag joystick for movement on the left and tap-to-fire aiming on the right; there is no separate Fire button. Keyboard and mouse give the most precise control.
 
 ## Combat
 
@@ -64,7 +64,7 @@ npm run dev          # Client rebuilds on :8080, server on :3000 through a proxy
 npm run build        # Production client in dist/
 npm run serve        # Serve an existing build on :8080
 npm test             # Builds the client, then runs simulation and Socket.IO tests
-npm run test:browser # Production-browser end-to-end tests; run build first
+CHROME_BACKEND=native npm run test:browser # Production-browser end-to-end tests; run build first
 ```
 
 The browser suite uses installed Google Chrome on macOS, `CHROME_PATH` when provided, or Playwright Chromium (`npx playwright install chromium`). It tests independent clients, room invites, replicated controls, all three weapons, death/respawn, cameras, network loss/reconnect, practice, mobile layout, and asset-independent procedural ships. Screenshots go in `test-results/`.
@@ -98,8 +98,4 @@ Pilot records include lifetime and per-map score, wins, kills/deaths, damage, ac
 
 Beyond the test suite above, `node scripts/verification/confluence.cjs` checks two browsers, seven connected pilots, and synchronized map expansion/reset. `npm run capture -- --map foundry --camera tactical --time dusk --state combat --out test-results/capture` captures a single reference scene. These staged diagnostics require `?showcase`; their synthetic counters never become online records. Headless SwiftShader FPS is a regression measure, not a native GPU benchmark.
 
-Capacity defaults to eight rooms (up to eight humans each) and 96 connected sockets. These are protective admission limits, not a measured 64-player performance guarantee. Configure `MAX_ROOMS` and `MAX_CONNECTIONS` only after load testing your host.
-
-## Junction mini-release (v1.1.0)
-
-Select Junction for offset central cover, tight side pockets, and quick flanks using the existing Foundry art. It is optional and does not alter the original rotation. See [release loop](docs/RELEASE-LOOP.md) for incremental delivery.
+Admission defaults to eight rooms, 32 humans per room, and 96 connected sockets. These are protective limits, not a measured concurrency guarantee. Set `MAX_ROOM_PLAYERS`, `MAX_ROOMS`, and `MAX_CONNECTIONS` to the levels verified on your host before inviting a larger audience.

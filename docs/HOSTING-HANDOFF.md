@@ -1,8 +1,8 @@
-# Hosting handoff
+# Hosting handoff (historical v1.0.0 notes)
 
-Finish hosting SaucerJam v1.0.0. Do not change gameplay or expand scope.
+This records the original v1.0.0 hosting handoff. For the current release checks and limits, use [HOSTING.md](HOSTING.md); the observations below are not a live status report.
 
-- Repository: https://github.com/menezmethod/saucerjam, master. Local checkout: /Users/luisgimenez/Development/07-archive/qd.
+- Repository: https://github.com/menezmethod/saucerjam, master. The checkout path recorded at the time of this handoff is no longer authoritative.
 - Coolify: https://cp.menezmethod.com. Existing application UUID aoeefnsohotlncnvmpgwmaao, Web Projects / production, logisticsPc (192.168.0.222). SSH alias logisticsPc works. Owner authorized changing its Coolify build-only role to deployment-capable; this was done.
 - App: Dockerfile, container port 8080, 1 CPU / 512 MiB, eight-room admission limit (not proven capacity). Persistent rankings bind /data/saucerjam/rankings → /app/server/data, UID 1000. Health check must use http://127.0.0.1:8080/health, not localhost (IPv6 caused failed probes). Last container was observed healthy; verify current deployment ktlnvbiqgdxhwbdxfdeik6zd before proceeding.
 - Desired public URL: https://qd.menezmethod.com. Previously returned “no available server”; public ingress is unfinished. Existing routing is Cloudflare. Wrangler is installed and authenticated. `wrangler tunnel list` found healthy coolify-tunnel, UUID 19bf9243-3d61-4db1-bd9a-60665e2b675d, account 2d7646c1abf06ea447a855a7d6b4f3e1. Inspect its existing ingress/DNS; update only qd routing, preserving every other service. No Cloudflare configuration was changed in this task.

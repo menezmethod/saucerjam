@@ -6,7 +6,7 @@
 
 Core story:
 
-> SaucerJam is a large-scale browser arena game inspired by the lost feeling of early online multiplayer, rebuilt for modern networks and evolved openly by players, developers, artists, and AI agents.
+> SaucerJam is a free browser arena game inspired by the lost feeling of early online multiplayer, shaped openly by its players.
 
 Primary CTA:
 
@@ -16,7 +16,7 @@ Do not lead with "AI-made game."
 
 Lead with:
 - instant browser play
-- massive saucer battles
+- fast saucer battles
 - skill-based weapons
 - evolving world
 - community-driven evolution
@@ -70,7 +70,7 @@ Community ideas become prototypes; prototypes become temporary servers; proven i
 
 ### 4. Scale as an event
 
-**Current target: 128 concurrent players.**
+**Later target: 128 concurrent players. First prove a small public Jam Night.**
 
 Public milestones:
 - 32-player test
@@ -89,7 +89,7 @@ Every scale milestone should generate:
 
 ## Player acquisition
 
-Initial channels:
+Initial channels after the public play URL passes the [hosting checks](HOSTING.md):
 1. playable website first — no install
 2. itch.io browser release
 3. GitHub
@@ -109,7 +109,7 @@ Use:
 - bots for immediate action
 - scheduled Jam Nights
 - one public arena initially
-- visible upcoming event/countdown
+- a clearly posted next event time
 - easy invite links
 - population-gated world expansion so low concurrency still feels dense
 
@@ -180,20 +180,27 @@ Message:
 
 > **Tools are open. Standards are high.**
 
-## Launch gates
+## First public playtest
 
-Do not push a broad public launch until:
+Run a 6–8-person private rehearsal with first-time players, then a scheduled public Jam Night within measured host capacity. Share short gameplay clips and direct invitations with one link to play. After each event, post the main finding and the next date.
+
+Track counts as well as rates: successful joins, time from page load to play, round completion, active second-round play, next-event return, invites that lead to joins, and fatal errors/disconnects. A round auto-restarts, so count replay only when a player stays active in the next round. Use this data to choose the next fix.
+
+Before broad promotion:
 
 - [ ] SaucerJam passes final live trademark/domain/handle clearance
 - [ ] questionable assets are replaced/documented
 - [ ] licensing decision recorded (MIT retained; revisit conditions met and attorney-reviewed before any change — see `docs/PUBLIC-LAUNCH-FOUNDATION.md`)
 - [ ] contributor terms exist
 - [ ] official play URL works with near-zero friction
+- [ ] two real remote clients complete a round and saved results survive restart
 - [ ] bots solve the empty-server problem
 - [ ] basic moderation/reporting exists
 - [ ] analytics measure joins, retention, match completion, and invites
-- [ ] 64-player load test is measured before claiming ARC-scale concurrency
-- [ ] 128-player test exists before promoting "Big Jam"
+- [ ] first event attendance stays within capacity measured on the actual host
+- [ ] private rehearsal shows newcomers can enter combat without coaching
+
+Measure 64-player capacity before claiming it, and test 128 players before promoting the Big Jam.
 
 ## North-star sentence
 

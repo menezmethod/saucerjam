@@ -13,9 +13,9 @@ module.exports = (_, argv) => ({
     new HtmlWebpackPlugin({ template: "./src/index.html" }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: "src/assets/models", to: "assets/models" },
-        { from: "src/assets/sounds", to: "assets/sounds" },
-        { from: "src/assets/music", to: "assets/music" },
+        { from: "**/*.glb", context: "src/assets/models", to: "assets/models/[path][name][ext]" },
+        { from: "*.mp3", context: "src/assets/sounds", to: "assets/sounds/[name][ext]" },
+        { from: "*.ogg", context: "src/assets/music", to: "assets/music/[name][ext]" },
       ],
     }),
   ],
@@ -29,6 +29,7 @@ module.exports = (_, argv) => ({
     proxy: {
       "/socket.io": { target: "http://127.0.0.1:3000", ws: true },
       "/health": "http://127.0.0.1:3000",
+      "/api": "http://127.0.0.1:3000",
     },
   },
 });

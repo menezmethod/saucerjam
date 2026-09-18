@@ -19,7 +19,16 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   let seq=0;
   timer=setInterval(()=>{seq++;for(const [i,s]of clients.entries())s.emit('input',{seq,move:{x:Math.sin(seq/20+i),z:Math.cos(seq/20+i)},weapon:'LASER',fire:true,aim:{x:0,z:0}})},50);
   await wait(10000);clearInterval(timer);
-  for(const s of clients){assert.ok(s.connected);const st=states.get(s.id);assert.equal(st.players.filter(p=>!p.bot).length,count);const p=st.players.find(p=>p.id===s.id);assert.ok(p.shotsFired>0);assert.ok(p.shotsFired<35,'held fire must be energy limited');}
+  for(const s of clients){
+   assert.ok(s.connected);
+   const st=states.get(s.id);
+   assert.equal(st.humanCount,count);
+   assert.ok(st.pilotCount>=count);
+   const p=st.players.find(p=>p.id===s.id);
+   assert.ok(p,'each client must receive its own authoritative pilot');
+   assert.ok(p.shotsFired>0);
+   assert.ok(p.shotsFired<35,'held fire must be energy limited');
+  }
   console.log(JSON.stringify({url,clients:count,durationSeconds:10,transport:'websocket',replication:true,energyLimited:true,status:'PASS'}));
  }finally{clearInterval(timer);clients.forEach(s=>s.disconnect())}
 })().catch(e=>{console.error(e.message);process.exitCode=1});

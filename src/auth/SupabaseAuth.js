@@ -38,7 +38,13 @@ export class SupabaseAuth {
       provider,
       options: { redirectTo: `${location.origin}${location.pathname}` },
     });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "validation_failed" && /unsupported provider/i.test(error.message || "")) {
+        const label = provider.charAt(0).toUpperCase() + provider.slice(1);
+        throw new Error(`${label} sign-in is not enabled yet. Use email and password, or try again after setup.`);
+      }
+      throw error;
+    }
   }
 
   async signIn(email, password) {

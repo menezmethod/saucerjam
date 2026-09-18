@@ -417,17 +417,7 @@ body.hud-idle .flight-hint {
   text-align: left;
   min-width: 128px;
   position: relative;
-}
-.weapon-arrow {
-  display: none;
-  width: 40px;
-  min-width: 40px;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  line-height: 1;
-  background: #0c1628e5;
+  touch-action: none;
 }
 .weapon kbd {
   margin: 0;
@@ -862,13 +852,8 @@ th {
   .weapon-icon {
     display: block;
   }
-  .weapon-arrow {
+  .weapons > .weapon {
     display: flex;
-  }
-  .weapons > .weapon:not(.selected) {
-    display: none;
-  }
-  .weapons > .weapon.selected {
     width: 52px;
     min-width: 52px;
     justify-content: center;

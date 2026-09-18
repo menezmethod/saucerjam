@@ -748,12 +748,21 @@ class Simulation {
   }
   recapFor(playerId) {
     if (!this.recap) return null;
+    const localProfileId = this.players.get(playerId)?.profileId;
+    const isLocal = (player) =>
+      player.id === playerId ||
+      (localProfileId && player.profileId === localProfileId);
     return {
       ...this.recap,
-      winnerId: this.recap.winnerId === playerId ? playerId : null,
-      players: this.recap.players.map(({ id, profileId, ...player }) =>
-        id === playerId ? { ...player, id, profileId } : player,
-      ),
+      winnerId: this.recap.players.some((player) => player.id === this.recap.winnerId && isLocal(player))
+        ? playerId
+        : null,
+      players: this.recap.players.map((player) => {
+        if (isLocal(player))
+          return { ...player, id: playerId, profileId: localProfileId || player.profileId };
+        const { id, profileId, ...publicPlayer } = player;
+        return publicPlayer;
+      }),
     };
   }
   eventsFor(playerId, events, radius = 32) {
@@ -779,6 +788,9 @@ class Simulation {
       delete player.portalLockUntil;
       if (player.id !== playerId) delete player.profileId;
     }
+    snapshot.standings = [...this.players.values()].map(({ id, name, bot, kills, deaths }) => ({
+      id, name, bot, kills, deaths,
+    }));
     snapshot.recap = this.recapFor(playerId);
     return snapshot;
   }

@@ -3,7 +3,7 @@ import './indicators.css';
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const intersects = (a, b) => a.left < b.right + 5 && a.right > b.left - 5 && a.top < b.bottom + 5 && a.bottom > b.top - 5;
-const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-controls';
+const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-joystick';
 
 export function hullState(player, time = 0) {
   const max = Number.isFinite(player.maxHealth) && player.maxHealth > 0 ? player.maxHealth : 100;

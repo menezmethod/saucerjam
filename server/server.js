@@ -25,7 +25,23 @@ function createGameServer({
       ? { cors: { origin: process.env.CLIENT_URL.split(",") } }
       : {}),
   });
+  const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+  // ponytail: verify once per socket via Supabase Auth; add cached JWKS verification only when reconnect traffic warrants it.
+  const verifySupabaseToken = async (token) => {
+    if (!token) return null;
+    if (!supabaseUrl || !supabasePublishableKey) throw new Error("Supabase authentication is not configured.");
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: supabasePublishableKey, authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error("Invalid Supabase session.");
+    const user = await response.json();
+    return typeof user?.id === "string" ? user : null;
+  };
   io.use((socket, next) => next(io.engine.clientsCount > maxConnections ? new Error("Server is full. Please try again shortly.") : undefined));
+  io.use((socket, next) => {
+    const token = typeof socket.handshake.auth?.accessToken === "string" ? socket.handshake.auth.accessToken : "";
+    if (!token) return next();
+    verifySupabaseToken(token).then((user) => { socket.data.authUser = user; next(); }).catch(() => next(new Error("Sign-in expired. Please sign in again.")));
+  });
   const rooms = new Map();
   const sendSnapshots = (room) => {
     for (const id of room.humans)
@@ -41,11 +57,21 @@ function createGameServer({
   const pendingSaves = new Set();
   let rankingError = null;
   const profileKey = token => typeof token === "string" && /^[a-zA-Z0-9_-]{20,128}$/.test(token) ? createHash("sha256").update(token).digest("hex") : null;
+  app.get("/api/config", (_req, res) => res.json({
+    authEnabled: Boolean(supabaseUrl && supabasePublishableKey),
+    supabaseUrl: supabaseUrl || "",
+    supabasePublishableKey: supabasePublishableKey || "",
+  }));
   app.get("/api/leaderboard", async (req,res) => {
     try { res.json({rows:await rankings.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
   });
   app.get("/api/profile", async (req,res) => {
-    const id=profileKey(req.get("x-pilot-token"));
+    let id = profileKey(req.get("x-pilot-token"));
+    const authorization = req.get("authorization") || "";
+    if (/^Bearer\s+/i.test(authorization)) {
+      try { id = (await verifySupabaseToken(authorization.replace(/^Bearer\s+/i, "").trim()))?.id || null; }
+      catch { return res.status(401).json({error:"Your account session has expired."}); }
+    }
     if(!id) return res.status(400).json({error:"A pilot identity is required."});
     try {res.json({playerId:id,profile:await rankings.getProfile(id),error:rankingError});} catch {res.status(503).json({error:"Flight records are temporarily unavailable."});}
   });
@@ -101,7 +127,7 @@ function createGameServer({
       lastJoin = now;
       if (!request || typeof request !== "object")
         return ack({ error: "Invalid room request." });
-      const profileId = profileKey(request.profileToken) || createHash("sha256").update(socket.id).digest("hex");
+      const profileId = socket.data.authUser?.id || profileKey(request.profileToken) || createHash("sha256").update(socket.id).digest("hex");
       if(socket.data.profileId && socket.data.profileId!==profileId)return ack({error:"Reconnect before changing pilot identity."});
       const mode = request.mode;
       const requestedMap = typeof request.mapId === "string" && allowLegacyMaps && LEGACY_MAPS.some(map=>map.id===request.mapId) ? request.mapId : allowLegacyMaps ? "classic" : "confluence";

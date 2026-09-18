@@ -77,6 +77,8 @@ docker compose up --build -d
 
 The container serves everything on port 8080 and keeps completed results in the named `rankings` volume. Override `PORT` for a direct Node deployment. If you intentionally host the frontend separately, set `CLIENT_URL` to the allowed frontend origin(s), comma-separated, and proxy `/socket.io/` to this server. The default same-origin setup needs no CORS configuration.
 
+Optional accounts use Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (or the legacy `SUPABASE_ANON_KEY`) on the server; the publishable key is safe to expose to the browser, but never expose a `service_role` key. Enable Email, Google, and Apple in Supabase Authentication, and add the local and production game URLs to the provider redirect allowlist. Guests can still play without an account.
+
 ## Engine
 
 - `shared/simulation.js`: one fixed-step 60 Hz simulation for server and practice. Owns movement, map collision, swept projectile hits, grenade blast damage, energy, bots, safe spawns, and rounds.
@@ -84,7 +86,7 @@ The container serves everything on port 8080 and keeps completed results in the 
 - `src/index.js`: controls, lobby/HUD, predicted movement with acknowledged-input replay, remote interpolation, audio, and reconnect handling.
 - `src/core/ArenaRenderer.js`: Three.js rendering, procedural ships, integrated environment/camera modules, targeting, and bounded transient effects.
 
-Multiplayer is designed for a single server process. Pilot identity is a random token retained in browser storage; clearing it creates a new pilot. Records are scoped to one server and are not authenticated cross-device accounts. Horizontal scaling and cross-region matchmaking are not implemented.
+Multiplayer is designed for a single server process. Guests use a random browser token; signed-in pilots use their verified Supabase user ID, so records can follow them across devices. Horizontal scaling and cross-region matchmaking are not implemented.
 
 ## Arenas and pilot records
 

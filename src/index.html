@@ -44,6 +44,26 @@
         <p class="intro">
           Keep moving. Read the angles.<br />Make every shot count.
         </p>
+        <section id="account" class="account-panel" aria-labelledby="account-heading">
+          <div class="account-kicker"><span>Optional account</span><strong id="account-status">Guest pilot</strong></div>
+          <h2 id="account-heading">Save your flight</h2>
+          <p id="account-copy">Sign in to carry your callsign and records between devices.</p>
+          <div class="account-providers">
+            <button id="auth-google" type="button">Continue with Google</button>
+            <button id="auth-apple" type="button">Continue with Apple</button>
+          </div>
+          <div class="account-divider"><span>or email</span></div>
+          <div class="account-fields">
+            <input id="auth-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" />
+            <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" minlength="8" />
+          </div>
+          <div class="account-actions">
+            <button id="auth-sign-in" type="button">Sign in</button>
+            <button id="auth-sign-up" type="button" class="primary">Register</button>
+            <button id="auth-sign-out" type="button" hidden>Sign out</button>
+          </div>
+          <p id="auth-status" role="status" aria-live="polite"></p>
+        </section>
         <div class="lobby-form">
           <label for="pilot-name">Your callsign</label
           ><input

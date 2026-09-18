@@ -34,17 +34,26 @@ export class SupabaseAuth {
 
   async signInWithProvider(provider) {
     if (!this.client) throw new Error("Accounts are not configured on this server yet.");
-    const { error } = await this.client.auth.signInWithOAuth({
+    const { data, error } = await this.client.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${location.origin}${location.pathname}` },
+      options: { redirectTo: `${location.origin}${location.pathname}`, skipBrowserRedirect: true },
     });
     if (error) {
-      if (error.code === "validation_failed" && /unsupported provider/i.test(error.message || "")) {
+      throw error;
+    }
+
+    if (!data?.url) throw new Error("The sign-in provider did not return a login URL.");
+    const response = await fetch(data.url, { redirect: "manual" });
+    if (response.status === 400) {
+      const details = await response.json().catch(() => null);
+      const message = details?.msg || details?.message || "";
+      if (/unsupported provider|provider is not enabled/i.test(message)) {
         const label = provider.charAt(0).toUpperCase() + provider.slice(1);
         throw new Error(`${label} sign-in is not enabled yet. Use email and password, or try again after setup.`);
       }
-      throw error;
+      throw new Error(message || "The sign-in provider rejected the request.");
     }
+    location.assign(data.url);
   }
 
   async signIn(email, password) {

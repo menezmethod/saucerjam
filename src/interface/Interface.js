@@ -108,7 +108,8 @@ export class Interface {
   mountLobby() {
     const lobby = $('lobby');
     const panel = lobby?.querySelector('.lobby-panel');
-    this.attach(panel, node('p', 'qd-identity', 'Guest flights stay on this browser. Sign in above to carry your pilot between devices.'));
+    this.identity = this.attach(panel, node('p', 'qd-identity', 'Guest flights stay on this browser. Sign in above to carry your pilot between devices.'));
+    this.identity.id = 'account-context';
     this.attach(panel, this.button('Pilot records ↗', () => this.loadLeaderboard('overall'), 'qd-records-link'));
     this.picker = this.attach(lobby, node('section', 'qd-map-picker'));
     this.picker.setAttribute('aria-label', 'Choose an arena');

@@ -1,0 +1,3 @@
+# Local Supabase CLI project metadata.
+# Production Auth/OAuth settings remain managed in the Supabase dashboard.
+project_id = "saucerjam"

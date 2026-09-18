@@ -4,6 +4,7 @@ import { stickVector, reanchor } from "./input/stick";
 import { ArenaRenderer } from "./core/ArenaRenderer";
 import {Interface} from "./interface/Interface";
 import {MusicBus, BED_FOR_DISTRICT} from "./audio/MusicBus";
+import { SupabaseAuth } from "./auth/SupabaseAuth";
 import {MAPS,getMap,getWorld} from "../shared/maps";
 import {
   Simulation,
@@ -32,7 +33,7 @@ const storage = {
   },
 };
 class Game {
-  constructor() {
+  constructor(runtimeConfig = {}) {
     this.mode = "lobby";
     this.selectedMap = "confluence";
     this.profileToken=storage.get("qd-profile", "");
@@ -54,6 +55,7 @@ class Game {
     this.soundOn = storage.get("qd-sound", "on") === "on";
     this.music = null;
     this._audioState = { bed: null, dead: false, roundOver: false };
+    this.auth = new SupabaseAuth(runtimeConfig);
     this.renderer = new ArenaRenderer($("arena"));
     this.demo = this.makePractice(true);
     this.state = this.demo.snapshot();
@@ -78,6 +80,9 @@ class Game {
     this.bind();
     this.interface=new Interface({maps:MAPS,onMap:id=>this.chooseMap(id),onLeaderboard:scope=>this.loadLeaderboard(scope),onPractice:()=>this.practice(),onOnline:scope=>{if(scope&&scope!=='overall')this.chooseMap(scope);this.online('quick');},onCamera:view=>this.setView(view),onZoom:zoom=>{this.renderer.zoom=Number(zoom);}});
     this.interface.setMaps(MAPS,this.selectedMap);
+    this.bindAuth();
+    this.auth.onChange((session) => this.updateAuth(session));
+    this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
     this.loadCareer();
     // Read-only diagnostics for support and end-to-end verification.
@@ -110,7 +115,7 @@ class Game {
   }
   applyMap(map){this.map=map;this.renderer.buildArena(map);this.renderer.cameraReady=false;}
   async loadCareer(){
-    try{const response=await fetch('/api/profile',{headers:{'x-pilot-token':this.profileToken}});if(!response.ok)throw new Error('Flight records unavailable');const data=await response.json();this.career=data.profile;this.profileId=data.playerId;this.careerError=data.error;return data;}
+    try{const headers={'x-pilot-token':this.profileToken},token=this.auth?.accessToken();if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch('/api/profile',{headers});if(!response.ok)throw new Error('Flight records unavailable');const data=await response.json();this.career=data.profile;this.profileId=data.playerId;this.careerError=data.error;return data;}
     catch(error){this.careerError=error.message;return {profile:null,error:error.message};}
   }
   async loadLeaderboard(scope='overall'){
@@ -244,6 +249,37 @@ class Game {
         );
     });
     this.bindInputChrome();
+  }
+  bindAuth() {
+    const provider = (name) => this.authAction(() => this.auth.signInWithProvider(name));
+    $("auth-google").onclick = () => provider("google");
+    $("auth-apple").onclick = () => provider("apple");
+    $("auth-sign-in").onclick = () => this.authAction(() => this.auth.signIn($("auth-email").value.trim(), $("auth-password").value));
+    $("auth-sign-up").onclick = () => this.authAction(() => this.auth.signUp($("auth-email").value.trim(), $("auth-password").value), "registered");
+    $("auth-sign-out").onclick = () => this.authAction(() => this.auth.signOut());
+  }
+  async authAction(action, success = "signed-in") {
+    const status = $("auth-status");
+    status.textContent = "Working…";
+    try {
+      const result = await action();
+      status.textContent = success === "registered" && !result?.session ? "Check your email to verify the account." : "Ready to fly.";
+    } catch (error) {
+      status.textContent = error?.message || "Account action failed. Try again.";
+    }
+  }
+  updateAuth(session, error = null) {
+    this.authSession = session || null;
+    const panel = $("account");
+    const user = session?.user;
+    const configured = Boolean(this.auth.client);
+    for (const id of ["auth-google", "auth-apple", "auth-sign-in", "auth-sign-up"]) $(id).disabled = !configured;
+    panel.dataset.authenticated = user ? "true" : "false";
+    $("account-status").textContent = user ? (user.email || "Signed-in pilot") : "Guest pilot";
+    $("account-copy").textContent = user ? "Your pilot identity and online records are linked to this account." : "Sign in to carry your callsign and records between devices.";
+    if (error) $("auth-status").textContent = "Account session could not be restored. You can continue as a guest.";
+    else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
+    if (user) this.loadCareer();
   }
   pointerDown(e) {
       if (!this.active()) return;
@@ -641,7 +677,7 @@ class Game {
     for (const id of ["quick-play", "practice", "create-room", "join-room"])
       $(id).disabled = busy;
   }
-  online(mode) {
+  async online(mode) {
     if (this.mode === "connecting") return;
     if (mode === "join" && !$("room-code").value.trim()) {
       $("lobby-status").textContent = "Enter your friend’s room code first.";
@@ -652,6 +688,7 @@ class Game {
     this.mode = "connecting";
     this.setBusy(true);
     $("lobby-status").textContent = "Connecting to the arena…";
+    await this.authReady;
     this.joinRequest = {
       mode,
       name: $("pilot-name").value,
@@ -666,6 +703,7 @@ class Game {
   setupSocket() {
     this.socket = io({
       autoConnect: false,
+      auth: (callback) => callback({ accessToken: this.auth?.accessToken() || "" }),
       timeout: 6000,
       reconnection: true,
       reconnectionDelay: 500,
@@ -1169,10 +1207,16 @@ class Game {
     }
   }
 }
-try {
-  new Game();
-} catch (error) {
+async function boot() {
+  let runtimeConfig = {};
+  try {
+    const response = await fetch("/api/config");
+    if (response.ok) runtimeConfig = await response.json();
+  } catch {}
+  new Game(runtimeConfig);
+}
+boot().catch((error) => {
   console.error(error);
   $("lobby-status").textContent =
     "The 3D renderer could not start. Enable graphics acceleration and reload in a WebGL-capable browser.";
-}
+});

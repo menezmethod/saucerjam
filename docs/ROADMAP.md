@@ -1,16 +1,16 @@
 # SaucerJam — Incremental roadmap
 
-Updated 13 September 2026.
+Updated 17 September 2026.
 
 ## Direction
 
-Gameplay -> deeper fights -> scale -> beautiful game.
+Release a reliable browser playtest -> learn from returning players -> deepen fights -> scale when demand warrants it.
 
 Preserve the released movement, independent aiming, stable overhead view, weapon economy, and intense fighting pockets. Build ONE connected world with variable population boundaries; do not fragment players across unnecessary selectable arenas.
 
 ## Current product goal
 
-**Make a 128-player SaucerJam battle genuinely fun and stable.**
+**Launch a small public Jam Night and learn whether first-time players finish a round, play again, and return.** The 128-player battle remains a later scale goal.
 
 Do not jump directly to "thousands." The distributed-world architecture becomes worthwhile only after:
 - 128 players are measured and stable;
@@ -51,18 +51,14 @@ If demand later justifies thousands, research:
 
 | Order | Deliverable | Why |
 | --- | --- | --- |
-| 1 | Refine Confluence cover/collision | Fighting must feel trustworthy |
-| 2 | Combat readability fixes from real play | Preserve simple, readable chaos |
-| 3 | Energy + instant-health pickups | Creates contested locations |
-| 4 | Portal shortcut | Enables pursuit/escapes |
-| 5 | Temporary shield pickup | Adds tactical timing |
-| 6 | Team colors + team spawns + TDM | Large battles need coordination |
-| 7 | Capture-the-core | Gives factions a reason to collide |
-| 8 | 32-player measured test | First real scale milestone |
-| 9 | 64-player Jam Night | Match the classic large-battle feeling |
-| 10 | 128-player Big Jam | Current scale target |
-| 11 | Original signature ships/landmarks/audio | Build SaucerJam's own identity |
-| 12 | Distributed-world research | Only if player demand earns it |
+| 1 | Verify public hosting, real clients, persistence, and rollback | Make the play link dependable |
+| 2 | Private first-time-player rehearsal | Find joining and control blockers |
+| 3 | Small public Jam Night with measured capacity | Learn whether players replay and return |
+| 4 | Combat readability and Confluence collision fixes from play | Address observed friction |
+| 5 | Energy + instant-health pickups, portal, temporary shield | Add depth after the core loop is validated |
+| 6 | Teams and objective mode | Give larger groups coordination |
+| 7 | Measured 32-, 64-, then 128-player events | Expand only with host data and player demand |
+| 8 | Original signature art and distributed-world research | Invest when the game has an audience |
 
 ## World foundation
 
@@ -94,4 +90,4 @@ Community voting guides priority; it does not bypass performance, security, mode
 
 ## North star
 
-> **128 players first. Thousands only when players give us a reason to solve thousands.**
+> **Release the game, learn from players, then earn the right to scale.**

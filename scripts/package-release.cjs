@@ -6,11 +6,11 @@ const root=path.resolve(__dirname,'..');
 if(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim())throw Error('Commit the accepted release before packaging.');
 const pkg=require('../package.json');
 if(!/^\d+\.\d+\.\d+$/.test(pkg.version))throw Error('Expected a numeric release version.');
-if(!fs.existsSync(path.join(root,'dist/index.html')))throw Error('Run npm run build first.');
+execFileSync('npm',['run','build'],{cwd:root,stdio:'inherit'});
 const name=`saucerjam-v${pkg.version}`,tmp=fs.mkdtempSync(path.join(os.tmpdir(),'qd-release-')),stage=path.join(tmp,name),out=path.join(root,'release-artifacts');
 fs.mkdirSync(stage);fs.mkdirSync(out,{recursive:true});
 try{
- for(const f of ['dist','shared','server/server.js','server/rankings','package.json','package-lock.json','README.md','CHANGELOG.md','docs/ROADMAP.md','docs/HOSTING.md']){
+ for(const f of ['dist','shared','server/server.js','server/rankings','package.json','package-lock.json','LICENSE','README.md','CHANGELOG.md','docs/ROADMAP.md','docs/HOSTING.md']){
   const dest=path.join(stage,f);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.cpSync(path.join(root,f),dest,{recursive:true});
  }
  const commit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();

@@ -187,9 +187,9 @@ The durable moat is:
 
 ## Scale strategy
 
-### Near-term engineering goal: 128 concurrent players
+### First release: measured small-group playtest
 
-The next meaningful scale target is **128 real players in one coherent battle experience**.
+Prove that first-time players can join, finish, replay, and return on the actual public host. **128 real players in one coherent battle** is a later scale target.
 
 We do not claim 128 until it is load-tested on production-like infrastructure and gameplay remains readable.
 

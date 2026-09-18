@@ -418,6 +418,17 @@ body.hud-idle .flight-hint {
   min-width: 128px;
   position: relative;
 }
+.weapon-arrow {
+  display: none;
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  line-height: 1;
+  background: #0c1628e5;
+}
 .weapon kbd {
   margin: 0;
   font-size: 12px;
@@ -599,6 +610,53 @@ th {
 }
 #touch-controls {
   display: none;
+}
+.touch-guide {
+  width: min(390px, calc(100vw - 32px));
+  padding: 24px;
+  gap: 12px;
+}
+.guide-kicker {
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: .16em;
+}
+.touch-guide h2 {
+  margin: 0;
+  font-size: 30px;
+}
+.guide-steps {
+  display: grid;
+  gap: 8px;
+}
+.guide-steps p {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #35506975;
+  border-radius: 8px;
+  background: #0c1628aa;
+  color: var(--muted);
+  font-size: 12px;
+}
+.guide-steps b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  color: #082131;
+  background: var(--cyan);
+}
+.guide-steps strong { color: var(--ink); }
+.guide-tip {
+  margin: 2px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 @media (max-width: 1000px) {
   .lobby-panel {
@@ -801,12 +859,39 @@ th {
   .weapon span {
     display: none;
   }
-  .weapon.selected span,
-  .weapon.selected small {
-    display: block;
-  }
   .weapon-icon {
     display: block;
+  }
+  .weapon-arrow {
+    display: flex;
+  }
+  .weapons > .weapon:not(.selected) {
+    display: none;
+  }
+  .weapons > .weapon.selected {
+    width: 52px;
+    min-width: 52px;
+    justify-content: center;
+    padding: 10px 8px;
+  }
+  .radar {
+    display: none;
+  }
+  .flight-hint {
+    display: none;
+  }
+  .combat-bar {
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .desktop-key,
+  .match-brand > span {
+    display: none;
+  }
+  .match-brand {
+    font-size: 17px;
+  }
+  .session-tools > #connection {
+    display: none;
   }
 }
 @media (max-height: 730px) and (min-width: 701px) {

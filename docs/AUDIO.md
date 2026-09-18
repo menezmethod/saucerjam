@@ -4,7 +4,7 @@ Original score and sound effects generated with **Suno v6** (base model, instrum
 "seamless loop" prompting). This document is the spec: what each cue is, where it plays,
 where to chop it, and how to wire it into the client.
 
-The game currently ships **no music** and only oscillator-synth weapon blips
+The game ships authored music beds and stings through `MusicBus`, plus oscillator-synth weapon blips
 (`src/index.js:629 playSound()`). Everything below is additive. The oscillator SFX stay
 as the zero-latency fallback; sampled SFX are an opt-in upgrade layered on the same
 `AudioContext` (`src/index.js:620`).

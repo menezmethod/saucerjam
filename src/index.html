@@ -80,7 +80,7 @@
         </div>
         <div class="session-tools">
           <span id="connection">Offline practice</span
-          ><button id="menu-button" class="small">Menu <kbd>Esc</kbd></button>
+          ><button id="menu-button" class="small">Menu <kbd class="desktop-key">Esc</kbd></button>
         </div>
       </header>
       <div id="kill-feed" aria-live="polite"></div>
@@ -110,6 +110,7 @@
       </div>
       <footer class="combat-bar">
         <div class="weapons">
+          <button id="weapon-prev" class="weapon-arrow" aria-label="Previous weapon">‹</button>
           <button data-weapon="LASER" class="weapon selected" aria-label="Plasma Beam — 25 energy" title="Fast plasma bursts · hold fire">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h13M12 5l7 7-7 7"/></svg
             ><kbd>1</kbd><span>Plasma Beam<small>25 energy</small></span></button
@@ -120,6 +121,7 @@
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-10 4 7 3-5 6 8"/></svg
             ><kbd>3</kbd><span>Ricochet Disc<small>50 energy</small></span>
           </button>
+          <button id="weapon-next" class="weapon-arrow" aria-label="Next weapon">›</button>
         </div>
         <div class="flight-tools">
           <button id="view-button" class="small">Arena <kbd>V</kbd></button
@@ -144,12 +146,26 @@
         </div>
       </div>
     </section>
+    <section id="touch-onboarding" class="modal" hidden>
+      <div class="dialog touch-guide">
+        <span class="guide-kicker">QUICK BRIEFING</span>
+        <h2>Fly by feel.</h2>
+        <div class="guide-steps">
+          <p><b>1</b><span><strong>Left thumb</strong><br />Steer and drift.</span></p>
+          <p><b>2</b><span><strong>Right side</strong><br />Tap or hold to aim and fire.</span></p>
+          <p><b>3</b><span><strong>Weapon icons</strong><br />Tap to switch your shot.</span></p>
+        </div>
+        <p class="guide-tip">Keep moving. Your hull repairs after a few seconds without damage.</p>
+        <button id="dismiss-touch-onboarding" class="primary">Start flying</button>
+      </div>
+    </section>
     <section id="menu" class="modal" hidden>
       <div class="dialog">
         <h2>Flight menu</h2>
         <p id="pause-message">Online matches keep running.</p>
         <button id="resume" class="primary">Resume flight</button
         ><button id="help-button">Controls & weapons</button
+        ><button id="fullscreen-button">Enter full screen</button
         ><button id="leave-game">Leave arena</button>
         <p id="menu-status" role="status"></p>
         <!-- .flight-tools (Arena/Scores/Sound) is moved in here on touch -->

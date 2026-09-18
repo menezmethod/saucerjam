@@ -15,3 +15,8 @@
 .qd-protection { position: absolute; left: calc(100% + 3px); top: -3px; color: #cfc2ff; font: 10px/1 system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
 
 @media(max-width:599px){.qd-ship-indicator{width:42px;height:5px}.qd-pilot-name{bottom:7px;font-size:7px;max-width:88px}.qd-local-energy{top:8px}.qd-protection{font-size:9px}}
+@media (pointer: coarse){
+  .qd-ship-indicator[data-local='true'] .qd-pilot-name,
+  .qd-ship-indicator[data-local='true'] .qd-pilot-hull,
+  .qd-ship-indicator[data-local='true'] .qd-local-energy { display:none; }
+}

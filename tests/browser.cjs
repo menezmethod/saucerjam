@@ -357,6 +357,10 @@ async function main() {
     assert.ok(await mobile.locator("#touch-onboarding").isHidden());
     assert.equal(await mobile.locator('[data-weapon="LASER"]').getAttribute("aria-label"), "Plasma Beam — 25 energy");
     assert.ok(await mobile.locator('[data-weapon="LASER"] .weapon-icon').isVisible());
+    assert.ok(await mobile.locator("#weapon-prev").isVisible());
+    assert.ok(await mobile.locator("#weapon-next").isVisible());
+    assert.ok(await mobile.locator('[data-weapon="GRENADE"]').isHidden());
+    assert.ok(await mobile.locator(".desktop-key").isHidden());
     await mobile.screenshot({ path: path.join(out, "mobile-practice.png") });
     assert.equal(
       await mobile.evaluate(

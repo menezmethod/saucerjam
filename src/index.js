@@ -186,6 +186,8 @@ class Game {
     document.querySelectorAll("[data-weapon]").forEach((button) => {
       button.onclick = () => this.selectWeapon(button.dataset.weapon);
     });
+    $("weapon-prev").onclick = () => this.cycleWeapon(-1);
+    $("weapon-next").onclick = () => this.cycleWeapon(1);
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
     window.addEventListener("blur", () => this.clearInput());
@@ -497,6 +499,11 @@ class Game {
       b.classList.toggle("selected", b.dataset.weapon === weapon);
       b.setAttribute("aria-pressed", String(b.dataset.weapon === weapon));
     });
+  }
+  cycleWeapon(direction = 1) {
+    const weapons = ["LASER", "GRENADE", "BOUNCE"];
+    const index = weapons.indexOf(this.weapon);
+    this.selectWeapon(weapons[(index + direction + weapons.length) % weapons.length]);
   }
   cycleView() {
     this.setView(this.renderer.view===2?0:2);

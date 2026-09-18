@@ -16,6 +16,7 @@ module.exports = (_, argv) => ({
         { from: "**/*.glb", context: "src/assets/models", to: "assets/models/[path][name][ext]" },
         { from: "*.mp3", context: "src/assets/sounds", to: "assets/sounds/[name][ext]" },
         { from: "*.ogg", context: "src/assets/music", to: "assets/music/[name][ext]" },
+        { from: "*.png", context: "src/assets/social", to: "assets/social/[name][ext]" },
         { from: "manifest.webmanifest", context: "src", to: "manifest.webmanifest" },
       ],
     }),

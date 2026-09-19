@@ -68,6 +68,16 @@ test("movement and aim are sampled independently on the next input tick", () => 
   assert.equal(input.thrust, 0); assert.equal(input.turn, 0);
 });
 
+test("mouse wheel cycles weapons without affecting touch input", () => {
+  const { game, window } = fixture();
+  let prevented = false;
+  window.emit("wheel", { deltaY: -1, preventDefault: () => { prevented = true; } });
+  assert.equal(game.weapon, "BOUNCE");
+  assert.equal(prevented, true);
+  window.emit("wheel", { deltaY: 1, preventDefault: () => {} });
+  assert.equal(game.weapon, "LASER");
+});
+
 test("cancel or lost capture releases only its owner, not the other thumb or keyboard", () => {
   for (const type of ["pointercancel", "lostpointercapture"]) {
     const { game, $, window, pointer } = fixture(), arena = $("arena");

@@ -195,6 +195,20 @@ class Game {
     });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
+    window.addEventListener("wheel", (e) => {
+      if (
+        !this.active() ||
+        window.matchMedia?.("(pointer: fine)").matches === false ||
+        this.interfaceModal ||
+        !$("menu").hidden ||
+        !$("help").hidden ||
+        !$("scoreboard").hidden ||
+        !e.deltaY
+      ) return;
+      if (e.target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
+      e.preventDefault();
+      this.cycleWeapon(e.deltaY < 0 ? -1 : 1);
+    }, { passive: false });
     window.addEventListener("blur", () => this.clearInput());
     document.addEventListener("visibilitychange", () => this.clearInput());
     window.addEventListener("orientationchange", () => this.clearInput());
@@ -630,12 +644,12 @@ class Game {
       this.selectWeapon(
         ["LASER", "GRENADE", "BOUNCE"][Number(e.code.slice(-1)) - 1],
       );
-    if (e.code === "KeyX")
-      this.selectWeapon(
-        ["LASER", "GRENADE", "BOUNCE"][
-          (["LASER", "GRENADE", "BOUNCE"].indexOf(this.weapon) + 1) % 3
-        ],
-      );
+    if (e.code === "KeyX") this.cycleWeapon();
+  }
+  cycleWeapon(step = 1) {
+    const weapons = ["LASER", "GRENADE", "BOUNCE"],
+      index = weapons.indexOf(this.weapon);
+    this.selectWeapon(weapons[(index + step + weapons.length) % weapons.length]);
   }
   selectWeapon(weapon) {
     this.weapon = weapon;

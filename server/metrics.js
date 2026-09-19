@@ -49,9 +49,10 @@ class Metrics {
     const metric = this.histograms.get(name); if (!metric || !Number.isFinite(value)) return;
     const key = this._key(labels);
     const entry = metric.values.get(key) || { labels, counts: new Array(metric.buckets.length).fill(0), sum: 0, total: 0 };
-    let placed = false;
-    for (let i = 0; i < metric.buckets.length; i++) if (value <= metric.buckets[i]) { entry.counts[i]++; placed = true; break; }
-    if (!placed) entry.counts[metric.buckets.length - 1]++;
+    // Store each observation in its first matching bucket only; values above
+    // the largest finite bucket have no finite bucket and count toward +Inf
+    // (entry.total) alone. render() accumulates for the exposition format.
+    for (let i = 0; i < metric.buckets.length; i++) if (value <= metric.buckets[i]) { entry.counts[i]++; break; }
     entry.sum += value; entry.total++; metric.values.set(key, entry);
   }
   // Retention: distinct hashed pilot tokens seen in the last 7 days.
@@ -79,8 +80,11 @@ class Metrics {
     for (const [name, metric] of this.histograms) {
       lines.push(`# HELP ${name} ${metric.help}`, `# TYPE ${name} histogram`);
       for (const entry of metric.values.values()) {
-        for (let i = 0; i < metric.buckets.length; i++)
-          lines.push(`${name}_bucket${LABELS({ ...entry.labels, le: metric.buckets[i] })} ${entry.counts[i]}`);
+        let cumulative = 0;
+        for (let i = 0; i < metric.buckets.length; i++) {
+          cumulative += entry.counts[i];
+          lines.push(`${name}_bucket${LABELS({ ...entry.labels, le: metric.buckets[i] })} ${cumulative}`);
+        }
         lines.push(`${name}_bucket${LABELS({ ...entry.labels, le: "+Inf" })} ${entry.total}`);
         lines.push(`${name}_sum${LABELS(entry.labels)} ${entry.sum}`);
         lines.push(`${name}_count${LABELS(entry.labels)} ${entry.total}`);

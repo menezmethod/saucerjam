@@ -10,9 +10,9 @@ ever shipping unreviewed code.**
 Player reports in-game ──► POST /api/community/report ──► Fider post
                                                             │
 Fider webhook (post created / status change) ───────────────┘
-      │  HMAC sha256 (FIDER_WEBHOOK_SECRET)
+      │  Bearer token (FIDER_WEBHOOK_TOKEN) or HMAC sha256 (FIDER_WEBHOOK_SECRET)
       ▼
-POST /api/community/webhook            (express.raw, signature verified)
+POST /api/community/webhook            (express.raw, credential verified)
       │
       ▼
 CommunityQueue.ingest()                deterministic triage → proposal
@@ -52,7 +52,10 @@ Hard rules enforced in code and process:
    maintainer approval on the PR).
 3. **Feature ≠ shipped feature.** Feature requests produce a *preview* the
    community can try and vote on, not a silent release.
-4. **Unknown origin is rejected.** No webhook acts without a valid HMAC.
+4. **Unknown origin is rejected.** No webhook acts without a valid credential:
+   an HMAC signature (`FIDER_WEBHOOK_SECRET`) or the shared bearer token
+   (`FIDER_WEBHOOK_TOKEN`). Either one alone opens the gate; both are compared in
+   constant time and never logged or echoed.
 5. **Rate/abuse limited.** `/api` is already rate-limited; new endpoints inherit
    it, and the queue is bounded to 500 items.
 
@@ -75,7 +78,8 @@ behaviour per proposal is in `deploy/hermes/saucerjam-community-triage.md`.
 1. **Fider webhook** — Admin → Site Settings → Webhooks → Add New:
    - Type: *Post Created* (add *Post Status Changed* as a second webhook).
    - URL: `https://qd.menezmethod.com/api/community/webhook`
-   - Method: `POST`, header `Content-Type: application/json`.
+   - Method: `POST`, header `Content-Type: application/json`, plus
+     `Authorization: Bearer <FIDER_WEBHOOK_TOKEN>`.
    - Content must use `quote` on every free-text field (Fider security note):
      ```json
      {
@@ -87,8 +91,12 @@ behaviour per proposal is in `deploy/hermes/saucerjam-community-triage.md`.
        "post_votes": {{ .post_votes }}
      }
      ```
-   - Set `FIDER_WEBHOOK_SECRET` in Coolify; HMAC is checked against the raw body.
-     (If Fider cannot sign, front it with a small signer or restrict by network.)
+   - Set `FIDER_WEBHOOK_TOKEN` in Coolify and send it as
+     `Authorization: Bearer <token>` (or `x-fider-token`). **Fider cannot
+     HMAC-sign** — it only emits `X-Fider-UserID` — so the bearer token is the
+     supported route. `FIDER_WEBHOOK_SECRET` remains available for any sender
+     that can produce a `sha256` HMAC of the raw body. Configure at least one;
+     with neither set the endpoint returns 503.
 2. **Action token** — generate a long random `COMMUNITY_ACTION_TOKEN` in Coolify;
    store the same value in the Hermes secret source, never in git.
 3. **Hermes** — install `deploy/hermes/saucerjam-community-triage.md` as a skill

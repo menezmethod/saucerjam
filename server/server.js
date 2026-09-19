@@ -7,7 +7,7 @@ const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
 const { Metrics } = require("./metrics");
-const { CommunityQueue, verifySignature, clean } = require("./community");
+const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
 const { Insights } = require("./insights");
 
 function createGameServer({
@@ -21,6 +21,7 @@ function createGameServer({
   fiderBaseUrl = String(process.env.FIDER_BASE_URL || "").replace(/\/$/, ""),
   fiderApiKey = String(process.env.FIDER_API_KEY || ""),
   fiderWebhookSecret = String(process.env.FIDER_WEBHOOK_SECRET || ""),
+  fiderWebhookToken = String(process.env.FIDER_WEBHOOK_TOKEN || ""),
   communityActionToken = String(process.env.COMMUNITY_ACTION_TOKEN || ""),
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
   maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
@@ -179,12 +180,18 @@ function createGameServer({
   const mCommunityRejected = metrics.counter("saucerjam_community_webhook_rejected_total", "Fider webhooks rejected by reason", "counter");
   const mCommunityActions = metrics.counter("saucerjam_community_actions_total", "AI actions recorded by type", "counter");
   app.post("/api/community/webhook", express.raw({ type: "*/*", limit: "64kb" }), (req, res) => {
-    if (!fiderWebhookSecret) return res.status(503).json({ error: "Community webhooks are not configured." });
+    if (!fiderWebhookSecret && !fiderWebhookToken) return res.status(503).json({ error: "Community webhooks are not configured." });
     const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
     const signature = req.get("x-fider-signature") || req.get("x-signature") || "";
-    if (!verifySignature(fiderWebhookSecret, raw, signature)) {
-      mCommunityRejected.add({ reason: "bad_signature" });
-      return res.status(401).json({ error: "Invalid webhook signature." });
+    // Fider cannot HMAC-sign, so it authenticates with a shared bearer token
+    // (Authorization: Bearer <token>, or x-fider-token). The HMAC path stays
+    // for any sender that can produce it. Never log or echo the credential.
+    const authorization = req.get("authorization") || "";
+    const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+    const token = (bearer ? bearer[1].trim() : "") || req.get("x-fider-token") || "";
+    if (!verifySignature(fiderWebhookSecret, raw, signature) && !verifyToken(fiderWebhookToken, token)) {
+      mCommunityRejected.add({ reason: "bad_credential" });
+      return res.status(401).json({ error: "Invalid webhook credential." });
     }
     let payload;
     try { payload = JSON.parse(raw || "{}"); } catch {

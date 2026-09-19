@@ -6,6 +6,9 @@ const { Server } = require("socket.io");
 const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
+const { Metrics } = require("./metrics");
+const { CommunityQueue, verifySignature, clean } = require("./community");
+const { Insights } = require("./insights");
 
 function createGameServer({
   staticDir = path.join(__dirname, "../dist"),
@@ -17,6 +20,8 @@ function createGameServer({
   supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "",
   fiderBaseUrl = String(process.env.FIDER_BASE_URL || "").replace(/\/$/, ""),
   fiderApiKey = String(process.env.FIDER_API_KEY || ""),
+  fiderWebhookSecret = String(process.env.FIDER_WEBHOOK_SECRET || ""),
+  communityActionToken = String(process.env.COMMUNITY_ACTION_TOKEN || ""),
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
   maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
   maxConnections = Math.max(8, Math.min(1000, Number(process.env.MAX_CONNECTIONS) || 96)),
@@ -117,6 +122,22 @@ function createGameServer({
     verifySupabaseToken(token).then((user) => { socket.data.authUser = user; next(); }).catch(() => { releaseIp(socket); next(new Error("Sign-in expired. Please sign in again.")); });
   });
   const rooms = new Map();
+  const metrics = new Metrics();
+  const mJoins = metrics.counter("saucerjam_joins_total", "Successful room joins", "counter");
+  const mJoinFailures = metrics.counter("saucerjam_join_failures_total", "Rejected joins by reason", "counter");
+  const mLeaves = metrics.counter("saucerjam_leaves_total", "Room departures by cause", "counter");
+  const mRounds = metrics.counter("saucerjam_rounds_completed_total", "Completed rounds by map", "counter");
+  const mEvents = metrics.counter("saucerjam_game_events_total", "Authoritative game events by type", "counter");
+  const mChat = metrics.counter("saucerjam_chat_messages_total", "Accepted chat messages", "counter");
+  const mRateLimited = metrics.counter("saucerjam_rate_limited_total", "Requests rejected by a limiter", "counter");
+  const mHttp = metrics.counter("saucerjam_http_requests_total", "HTTP requests by route and status", "counter");
+  const mConnections = metrics.counter("saucerjam_connections_total", "Websocket connections by outcome", "counter");
+  const mRankingErrors = metrics.counter("saucerjam_ranking_save_errors_total", "Round result persistence failures", "counter");
+  const gRooms = metrics.gauge("saucerjam_rooms", "Active rooms");
+  const gPlayers = metrics.gauge("saucerjam_players", "Connected human pilots");
+  const gBots = metrics.gauge("saucerjam_bots", "Active bots");
+  const gCapacity = metrics.gauge("saucerjam_capacity_ratio", "Human pilots / maxPlayersPerRoom saturation");
+  const gTokenBytes = metrics.gauge("saucerjam_fider_last_error", "1 when the most recent Fider call failed");
   const sendSnapshots = (room) => {
     for (const id of room.humans)
       io.sockets.sockets.get(id)?.emit("state", room.sim.snapshotFor(id));
@@ -134,11 +155,78 @@ function createGameServer({
   const cleanChatText = (value) => typeof value === "string"
     ? value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 160)
     : "";
+  // Instrument every response with a route label and duration for SRE dashboards.
+  app.use((req, res, next) => {
+    const started = process.hrtime.bigint();
+    res.on("finish", () => {
+      const route = (req.route?.path || req.path || "unknown").replace(/[0-9a-f]{16,}/gi, ":id");
+      const labels = { method: req.method, route, status: String(res.statusCode) };
+      mHttp.add(labels);
+      metrics.httpDuration.observe(labels, Number(process.hrtime.bigint() - started) / 1e9);
+      if (res.statusCode === 429) mRateLimited.add({ route });
+    });
+    next();
+  });
   app.use("/api", (req, res, next) => {
     if (!httpLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
     next();
   });
+  // The Fider webhook needs the exact raw bytes for HMAC, so it must be
+  // declared BEFORE the JSON body parser (or the signature never validates).
+  const community = new CommunityQueue();
+  const insights = new Insights();
+  const mCommunityIngest = metrics.counter("saucerjam_community_ingest_total", "Fider webhook items ingested by kind", "counter");
+  const mCommunityRejected = metrics.counter("saucerjam_community_webhook_rejected_total", "Fider webhooks rejected by reason", "counter");
+  const mCommunityActions = metrics.counter("saucerjam_community_actions_total", "AI actions recorded by type", "counter");
+  app.post("/api/community/webhook", express.raw({ type: "*/*", limit: "64kb" }), (req, res) => {
+    if (!fiderWebhookSecret) return res.status(503).json({ error: "Community webhooks are not configured." });
+    const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
+    const signature = req.get("x-fider-signature") || req.get("x-signature") || "";
+    if (!verifySignature(fiderWebhookSecret, raw, signature)) {
+      mCommunityRejected.add({ reason: "bad_signature" });
+      return res.status(401).json({ error: "Invalid webhook signature." });
+    }
+    let payload;
+    try { payload = JSON.parse(raw || "{}"); } catch {
+      mCommunityRejected.add({ reason: "bad_json" });
+      return res.status(400).json({ error: "Invalid webhook payload." });
+    }
+    // Fider templates emit flat keys (post_number, post_title, ...) via the
+    // Go-template webhook content; accept both flat and nested shapes.
+    const post = payload.post || payload.data?.post || payload;
+    const item = community.ingest({
+      id: post.post_id ?? post.id ?? post.post_number ?? post.number,
+      number: post.post_number ?? post.number,
+      title: post.post_title ?? post.title,
+      description: post.post_description ?? post.description,
+      url: post.post_url ?? post.url,
+      votes: post.post_votes ?? post.votesCount ?? post.votes,
+    });
+    if (!item) {
+      mCommunityRejected.add({ reason: "unusable_item" });
+      return res.status(400).json({ error: "Webhook carried no usable post." });
+    }
+    mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
+    return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
+  });
   app.use("/api", express.json({ limit: "12kb", strict: true }));
+  // Public, non-PII population signal for the landing page: how many pilots are
+  // online right now and how many rounds have been played. No auth required.
+  app.get("/api/statistics", (_req, res) => {
+    let online = 0;
+    for (const room of rooms.values()) online += room.humans.size;
+    res.set("Cache-Control", "public, max-age=15");
+    res.json({ online, rooms: rooms.size, maxRoomPlayers: maxPlayersPerRoom });
+  });
+  // Behavioural friction ingest. Fire-and-forget, allow-listed event names,
+  // coarse device/platform buckets, no identifiers or free text.
+  const insightLimiter = limiter(120, 60_000);
+  app.post("/api/insights", (req, res) => {
+    if (!insightLimiter(clientAddress(req))) return res.status(429).end();
+    const events = Array.isArray(req.body?.events) ? req.body.events.slice(0, 20) : [];
+    for (const event of events) insights.track({ event, device: req.body?.device, platform: req.body?.platform });
+    return res.status(204).end();
+  });
   app.get("/api/config", (_req, res) => res.json({
     authEnabled: Boolean(supabaseUrl && supabasePublishableKey),
     authProviders: String(process.env.SUPABASE_AUTH_PROVIDERS || "google").split(",").map(provider => provider.trim().toLowerCase()).filter(Boolean),
@@ -239,6 +327,45 @@ function createGameServer({
       return res.status(502).json({ error: "The community portal is unavailable. Please try again later." });
     }
   });
+  // Prometheus scrape target (no auth: exposes only aggregate, non-PII counts).
+  app.get("/metrics", (req, res) => {
+    if (!healthLimiter(clientAddress(req))) return res.status(429).end();
+    res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    res.send(metrics.render({ extraGauges: [ ...roomGauges(), insights.render(), ...["ok","degraded"].map(s => `saucerjam_rankings_status{status="${s}"} ${(rankingError?"degraded":"ok")===s?1:0}`) ] }));
+  });
+  function roomGauges() {
+    let humans = 0, bots = 0, maxStage = 3;
+    for (const room of rooms.values()) {
+      humans += room.humans.size;
+      bots += [...room.sim.players.values()].filter((p) => p.bot).length;
+    }
+    gRooms.set({}, rooms.size);
+    gPlayers.set({}, humans);
+    gBots.set({}, bots);
+    gCapacity.set({}, maxPlayersPerRoom ? humans / (rooms.size * maxPlayersPerRoom || maxPlayersPerRoom) : 0);
+    return [];
+  }
+  // Restricted action surface used by Hermes after it has drafted a change.
+  // Opening a PR/branch is allowed; merging or closing is not (see docs/AUTOMATION.md).
+  app.get("/api/community/queue", (req, res) => {
+    if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
+      return res.status(401).json({ error: "Community action token required." });
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    return res.json({ items: community.list({ status }) });
+  });
+  app.post("/api/community/action", (req, res) => {
+    if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
+      return res.status(401).json({ error: "Community action token required." });
+    const { id, action, detail } = req.body || {};
+    if (!CommunityQueue.allowedActions().includes(action)) {
+      mCommunityRejected.add({ reason: "disallowed_action" });
+      return res.status(400).json({ error: `Action must be one of: ${CommunityQueue.allowedActions().join(", ")}` });
+    }
+    const item = community.record(id, { action, detail: clean(detail, 500) });
+    if (!item) return res.status(404).json({ error: "Unknown community item." });
+    mCommunityActions.add({ action });
+    return res.json({ ok: true, item });
+  });
   app.use(express.static(staticDir));
   app.get("/health", (req, res) => {
     if (!healthLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many health checks. Please try again shortly." });
@@ -272,6 +399,7 @@ function createGameServer({
     room.sim.removePlayer(socket.id);
     socket.leave(room.code);
     socket.data.room = null;
+    mLeaves.add({ cause: transportLoss ? "transport" : "client" });
     if (!room.humans.size) {
       if(transportLoss){
         clearTimeout(room.expiry);
@@ -289,13 +417,17 @@ function createGameServer({
       lastChat = 0;
     socket.on("join", (request, ack) => {
       if (typeof ack !== "function") return;
-      if (!joinLimiter(socket.data.clientAddress)) return ack({ error: "Too many join attempts. Please wait a moment." });
+      if (!joinLimiter(socket.data.clientAddress)) { mJoinFailures.add({ reason: "rate_limited" }); return ack({ error: "Too many join attempts. Please wait a moment." }); }
       const now = Date.now();
-      if (now - lastJoin < 400)
+      if (now - lastJoin < 400) {
+        mJoinFailures.add({ reason: "debounced" });
         return ack({ error: "Please wait a moment before joining again." });
+      }
       lastJoin = now;
-      if (!request || typeof request !== "object")
+      if (!request || typeof request !== "object") {
+        mJoinFailures.add({ reason: "invalid_request" });
         return ack({ error: "Invalid room request." });
+      }
       const profileId = socket.data.authUser?.id || profileKey(request.profileToken) || createHash("sha256").update(socket.id).digest("hex");
       if(socket.data.profileId && socket.data.profileId!==profileId)return ack({error:"Reconnect before changing pilot identity."});
       const mode = request.mode;
@@ -306,20 +438,18 @@ function createGameServer({
           (r) => r.code.startsWith("PUBLIC") && r.humans.size < maxPlayersPerRoom && r.sim.map.id === getMap(requestedMap).id,
         );
         if (!room) {
-          if (rooms.size >= maxRooms)
-            return ack({
+          if (rooms.size >= maxRooms) { mJoinFailures.add({ reason: "rooms_full" }); return ack({
               error: "All arenas are busy. Please try again shortly.",
-            });
+            }); }
           room = makeRoom(
             `PUBLIC-${randomBytes(3).toString("hex").toUpperCase()}`,
             true, requestedMap, request.rotate === true,
           );
         }
       } else if (mode === "create") {
-        if (rooms.size >= maxRooms)
-          return ack({
+        if (rooms.size >= maxRooms) { mJoinFailures.add({ reason: "rooms_full" }); return ack({
             error: "All arenas are busy. Please try again shortly.",
-          });
+          }); }
         let code;
         do {
           code = randomBytes(3).toString("hex").toUpperCase();
@@ -331,14 +461,17 @@ function createGameServer({
             ? request.code.trim().toUpperCase()
             : "";
         room = rooms.get(code);
-        if (!room)
+        if (!room) {
+          mJoinFailures.add({ reason: "room_not_found" });
           return ack({
             error: "Room not found. Check the code or create a new room.",
           });
-      } else
+        }
+      } else {
+        mJoinFailures.add({ reason: "bad_mode" });
         return ack({ error: "Choose quick play, create room, or join room." });
-      if (room.humans.size >= maxPlayersPerRoom && !room.humans.has(socket.id))
-        return ack({ error: `This room is full (${maxPlayersPerRoom} pilots).` });
+      }
+      if (room.humans.size >= maxPlayersPerRoom && !room.humans.has(socket.id)) { mJoinFailures.add({ reason: "room_full" }); return ack({ error: `This room is full (${maxPlayersPerRoom} pilots).` }); }
       if ([...room.sim.players.values()].some(p=>p.profileId===profileId && p.id!==socket.id)) return ack({error:"This pilot is already flying in this room. Use a different browser profile for another pilot."});
       if (socket.data.room !== room.code) leave(socket);
       socket.join(room.code);
@@ -346,6 +479,8 @@ function createGameServer({
       socket.data.profileId = profileId;
       clearTimeout(room.expiry);room.expiry=null;
       room.humans.add(socket.id);
+      mJoins.add({ mode: mode === "quick" || mode === "create" || mode === "join" ? mode : "unknown", map: getMap(requestedMap).id });
+      if (request.profileToken) metrics.seeToken(request.profileToken);
       // Remove a filling bot before choosing a color and a safe player spawn.
       fillBots(room);
       const prior=[...room.sim.departed.values()].find(p=>p.profileId===profileId);
@@ -380,8 +515,7 @@ function createGameServer({
         chatWindowStart = now;
         chatPackets = 0;
       }
-      if (now - lastChat < 650 || ++chatPackets > 8)
-        return typeof ack === "function" && ack({ error: "Chat is cooling down. Try again in a moment." });
+      if (now - lastChat < 650 || ++chatPackets > 8) { mRateLimited.add({ route: "chat" }); return typeof ack === "function" && ack({ error: "Chat is cooling down. Try again in a moment." }); }
       lastChat = now;
       const pilot = room.sim.players.get(socket.id);
       const message = {
@@ -391,6 +525,7 @@ function createGameServer({
         text,
         at: now,
       };
+      mChat.add({});
       io.to(room.code).emit("chat", message);
       if (typeof ack === "function") ack({ ok: true });
     });
@@ -412,11 +547,13 @@ function createGameServer({
         room.sim.step();
         const events = room.sim.drainEvents();
         for (const event of events) {
+          mEvents.add({ type: event.type });
           if (event.type === "mapChanged") io.to(room.code).emit("map", event.map);
           if (event.type === "roundEnd") {
+            mRounds.add({ map: room.sim.map.id });
             event.recap.recordId=room.matchId+":"+room.sim.round;
             const record={id:event.recap.recordId,mapId:room.sim.map.id,players:event.recap.players,winnerId:event.recap.winnerId};
-            const save=Promise.resolve().then(()=>rankings.recordRound(record)).then(()=>{rankingError=null;io.to(room.code).emit("careerUpdated");}).catch(error=>{rankingError="Last round records could not be saved.";console.error("Ranking save failed:",error.message);io.to(room.code).emit("rankingsError",rankingError);}).finally(()=>pendingSaves.delete(save));
+            const save=Promise.resolve().then(()=>rankings.recordRound(record)).then(()=>{rankingError=null;io.to(room.code).emit("careerUpdated");}).catch(error=>{rankingError="Last round records could not be saved.";mRankingErrors.add({});console.error("Ranking save failed:",error.message);io.to(room.code).emit("rankingsError",rankingError);}).finally(()=>pendingSaves.delete(save));
             pendingSaves.add(save);
           }
         }

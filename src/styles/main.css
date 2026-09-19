@@ -533,8 +533,14 @@ body.hud-idle .flight-hint {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 22px;
+  /* Keep the panel clear of the notch/home indicator and scroll the whole
+     overlay if the dialog is taller than the *visible* viewport. */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   backdrop-filter: blur(10px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .dialog {
   width: 350px;
@@ -544,8 +550,13 @@ body.hud-idle .flight-hint {
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 24px 100px #0008;
+  /* dvh (not vh) so iOS Safari's toolbar does not clip the bottom of the
+     menu; the old 90vh extended under the toolbar and could not scroll. */
   max-height: 90vh;
+  max-height: 90dvh;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1422,4 +1433,61 @@ button:active { transform: scale(0.97); }
    to hit the vitals, so drop it (round/district remain in the scoreboard). */
 @media (max-height: 480px) and (max-width: 700px) and (pointer: coarse) {
   .match-clock span { display: none; }
+}
+
+/* Live population signal on the landing (see loadPopulation in index.js). */
+.lobby-population {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #9dafc2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.lobby-population::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9dafc2;
+  flex: 0 0 auto;
+}
+.lobby-population[data-online="true"] { color: #b9f5c9; }
+.lobby-population[data-online="true"]::before { background: #95ff9f; box-shadow: 0 0 8px #95ff9f; }
+
+/* Portrait touch: Comms sat mid-right, exactly where the fire thumb works, so
+   a stray tap opened chat instead of shooting. Move it into the top bar lane
+   (top-right under Menu) where it never competes with aim/fire. */
+@media (pointer: coarse) and (min-height: 481px) {
+  .chat-toggle {
+    top: calc(var(--top-bar-height, 90px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+  }
+  .chat-panel {
+    top: calc(var(--top-bar-height, 90px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+    max-height: calc(100vh - var(--top-bar-height, 90px) - 140px);
+    overflow: auto;
+  }
+}
+
+/* The Flight menu became a long scroll on phones. Make it obviously scrollable
+   and comfortable: roomier rows, a pinned-feel primary action, and a soft fade
+   at the bottom edge so players know there is more below. */
+@media (pointer: coarse) {
+  #menu .dialog { gap: 12px; padding: 24px 20px; }
+  #menu .dialog > button { padding: 15px 16px; font-size: 15px; }
+  #menu .dialog h2 { font-size: 26px; }
+  #menu .qd-advanced-camera summary { padding: 10px 0; }
+}
+/* Scroll hint: fades the last visible row so the panel reads as scrollable. */
+@media (pointer: coarse) and (max-height: 900px) {
+  #menu .dialog {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  }
 }

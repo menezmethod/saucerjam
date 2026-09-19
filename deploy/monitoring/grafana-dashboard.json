@@ -1,0 +1,387 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "SaucerJam",
+  "tags": [
+    "saucerjam",
+    "game",
+    "sre"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Up",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"saucerjam\"}",
+          "legendFormat": "up"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Pilots online",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_players",
+          "legendFormat": "humans"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rooms",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_rooms",
+          "legendFormat": "rooms"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Distinct pilots (7d)",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_distinct_pilots_7d",
+          "legendFormat": "7d"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "RSS",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_process_resident_memory_bytes",
+          "legendFormat": "rss"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Uptime",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_process_uptime_seconds",
+          "legendFormat": "uptime"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pilots: humans vs bots",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "saucerjam_players",
+          "legendFormat": "humans"
+        },
+        {
+          "expr": "saucerjam_bots",
+          "legendFormat": "bots"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Joins / leaves per minute",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(saucerjam_joins_total[1m])) * 60",
+          "legendFormat": "joins"
+        },
+        {
+          "expr": "sum(rate(saucerjam_leaves_total[1m])) * 60",
+          "legendFormat": "leaves"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "HTTP status by route",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "expr": "sum by (route, status) (rate(saucerjam_http_requests_total[5m]))",
+          "legendFormat": "{{route}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Join failures by reason",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(saucerjam_join_failures_total[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Round completions by map",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "expr": "sum by (map) (increase(saucerjam_rounds_completed_total[$__rate_interval]))",
+          "legendFormat": "{{map}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Game events by type",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(saucerjam_game_events_total[5m]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "heatmap",
+      "title": "HTTP request duration",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(saucerjam_http_request_duration_seconds_bucket[5m])) by (le)",
+          "format": "heatmap",
+          "legendFormat": "{{le}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "WS round-trip (client ping)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(saucerjam_ws_round_trip_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(saucerjam_ws_round_trip_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Player behaviour: starts vs reports",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(insight_events_total{event=\"practice_start\"}[10m]))*60",
+          "legendFormat": "practice/min"
+        },
+        {
+          "expr": "sum(rate(insight_events_total{event=\"online_start\"}[10m]))*60",
+          "legendFormat": "online/min"
+        },
+        {
+          "expr": "sum(rate(insight_events_total{event=\"report_opened\"}[10m]))*60",
+          "legendFormat": "reports/min"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Friction signals (share of sessions)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "insight_friction_ratio",
+          "legendFormat": "{{signal}}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Struggle by device",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "expr": "sum by (device) (rate(insight_events_total{event=~\"died_without_kill|stuck_no_input|controls_struggle\"}[15m]))",
+          "legendFormat": "{{device}}"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Most-used actions",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "targets": [
+        {
+          "expr": "sum by (event) (increase(insight_events_total[1h]))",
+          "legendFormat": "{{event}}"
+        }
+      ]
+    }
+  ]
+}

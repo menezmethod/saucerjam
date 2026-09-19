@@ -37,6 +37,10 @@ class Game {
   constructor(runtimeConfig = {}) {
     this.mode = "lobby";
     this.selectedMap = "confluence";
+    // Friction telemetry: allow-listed event names only, coalesced and sent on
+    // a timer so it never competes with gameplay. See server/insights.js.
+    // Lazily (re)created so partial constructions in tests/embeds are safe.
+    this.insights = { queue: [], sent: 0, sawInput: false, kills: 0, menuOpens: 0 };
     this.profileToken=storage.get("qd-profile", "");
     if(!this.profileToken){this.profileToken=Array.from(crypto.getRandomValues(new Uint8Array(24)),v=>v.toString(16).padStart(2,"0")).join("");storage.set("qd-profile",this.profileToken);}
     this.keys = new Set();
@@ -93,6 +97,7 @@ class Game {
     this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
     this.loadCareer();
+    this.loadPopulation();
     // Read-only diagnostics for support and end-to-end verification.
     window.__qd = Object.freeze({
       ...(new URLSearchParams(location.search).has("showcase") ? {showcase: config => this.stageShowcase(config)} : {}),
@@ -124,6 +129,52 @@ class Game {
     if(this.mode==='lobby'){this.demo=this.makePractice(true);this.state=this.demo.snapshot();this.applyMap(this.demo.map);}
   }
   applyMap(map){this.map=map;this.renderer.buildArena(map);this.renderer.cameraReady=false;}
+  // Telemetry is best-effort and must never break gameplay or a partial
+  // construction (some tests build the prototype without the constructor).
+  get telemetry() {
+    if (!this.insights) this.insights = { queue: [], sent: 0, sawInput: false, kills: 0, menuOpens: 0 };
+    return this.insights;
+  }
+  // One allow-listed friction signal per session at most, batched on a timer.
+  track(event) {
+    const t = this.telemetry;
+    if (t.counted?.[event]) return;
+    (t.counted ||= {})[event] = true;
+    t.queue.push(event);
+    if (!t.timer) t.timer = setTimeout(() => this.flushInsights(), 4000);
+  }
+  flushInsights() {
+    const t = this.telemetry;
+    t.timer = null;
+    const events = t.queue.splice(0, 20);
+    if (!events.length) return;
+    const payload = JSON.stringify({
+      events,
+      device: window.matchMedia?.("(pointer: coarse)").matches ? "touch" : "desktop",
+      platform: window.innerWidth < window.innerHeight ? "portrait" : "landscape",
+    });
+    try {
+      if (navigator.sendBeacon) navigator.sendBeacon("/api/insights", new Blob([payload], { type: "application/json" }));
+      else fetch("/api/insights", { method: "POST", headers: { "content-type": "application/json" }, body: payload, keepalive: true }).catch(() => {});
+    } catch {}
+  }
+  // Live population signal so a new pilot knows others are actually online
+  // before committing to "Play online".
+  async loadPopulation() {
+    const el = $("lobby-population");
+    if (!el) return;
+    try {
+      const response = await fetch("/api/statistics");
+      if (!response.ok) throw new Error("unavailable");
+      const { online, rooms } = await response.json();
+      el.textContent = online > 0
+        ? `${online} pilot${online === 1 ? "" : "s"} flying now · ${rooms} arena${rooms === 1 ? "" : "s"}`
+        : "Be the first pilot in the arena";
+      el.dataset.online = String(online > 0);
+    } catch {
+      el.textContent = "Practice solo, or invite friends";
+    }
+  }
   async loadCareer(){
     try{const headers={'x-pilot-token':this.profileToken},token=this.auth?.accessToken();if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch('/api/profile',{headers});if(!response.ok)throw new Error('Flight records unavailable');const data=await response.json();this.career=data.profile;this.profileId=data.playerId;this.careerError=data.error;return data;}
     catch(error){this.careerError=error.message;return {profile:null,error:error.message};}
@@ -187,11 +238,12 @@ class Game {
     });
     $("menu-button").onclick = () => this.menu(true);
     $("resume").onclick = () => this.menu(false);
-    $("report-button").onclick = () => this.openReport();
+    $("report-button").onclick = () => { this.track("report_opened"); this.openReport(); };
     $("close-report").onclick = () => this.panel("report", false);
     $("send-report").onclick = () => this.sendReport();
     $("leave-game").onclick = () => this.leave();
     $("help-button").onclick = $("lobby-help").onclick = () => {
+      this.track("help_opened");
       this.panel("help",true);
       this.clearInput();
     };
@@ -215,8 +267,10 @@ class Game {
     $("dismiss-touch-onboarding").onclick = () => {
       $("touch-onboarding").hidden = true;
       storage.set("qd-touch-guide", "seen");
+      this.track("touch_guide_dismissed");
+      this.flushInsights();
     };
-    $("chat-toggle").onclick = () => this.toggleChat();
+    $("chat-toggle").onclick = () => { this.track("chat_opened"); this.toggleChat(); };
     $("chat-close").onclick = () => this.toggleChat(false);
     $("chat-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -420,6 +474,7 @@ class Game {
         if (e.button === 0) this.startFire(e);
         return;
       }
+      this.telemetry.sawInput = true;
       // Left thumb always moves, right thumb (or anything else) always
       // shoots wherever it lands -- a fixed split, not "whichever touch
       // came first," so it's exactly as predictable as the two-joystick
@@ -557,6 +612,7 @@ class Game {
     this.mouse = { x: e.clientX, y: e.clientY };
     this.firing = true;
     this.firePointerId = e.pointerId;
+    this.telemetry.sawInput = true;
     $("arena").setPointerCapture(e.pointerId);
   }
   resetIdleHud() {
@@ -797,6 +853,10 @@ class Game {
     $("connection").textContent =
       mode === "practice" ? "Offline practice" : "Connected";
     storage.set("qd-name", $("pilot-name").value);
+    this.begunAt = performance.now();
+    this.telemetry.sawInput = false;
+    this.telemetry.stuckChecked = false;
+    this.track(mode === "practice" ? "practice_start" : "online_start");
     this.setBusy(false);
     this._audioState.dead = false;
     this._audioState.roundOver = false;
@@ -982,6 +1042,13 @@ class Game {
   }
   menu(open) {
     this.panel('menu',open);
+    if (open) {
+      this.telemetry.menuOpens = (this.telemetry.menuOpens || 0) + 1;
+      this.track("menu_opened");
+      // Opening the menu 3+ times in one session suggests confusion or a
+      // problem the player can't name; flag it for the loop.
+      if (this.telemetry.menuOpens >= 3) this.track("menu_opened_repeatedly");
+    }
     $("pause-message").textContent =
       this.mode === "practice"
         ? "Practice is paused."
@@ -1040,12 +1107,19 @@ class Game {
       this.notice(e.announcement,6);
       this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4,bus:'music'});
     }
+    // A portal jump teleports you across the map with no other on-screen cue;
+    // give it readable feedback and a short audio sting (was silently missing).
+    if(e.type==='portalEnter'){
+      this.notice('Slipstream jump',2);
+      if(e.player===this.playerId)this.music?.sfx('ricochet',0.5);
+    }
     this.renderer.event(e);
     if (e.type === "fire")
       this.playSound(e.weapon, e.player === this.playerId ? 1 : 0.18);
     if (e.type === "hit" && e.attacker === this.playerId) {
       this.hitUntil = performance.now() + 130;
       this.vibrate(15);
+      this.telemetry.kills = (this.telemetry.kills || 0) + 1;
     }
     if (e.type === "hit" && e.player === this.playerId) {
       this.damageUntil = performance.now() + 220;
@@ -1063,6 +1137,10 @@ class Game {
       if (e.player === this.playerId) {
         this.clearInput();
         this.lastKiller = { name: e.killer, weapon: e.weapon };
+        // Friction signals: dying without ever landing a hit, or dying again
+        // within 3s of respawn, means the player is struggling with the game.
+        if (!this.telemetry.kills) this.track("died_without_kill");
+        if (this.telemetry.spawnedAt && performance.now() - this.telemetry.spawnedAt < 3000) this.track("controls_struggle");
         this.music?.oneShot("ship-destroyed", { gain: 0.7 });
         this.music?.duck(-9, 3);
         this._audioState.dead = true;
@@ -1189,15 +1267,23 @@ class Game {
       }
       this.accumulator -= STEP;
     }
-    this.renderer.draw(
-      this.interpolated(now),
-      this.playerId,
-      this.predicted,
-      this.aim,
-      this.weapon,
-      dt,
-      ["lobby", "connecting"].includes(this.mode),
-    );
+    // Skip the 3D draw entirely when nothing can change on screen: the landing
+    // and connecting states render a static arena, and a modal covers play.
+    // Saves battery/GPU on phones; the HUD below still updates.
+    const covered =
+      !$("menu").hidden || !$("help").hidden || !$("scoreboard").hidden ||
+      !$("report").hidden || this.interfaceModal || document.hidden;
+    if (!covered) {
+      this.renderer.draw(
+        this.interpolated(now),
+        this.playerId,
+        this.predicted,
+        this.aim,
+        this.weapon,
+        dt,
+        ["lobby", "connecting"].includes(this.mode),
+      );
+    }
     if (now - this.lastHud > 80) {
       this.updateHud(now);
       this.interface.update({state:this.state,player:this.state.players.find(p=>p.id===this.playerId),mode:this.mode,map:this.map,view:this.renderer.view,zoom:this.renderer.zoom,profile:this.career,career:this.career,error:this.careerError});
@@ -1243,6 +1329,14 @@ class Game {
     $("death-killer").textContent = this.lastKiller
       ? `Eliminated by ${this.lastKiller.name} · ${WEAPONS[this.lastKiller.weapon]?.name || this.lastKiller.weapon}`
       : "";
+    // Track respawn time so a quick second death can flag a struggling player,
+    // and detect a session where the player never sent any input at all.
+    if (p.alive && !this._wasAlive) this.telemetry.spawnedAt = performance.now();
+    this._wasAlive = p.alive;
+    if (!this.telemetry.stuckChecked && this.active() && performance.now() - (this.begunAt || 0) > 10000) {
+      this.telemetry.stuckChecked = true;
+      if (!this.telemetry.sawInput) this.track("stuck_no_input");
+    }
     this.updateVitals(p);
     this.threats.update({
       players: state.players,

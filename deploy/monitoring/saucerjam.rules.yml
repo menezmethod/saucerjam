@@ -1,0 +1,100 @@
+# Prometheus alert rules for SaucerJam. Loaded via rule_files in prometheus.yml.
+# Every alert matches the Grafana -> Hermes "grafana-alerts" webhook contract
+# (see deploy/monitoring/grafana-alerts-contact-point.md and docs/SRE.md).
+groups:
+  - name: saucerjam-availability
+    interval: 30s
+    rules:
+      - alert: SaucerJamDown
+        expr: up{job="saucerjam"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam is unreachable"
+          description: "Prometheus has failed to scrape qd.menezmethod.com/metrics for 2m."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
+
+      - alert: SaucerJamHealthDegraded
+        expr: saucerjam_rankings_status{status="degraded"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam rankings persistence is degraded"
+          description: "Round results are failing to persist; leaderboard may be stale."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-rankingsdegraded"
+
+  - name: saucerjam-capacity
+    interval: 30s
+    rules:
+      - alert: SaucerJamRoomsSaturated
+        expr: saucerjam_rooms >= 8
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "All SaucerJam rooms are in use"
+          description: "New 'Play online' joins will be rejected with 'All arenas are busy'."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-roomssaturated"
+
+      - alert: SaucerJamJoinFailureSpike
+        expr: sum(rate(saucerjam_join_failures_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "Elevated join failures"
+          description: "More than 0.5 join rejections/sec for 5m; check the reason label."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-joinfailures"
+
+      - alert: SaucerJamManyHumansPerRoom
+        expr: saucerjam_players / clamp_min(saucerjam_rooms, 1) > 24
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "High pilots per room"
+          description: "Average pilots/room exceeds 24 (MAX_ROOM_PLAYERS default 32); verify host headroom."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-capacity"
+
+  - name: saucerjam-runtime
+    interval: 30s
+    rules:
+      - alert: SaucerJamMemoryHigh
+        expr: saucerjam_process_resident_memory_bytes > 384 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam memory above 384 MiB"
+          description: "Container is provisioned at 512 MiB; investigate a leak or room accumulation."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-memory"
+
+      - alert: SaucerJamRankingSaveErrors
+        expr: increase(saucerjam_ranking_save_errors_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam failed to persist a round"
+          description: "ranking save errors incremented; check RANKINGS_FILE volume and permissions."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-rankingsdegraded"
+
+      - alert: SaucerJamRateLimitStorm
+        expr: sum(rate(saucerjam_rate_limited_total[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "Rate limiter rejecting aggressively"
+          description: "Possible abuse or a broken client loop; inspect route label."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-ratelimit"

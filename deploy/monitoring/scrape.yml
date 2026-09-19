@@ -1,0 +1,12 @@
+# Add this block to /home/menez/docker/prometheus/prometheus.yml on Pi5
+# (192.168.0.207). Do NOT use sed; edit with the SSH+python snippet in docs/SRE.md.
+- job_name: "saucerjam"
+  scheme: https
+  metrics_path: /metrics
+  scrape_interval: 15s
+  static_configs:
+    - targets: ["qd.menezmethod.com"]
+      labels:
+        env: production
+        service: saucerjam
+        app: saucerjam

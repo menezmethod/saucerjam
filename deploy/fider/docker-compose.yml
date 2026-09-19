@@ -4,7 +4,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: fider
-      POSTGRES_PASSWORD: ${FIDER_DB_PASSWORD:?set FIDER_DB_PASSWORD in Coolify}
+      # Required from Coolify env; no value is stored in this repo.
+      POSTGRES_PASSWORD: ${FIDER_DB_PASSWORD:?FIDER_DB_PASSWORD must be set in Coolify}
       POSTGRES_DB: fider
     volumes:
       - fider_pg_data:/var/lib/postgresql/data
@@ -29,8 +30,9 @@ services:
       EMAIL_NOREPLY: ${FIDER_EMAIL_NOREPLY:?set FIDER_EMAIL_NOREPLY in Coolify}
       EMAIL_SMTP_HOST: ${FIDER_EMAIL_SMTP_HOST:?set FIDER_EMAIL_SMTP_HOST in Coolify}
       EMAIL_SMTP_PORT: ${FIDER_EMAIL_SMTP_PORT:-587}
-      EMAIL_SMTP_USERNAME: ${FIDER_EMAIL_SMTP_USERNAME:?set FIDER_EMAIL_SMTP_USERNAME in Coolify}
-      EMAIL_SMTP_PASSWORD: ${FIDER_EMAIL_SMTP_PASSWORD:?set FIDER_EMAIL_SMTP_PASSWORD in Coolify}
+      EMAIL_SMTP_USERNAME: ${FIDER_EMAIL_SMTP_USERNAME:?FIDER_EMAIL_SMTP_USERNAME must be set in Coolify}
+      # Required from Coolify env; no value is stored in this repo.
+      EMAIL_SMTP_PASSWORD: ${FIDER_EMAIL_SMTP_PASSWORD:?FIDER_EMAIL_SMTP_PASSWORD must be set in Coolify}
       EMAIL_SMTP_ENABLE_STARTTLS: ${FIDER_EMAIL_SMTP_ENABLE_STARTTLS:-true}
 
 volumes:

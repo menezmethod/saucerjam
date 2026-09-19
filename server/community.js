@@ -2,7 +2,7 @@
 // The AI (Hermes) reads GET /api/community/queue and acts through the
 // restricted POST /api/community/action surface. Nothing here auto-merges:
 // every proposal must clear a maintainer/community gate (see docs/AUTOMATION.md).
-const { createHmac, timingSafeEqual, randomBytes } = require("node:crypto");
+const { createHash, createHmac, timingSafeEqual, randomBytes } = require("node:crypto");
 
 const clean = (v, limit) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, limit) : "");
 
@@ -12,6 +12,16 @@ function verifySignature(secret, rawBody, header) {
   const provided = header.replace(/^sha256=/i, "").trim();
   if (provided.length !== expected.length) return false;
   return timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
+}
+
+// Shared-secret bearer token for senders that cannot produce an HMAC (Fider
+// only emits X-Fider-UserID). Both sides are hashed to a fixed 32-byte digest
+// before comparison so timingSafeEqual never sees mismatched lengths.
+function verifyToken(expected, header) {
+  if (!expected || typeof header !== "string" || !header) return false;
+  const a = createHash("sha256").update(expected).digest();
+  const b = createHash("sha256").update(header).digest();
+  return timingSafeEqual(a, b);
 }
 
 // Deterministic proposals from a triaged item. The AI writes the analysis;
@@ -74,4 +84,4 @@ class CommunityQueue {
   static allowedActions() { return ["open-fix-pr", "open-prototype-pr", "comment", "flag-duplicate", "request-info"]; }
 }
 
-module.exports = { CommunityQueue, verifySignature, propose, clean };
+module.exports = { CommunityQueue, verifySignature, verifyToken, propose, clean };

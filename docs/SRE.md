@@ -163,8 +163,8 @@ during a visibly busy window without noting it.
 
 ## 6. Community → AI pipeline
 
-See `docs/AUTOMATION.md` for the full design. Summary: Fider webhook → signed
-`POST /api/community/webhook` → deterministic proposal → Hermes reads
+See `docs/AUTOMATION.md` for the full design. Summary: Fider webhook →
+credentialed `POST /api/community/webhook` (bearer token or HMAC) → deterministic proposal → Hermes reads
 `GET /api/community/queue` with `x-community-token` → acts via
 `POST /api/community/action` (allow-list only) → maintainer/community gate.
 
@@ -172,7 +172,8 @@ See `docs/AUTOMATION.md` for the full design. Summary: Fider webhook → signed
 
 | Variable | Purpose |
 | --- | --- |
-| `FIDER_WEBHOOK_SECRET` | HMAC secret for inbound Fider webhooks |
+| `FIDER_WEBHOOK_TOKEN` | Shared bearer token for inbound Fider webhooks; the route Fider actually uses (it cannot HMAC-sign). Sent as `Authorization: Bearer <token>` or `x-fider-token` |
+| `FIDER_WEBHOOK_SECRET` | HMAC secret for senders that can sign the raw body; kept for signers that can produce `sha256` |
 | `COMMUNITY_ACTION_TOKEN` | Shared secret for the AI queue/action endpoints |
 | `FIDER_BASE_URL`, `FIDER_API_KEY` | Existing outbound report bridge (Coolify env) |
 | `MAX_ROOMS`, `MAX_ROOM_PLAYERS`, `MAX_CONNECTIONS` | Admission limits (unchanged) |

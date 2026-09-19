@@ -51,6 +51,53 @@ test("signed webhook is queued with a deterministic AI proposal by kind", async 
   );
 });
 
+test("bearer token authenticates a webhook with a deterministic proposal", async () => {
+  await withServer(
+    async (url) => {
+      const body = JSON.stringify({ post_number: 21, post_title: "[bug] crash on join" });
+      const res = await post(url, "/api/community/webhook", body, { authorization: "Bearer fider-tok" });
+      assert.equal(res.status, 202);
+      assert.equal((await res.json()).proposal, "fix-pr");
+      // x-fider-token is accepted as an equivalent header.
+      const alt = await post(url, "/api/community/webhook", JSON.stringify({ post_number: 22, post_title: "[feature] add replays" }), { "x-fider-token": "fider-tok" });
+      assert.equal(alt.status, 202);
+      assert.equal((await alt.json()).proposal, "prototype-pr");
+    },
+    { fiderWebhookToken: "fider-tok" },
+  );
+});
+
+test("wrong bearer token is rejected", async () => {
+  await withServer(
+    async (url) => {
+      const body = JSON.stringify({ post_number: 23, post_title: "[bug] crash" });
+      assert.equal((await post(url, "/api/community/webhook", body, { authorization: "Bearer wrong" })).status, 401);
+      assert.equal((await post(url, "/api/community/webhook", body, { "x-fider-token": "wrong" })).status, 401);
+    },
+    { fiderWebhookToken: "fider-tok" },
+  );
+});
+
+test("webhook returns 401 (not 503) when one method is configured but no credential is sent", async () => {
+  const body = JSON.stringify({ post_number: 24, post_title: "[bug] crash" });
+  // Token-only deployment: no credential means rejected, not "not configured".
+  await withServer(async (url) => {
+    assert.equal((await post(url, "/api/community/webhook", body)).status, 401);
+  }, { fiderWebhookToken: "fider-tok" });
+  // HMAC-only deployment: same contract.
+  await withServer(async (url) => {
+    assert.equal((await post(url, "/api/community/webhook", body)).status, 401);
+  }, { fiderWebhookSecret: "only-secret" });
+});
+
+test("webhook returns 503 when neither secret nor token is configured", async () => {
+  await withServer(async (url) => {
+    const body = JSON.stringify({ post_number: 26, post_title: "[bug] crash" });
+    assert.equal((await post(url, "/api/community/webhook", body)).status, 503);
+    assert.equal((await post(url, "/api/community/webhook", body, { authorization: "Bearer anything" })).status, 503);
+  });
+});
+
 test("queue and action require the action token; only safe actions are accepted", async () => {
   await withServer(
     async (url) => {

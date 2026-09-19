@@ -15,8 +15,11 @@ const STATE_DIR = process.env.SAUCERJAM_OPS_STATE_DIR || path.join(ROOT, "logs",
 const FIXTURE = process.env.SAUCERJAM_FIXTURE || "";
 const COOLDOWN_MS = 30 * 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
-// Keeps a delivery well inside Telegram's 4096-char message limit.
+// Telegram caps messages at 4096 chars. MAX_REPORTED_ITEMS bounds the count and
+// MAX_MESSAGE_CHARS bounds the whole rendered body, so a queue of long items
+// still fits even though count alone cannot guarantee it.
 const MAX_REPORTED_ITEMS = 10;
+const MAX_MESSAGE_CHARS = 3900;
 const APP_UUID = process.env.COOLIFY_APP_SAUCERJAM || "aoeefnsohotlncnvmpgwmaao";
 
 const NAMES = {
@@ -67,7 +70,7 @@ function formatQueueItem(item) {
   if (item.proposal) meta.push(`proposal: ${item.proposal}`);
   if (item.reference) meta.push(`ref: ${clip(item.reference, 60)}`);
   if (meta.length) lines.push(`   ${meta.join(" · ")}`);
-  if (item.url) lines.push(`   ${item.url}`);
+  if (item.url) lines.push(`   ${clip(item.url, 120)}`);
   const received = item.receivedAt ? new Date(item.receivedAt) : null;
   if (received && !Number.isNaN(received.getTime()))
     lines.push(`   received ${received.toISOString().replace("T", " ").slice(0, 16)} UTC`);
@@ -75,9 +78,19 @@ function formatQueueItem(item) {
 }
 
 function formatQueueMessage(items) {
-  const shown = items.slice(0, MAX_REPORTED_ITEMS);
-  const parts = [`CommunityQueue: ${items.length} new item(s)`, ...shown.map(formatQueueItem)];
-  const hidden = items.length - shown.length;
+  const header = `CommunityQueue: ${items.length} new item(s)`;
+  const parts = [header];
+  let length = header.length;
+  let shown = 0;
+  for (const item of items) {
+    if (shown >= MAX_REPORTED_ITEMS) break;
+    const block = formatQueueItem(item);
+    if (length + block.length + 1 > MAX_MESSAGE_CHARS) break;
+    parts.push(block);
+    length += block.length + 1;
+    shown++;
+  }
+  const hidden = items.length - shown;
   if (hidden > 0) parts.push(`…and ${hidden} more not shown`);
   return parts.join("\n");
 }

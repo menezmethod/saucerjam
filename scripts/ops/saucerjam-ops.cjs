@@ -10,13 +10,15 @@
 const fs = require("node:fs");
 const path = require("node:path");
 // A7: post-derived text must be guarded before it reaches an alert or log line.
-const { guardPublicText, formatQueueDetail } = require("../../server/community");
+const { guardPublicText } = require("../../server/community");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const STATE_DIR = process.env.SAUCERJAM_OPS_STATE_DIR || path.join(ROOT, "logs", "ops");
 const FIXTURE = process.env.SAUCERJAM_FIXTURE || "";
 const COOLDOWN_MS = 30 * 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
+// Keeps a delivery well inside Telegram's 4096-char message limit.
+const MAX_REPORTED_ITEMS = 10;
 const APP_UUID = process.env.COOLIFY_APP_SAUCERJAM || "aoeefnsohotlncnvmpgwmaao";
 
 const NAMES = {
@@ -46,6 +48,51 @@ async function sreCondition(fx) {
   return null;
 }
 
+// Every field below is post-derived (it came from Fider through the webhook),
+// so it passes through guardPublicText before it can reach an alert or log
+// line: that strips bidi overrides, zero-width and control characters, and
+// ANSI escapes, and caps the length. The id is guarded separately because the
+// dedupe key must stay on the raw value.
+function safeField(value, limit) {
+  return guardPublicText(String(value ?? "").replace(/\s+/g, " ").trim(), { limit });
+}
+
+// One readable block per queued item so the Hermes delivery says what was
+// processed, not just a bare id. Missing fields degrade quietly — Fider can
+// omit them and the queue API is the only source of truth. Every value is
+// guarded first, because the alert text is post-derived and untrusted.
+function formatQueueItem(item) {
+  const ref = safeField(item.number ?? item.id ?? "?", 20) || "?";
+  const kind = safeField(item.kind, 24) || "item";
+  const lines = [`#${ref} · ${kind} · ${safeField(item.title, 120) || "(untitled)"}`];
+  const description = safeField(item.description, 200);
+  if (description) lines.push(`   ${description}`);
+  const meta = [];
+  if (item.votes !== undefined && item.votes !== null && !Number.isNaN(Number(item.votes)))
+    meta.push(`${Number(item.votes)} vote(s)`);
+  const status = safeField(item.status, 24);
+  if (status) meta.push(`status: ${status}`);
+  const proposal = safeField(item.proposal, 24);
+  if (proposal) meta.push(`proposal: ${proposal}`);
+  const reference = safeField(item.reference, 60);
+  if (reference) meta.push(`ref: ${reference}`);
+  if (meta.length) lines.push(`   ${meta.join(" · ")}`);
+  const url = safeField(item.url, 120);
+  if (url) lines.push(`   ${url}`);
+  const received = item.receivedAt ? new Date(item.receivedAt) : null;
+  if (received && !Number.isNaN(received.getTime()))
+    lines.push(`   received ${received.toISOString().replace("T", " ").slice(0, 16)} UTC`);
+  return lines.join("\n");
+}
+
+function formatQueueMessage(items) {
+  const shown = items.slice(0, MAX_REPORTED_ITEMS);
+  const parts = [`CommunityQueue: ${items.length} new item(s)`, ...shown.map(formatQueueItem)];
+  const hidden = items.length - shown.length;
+  if (hidden > 0) parts.push(`…and ${hidden} more not shown`);
+  return parts.join("\n");
+}
+
 async function communityCondition(fx) {
   const q = fx
     ? fx.queue
@@ -56,12 +103,10 @@ async function communityCondition(fx) {
     items = JSON.parse(q.body || "{}").items || [];
   } catch {}
   if (!items.length) return null;
-  const ids = items.map((item) => guardPublicText(item.id, { limit: 40 })).join(",");
-  // Details are post-derived, so they go through the guard before hitting the
-  // alert/log line. The dedupe key stays on the raw ids.
-  const details = guardPublicText(items.slice(0, 5).map((item) => formatQueueDetail(item)).join("; "), { limit: 600 });
-  const message = `CommunityQueue: ${items.length} new item(s): ${ids}${details ? ` — ${details}` : ""}`;
-  return { key: `queue:${items.map((item) => item.id).join(",")}`, alert: false, message };
+  // The ids are post-derived too, so they are guarded for display; the dedupe
+  // key stays on the raw values so a standing queue still reports once.
+  const ids = items.map((item) => guardPublicText(String(item.id ?? ""), { limit: 40 })).join(",");
+  return { key: `queue:${items.map((item) => item.id).join(",")}`, alert: false, message: formatQueueMessage(items) };
 }
 
 function stateFile(name) {

@@ -17,6 +17,29 @@ const fixtures = {
   healthy: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[]}' } },
   broken: { health: { status: 503, body: "down" }, metrics: { status: 404, body: "" }, queue: { status: 200, body: '{"items":[]}' } },
   queue: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[{"id":"42"}]}' } },
+  detail: {
+    health: { status: 200, body: "{}" },
+    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    queue: {
+      status: 200,
+      body: JSON.stringify({
+        items: [
+          {
+            id: "77",
+            number: 77,
+            title: "[bug] Room list drops the last player",
+            kind: "bug",
+            description: "Repro: join with 4 players, the 4th never renders.",
+            url: "https://community.menezmethod.com/posts/77/room-list-drops-last-player",
+            votes: 3,
+            status: "new",
+            proposal: "fix-pr",
+            receivedAt: "2026-09-19T17:36:32.667Z",
+          },
+        ],
+      }),
+    },
+  },
 };
 const fixturePath = {};
 for (const [name, value] of Object.entries(fixtures)) {
@@ -66,6 +89,19 @@ check("community new item: exit 0 with an event on stdout", communityQueue.code 
 
 const communityRepeat = run("community", "community", "queue");
 check("community identical queue: silent", communityRepeat.code === 0 && communityRepeat.out === "", JSON.stringify(communityRepeat));
+
+// The delivery must say what was processed, not just a bare id.
+const bare = run("community", "bare", "queue");
+check("community minimal item: no undefined placeholders", bare.code === 0 && !/undefined|null|NaN/.test(bare.out), JSON.stringify(bare));
+
+const detail = run("community", "detail", "detail");
+const wants = ["#77", "bug", "[bug] Room list drops the last player", "3 vote(s)", "proposal: fix-pr", "posts/77/", "2026-09-19 17:36 UTC"];
+const missingFields = wants.filter((needle) => !detail.out.includes(needle));
+check(
+  "community new item: reports title, kind, votes, proposal, url, received",
+  detail.code === 0 && missingFields.length === 0,
+  `missing ${JSON.stringify(missingFields)} in ${JSON.stringify(detail.out)}`,
+);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 process.stdout.write(failed ? `${failed} selftest check(s) failed\n` : "ops:selftest OK\n");

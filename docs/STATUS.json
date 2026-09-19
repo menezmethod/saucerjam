@@ -264,5 +264,17 @@
     "next": "Refine cover and crossing fights based on human play; no additional maps",
     "automation": "Deleted by user; do not recreate"
   },
-  "nextAction": "Review PR release/1.4.0, run automation setup (COMMUNITY_ACTION_TOKEN, Fider webhook), then deploy and tag 1.4.0"
+  "nextAction": "Review PR release/1.4.0, run automation setup (COMMUNITY_ACTION_TOKEN, Fider webhook), then deploy and tag 1.4.0",
+  "sreSetup": {
+    "prometheus": "saucerjam job + 8 alert rules loaded on Pi5 (3 groups)",
+    "grafana": "SaucerJam dashboard provisioned (/d/saucerjam-sre/saucerjam)",
+    "relay": "grafana-hermes-relay staged at ~/grafana-hermes-relay on Pi5 (not started)",
+    "scrape": "down until release/1.4.0 deploys (expects /metrics)",
+    "humanTodo": [
+      "set COMMUNITY_ACTION_TOKEN + FIDER_WEBHOOK_SECRET in Coolify",
+      "add Fider webhook",
+      "install Hermes saucerjam-community + saucerjam-sre subscriptions",
+      "start the relay if alert routing is wanted"
+    ]
+  }
 }

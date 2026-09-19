@@ -1,0 +1,32 @@
+{
+  "saucerjam-sre": {
+    "kind": "cron",
+    "schedule": "*/15 * * * *",
+    "entrypoint": "scripts/ops/saucerjam-sre.sh check",
+    "heal_command": "scripts/ops/saucerjam-sre.sh heal",
+    "deliver": "telegram",
+    "skills": ["coolify-deploys"],
+    "enabled_toolsets": ["terminal", "file"],
+    "workdir": "/Users/luisgimenez/code/github.com/menezmethod/saucerjam",
+    "model": "deepseek-v4.1-flash",
+    "provider": "opencode-go",
+    "timeout_s": 60,
+    "required_env": ["COOLIFY_TOKEN", "COOLIFY_URL"],
+    "silent_when": "exit 0 and empty stdout"
+  },
+  "saucerjam-community": {
+    "kind": "cron",
+    "schedule": "*/30 * * * *",
+    "entrypoint": "scripts/ops/saucerjam-community.sh check",
+    "heal_command": "scripts/ops/saucerjam-community.sh heal",
+    "deliver": "telegram",
+    "skills": ["saucerjam-community-triage"],
+    "enabled_toolsets": ["terminal", "file"],
+    "workdir": "/Users/luisgimenez/code/github.com/menezmethod/saucerjam",
+    "model": "deepseek-v4.1-flash",
+    "provider": "opencode-go",
+    "timeout_s": 60,
+    "required_env": ["COMMUNITY_ACTION_TOKEN"],
+    "silent_when": "exit 0 and empty stdout"
+  }
+}

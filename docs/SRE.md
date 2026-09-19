@@ -88,9 +88,20 @@ pointing at a section below.
 | `SaucerJamMemoryHigh` | warning | RSS > 384 MiB for 10m (container cap 512 MiB) |
 | `SaucerJamRankingSaveErrors` | warning | any round save error in 15m |
 | `SaucerJamRateLimitStorm` | warning | limiter rejections > 5/s for 5m |
+| `SaucerJamPlayersStuck` | warning | `insight_friction_ratio{signal="stuck_no_input_per_session"} > 0.15` for 30m |
 
-Grafana routes firing alerts to Hermes (contact point → Hermes webhook on
-`:8644`, subscription `grafana-alerts`), which triages and escalates to Telegram.
+All 9 rules load into Prometheus (`promtool check rules` → SUCCESS: 9 rules
+found). Grafana file-provisions the contact point `grafana-hermes`
+(`provisioning/alerting/contact-points.yaml`) and sets it as the root
+notification-policy receiver, replacing the previous `Telegram Alerts` route.
+Grafana posts to the relay `grafana-hermes-relay.service` on the Pi5 at
+`http://host.docker.internal:8787/`; the relay adds `X-Hub-Signature-256` (HMAC)
+and forwards to the Hermes gateway at
+`http://100.82.231.99:8644/webhooks/grafana-alerts` (subscription
+`grafana-alerts`), which triages and escalates to Telegram. Verified end to end
+on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Hermes
+`POST /webhooks/grafana-alerts → 200`. Details:
+`deploy/monitoring/grafana-alerts-contact-point.md`.
 
 ## 4. AI authority (self-heal vs escalate)
 

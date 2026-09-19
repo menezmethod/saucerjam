@@ -9,6 +9,8 @@
 //   --json, --dry-run. Internal timeout < 60s. State file silences a standing condition.
 const fs = require("node:fs");
 const path = require("node:path");
+// A7: post-derived text must be guarded before it reaches an alert or log line.
+const { guardPublicText, formatQueueDetail } = require("../../server/community");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const STATE_DIR = process.env.SAUCERJAM_OPS_STATE_DIR || path.join(ROOT, "logs", "ops");
@@ -54,8 +56,12 @@ async function communityCondition(fx) {
     items = JSON.parse(q.body || "{}").items || [];
   } catch {}
   if (!items.length) return null;
-  const ids = items.map((item) => item.id).join(",");
-  return { key: `queue:${ids}`, alert: false, message: `CommunityQueue: ${items.length} new item(s): ${ids}` };
+  const ids = items.map((item) => guardPublicText(item.id, { limit: 40 })).join(",");
+  // Details are post-derived, so they go through the guard before hitting the
+  // alert/log line. The dedupe key stays on the raw ids.
+  const details = guardPublicText(items.slice(0, 5).map((item) => formatQueueDetail(item)).join("; "), { limit: 600 });
+  const message = `CommunityQueue: ${items.length} new item(s): ${ids}${details ? ` — ${details}` : ""}`;
+  return { key: `queue:${items.map((item) => item.id).join(",")}`, alert: false, message };
 }
 
 function stateFile(name) {

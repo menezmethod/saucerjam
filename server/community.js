@@ -6,6 +6,45 @@ const { createHash, createHmac, timingSafeEqual, randomBytes } = require("node:c
 
 const clean = (v, limit) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, limit) : "");
 
+// A7: any string derived from a Fider post that reaches an alert, a log line,
+// or a public artifact must be neutralised first. The order matters: NFKC
+// normalise, remove terminal escape sequences, strip control/bidi/zero-width
+// formatting, collapse whitespace, then cap by code points. This stops a post
+// title from being a prompt-injection or terminal-escape vector.
+// Control whitespace becomes a space so words are not glued together; the
+// remaining control/bidi/zero-width characters are deleted.
+const CONTROL_WHITESPACE = /[\t\n\v\f\r]/g;
+const FORBIDDEN = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
+
+function guardPublicText(value, { limit = 200 } = {}) {
+  if (typeof value !== "string") return "";
+  return Array.from(
+    value
+      .normalize("NFKC")
+      .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "") // CSI sequences (SGR colours)
+      .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)?/g, "") // OSC sequences
+      .replace(/\u001b[@-Z\\-_]/g, "") // other two-character escapes
+      .replace(CONTROL_WHITESPACE, " ")
+      .replace(FORBIDDEN, "")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ).slice(0, Math.max(0, limit)).join("");
+}
+
+// The queue-detail formatter echoes post identity, title, body, and URL into a
+// single guarded line for the ops alert path.
+function formatQueueDetail(item = {}, { limit = 200 } = {}) {
+  const id = guardPublicText(String(item.id ?? item.key ?? item.number ?? "?"), { limit: 40 });
+  const title = guardPublicText(item.title, { limit });
+  const body = guardPublicText(item.description ?? item.body, { limit });
+  const url = guardPublicText(item.url, { limit });
+  const parts = [`#${id}`];
+  if (title) parts.push(`"${title}"`);
+  if (body) parts.push(`- ${body}`);
+  if (url) parts.push(`(${url})`);
+  return parts.join(" ");
+}
+
 // Hex shape gate: only 64 hex characters (32 bytes) can be a sha256 digest.
 // Validating the shape *before* comparing means attacker-controlled non-ASCII
 // input (e.g. "é".repeat(64), 128 UTF-8 bytes) returns false instead of making
@@ -94,4 +133,4 @@ class CommunityQueue {
   static allowedActions() { return ["open-fix-pr", "open-prototype-pr", "comment", "flag-duplicate", "request-info"]; }
 }
 
-module.exports = { CommunityQueue, verifySignature, verifyToken, propose, clean };
+module.exports = { CommunityQueue, verifySignature, verifyToken, propose, clean, guardPublicText, formatQueueDetail };

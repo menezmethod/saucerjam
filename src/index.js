@@ -248,8 +248,13 @@ class Game {
   openFriendsDisclosure() {
     $("lobby-friends")?.setAttribute("open", "");
   }
-  openAuthDisclosure() {
+  openAuthDisclosure(message) {
     $("lobby-account")?.setAttribute("open", "");
+    if (message == null) return;
+    // The live region must already be exposed when its text changes or screen
+    // readers stay silent, so write on the next task, after the disclosure opens.
+    const status = $("auth-status");
+    setTimeout(() => { status.textContent = message; }, 0);
   }
   async authAction(action, success = "signed-in") {
     const status = $("auth-status");
@@ -258,8 +263,7 @@ class Game {
       const result = await action();
       status.textContent = success === "registered" && !result?.session ? "Check your email to verify the account." : "Ready to fly.";
     } catch (error) {
-      this.openAuthDisclosure();
-      status.textContent = error?.message || "Account action failed. Try again.";
+      this.openAuthDisclosure(error?.message || "Account action failed. Try again.");
     }
   }
   toggleEmailAuth(open = $("email-auth").hidden) {
@@ -357,7 +361,7 @@ class Game {
     this.toggleEmailAuth(false);
     $("account-status").textContent = user ? (user.email || "Signed-in pilot") : "Guest pilot";
     $("account-copy").textContent = user ? "Your pilot identity and online records are linked to this account." : "Sign in to carry your callsign and records between devices.";
-    if (error) { this.openAuthDisclosure(); $("auth-status").textContent = "Account session could not be restored. You can continue as a guest."; }
+    if (error) this.openAuthDisclosure("Account session could not be restored. You can continue as a guest.");
     else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
     if (user) this.loadCareer();
   }

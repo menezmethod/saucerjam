@@ -6,6 +6,10 @@
   --line: #2b4058;
   --cyan: #5eeaff;
   --orange: #ffae69;
+  /* Rendered height of the three-button Arena/Scores/Sound stack in
+     .flight-tools. The fixed Comms toggle (and its panel) sit above it on
+     desktop; update this if the rail buttons change size. */
+  --flight-tools-height: 106px;
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   font-size: 14px;
 }
@@ -378,13 +382,16 @@ body.hud-idle .flight-hint {
 .chat-toggle {
   position: fixed;
   right: 24px;
-  bottom: 132px;
+  /* Clear the flight-tools rail pinned to the bottom of .combat-bar (bar
+     bottom 44px, then the 106px stack, then an 8px gap). The compact
+     breakpoints below override this with their own rail heights. */
+  bottom: calc(44px + var(--flight-tools-height) + 8px);
   z-index: 4;
 }
 .chat-panel {
   position: fixed;
   right: 24px;
-  bottom: 174px;
+  bottom: calc(44px + var(--flight-tools-height) + 50px);
   width: min(330px, calc(100vw - 32px));
   padding: 12px;
   border: 1px solid #35516c;

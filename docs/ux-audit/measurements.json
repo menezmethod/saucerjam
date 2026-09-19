@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T05:44:47.748Z",
+  "generatedAt": "2026-09-19T05:57:27.601Z",
   "devices": [
     {
       "name": "phone-se-375x667",
@@ -510,6 +510,133 @@
       }
     },
     {
+      "name": "phone-16-393x852",
+      "viewport": {
+        "w": 393,
+        "h": 852,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 393,
+        "innerHeight": 852,
+        "dpr": 3,
+        "scrollWidth": 393,
+        "scrollHeight": 852,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 393,
+        "innerHeight": 852,
+        "dpr": 3,
+        "scrollWidth": 393,
+        "scrollHeight": 852,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 393,
+            "bottom": 116,
+            "w": 393,
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 128,
+            "top": 12,
+            "right": 265,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 305,
+            "top": 12,
+            "right": 381,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
+          },
+          "comms": {
+            "left": 317,
+            "top": 700,
+            "right": 381,
+            "bottom": 744,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 213,
+            "top": 124,
+            "right": 377,
+            "bottom": 168,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
       "name": "pixel5-393x851",
       "viewport": {
         "w": 393,
@@ -840,47 +967,47 @@
             "left": 0,
             "top": 0,
             "right": 844,
-            "bottom": 120,
+            "bottom": 56,
             "w": 844,
-            "h": 120
+            "h": 56
           },
           "brand": {
             "left": 12,
-            "top": 12,
-            "right": 30,
-            "bottom": 35,
-            "w": 18,
-            "h": 23
+            "top": 6,
+            "right": 29,
+            "bottom": 28,
+            "w": 17,
+            "h": 22
           },
           "clock": {
             "left": 354,
-            "top": 12,
+            "top": 6,
             "right": 490,
-            "bottom": 64,
+            "bottom": 43,
             "w": 137,
-            "h": 52
+            "h": 37
           },
           "vitals": {
-            "left": 678,
-            "top": 12,
-            "right": 832,
-            "bottom": 54,
-            "w": 154,
-            "h": 42
+            "left": 596,
+            "top": 21,
+            "right": 734,
+            "bottom": 36,
+            "w": 138,
+            "h": 15
           },
           "comms": {
-            "left": 756,
-            "top": 188,
-            "right": 820,
-            "bottom": 232,
+            "left": 12,
+            "top": 64,
+            "right": 76,
+            "bottom": 108,
             "w": 64,
             "h": 44
           },
           "weapons": {
             "left": 660,
-            "top": 128,
+            "top": 64,
             "right": 828,
-            "bottom": 172,
+            "bottom": 108,
             "w": 168,
             "h": 44
           }
@@ -967,47 +1094,174 @@
             "left": 0,
             "top": 0,
             "right": 932,
-            "bottom": 120,
+            "bottom": 56,
             "w": 932,
-            "h": 120
+            "h": 56
           },
           "brand": {
             "left": 12,
-            "top": 12,
-            "right": 30,
-            "bottom": 35,
-            "w": 18,
-            "h": 23
+            "top": 6,
+            "right": 29,
+            "bottom": 28,
+            "w": 17,
+            "h": 22
           },
           "clock": {
             "left": 398,
-            "top": 12,
+            "top": 6,
             "right": 534,
-            "bottom": 64,
+            "bottom": 43,
             "w": 137,
-            "h": 52
+            "h": 37
           },
           "vitals": {
-            "left": 766,
-            "top": 12,
-            "right": 920,
-            "bottom": 54,
-            "w": 154,
-            "h": 42
+            "left": 684,
+            "top": 21,
+            "right": 822,
+            "bottom": 36,
+            "w": 138,
+            "h": 15
           },
           "comms": {
-            "left": 844,
-            "top": 228,
-            "right": 908,
-            "bottom": 272,
+            "left": 12,
+            "top": 64,
+            "right": 76,
+            "bottom": 108,
             "w": 64,
             "h": 44
           },
           "weapons": {
             "left": 748,
-            "top": 128,
+            "top": 64,
             "right": 916,
-            "bottom": 172,
+            "bottom": 108,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-16-land-852x393",
+      "viewport": {
+        "w": 852,
+        "h": 393,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 852,
+        "innerHeight": 393,
+        "dpr": 3,
+        "scrollWidth": 852,
+        "scrollHeight": 393,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 852,
+        "innerHeight": 393,
+        "dpr": 3,
+        "scrollWidth": 852,
+        "scrollHeight": 393,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 852,
+            "bottom": 56,
+            "w": 852,
+            "h": 56
+          },
+          "brand": {
+            "left": 12,
+            "top": 6,
+            "right": 29,
+            "bottom": 28,
+            "w": 17,
+            "h": 22
+          },
+          "clock": {
+            "left": 358,
+            "top": 6,
+            "right": 494,
+            "bottom": 43,
+            "w": 137,
+            "h": 37
+          },
+          "vitals": {
+            "left": 604,
+            "top": 21,
+            "right": 742,
+            "bottom": 36,
+            "w": 138,
+            "h": 15
+          },
+          "comms": {
+            "left": 12,
+            "top": 64,
+            "right": 76,
+            "bottom": 108,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 668,
+            "top": 64,
+            "right": 836,
+            "bottom": 108,
             "w": 168,
             "h": 44
           }
@@ -1094,47 +1348,47 @@
             "left": 0,
             "top": 0,
             "right": 851,
-            "bottom": 120,
+            "bottom": 56,
             "w": 851,
-            "h": 120
+            "h": 56
           },
           "brand": {
             "left": 12,
-            "top": 12,
-            "right": 30,
-            "bottom": 35,
-            "w": 18,
-            "h": 23
+            "top": 6,
+            "right": 29,
+            "bottom": 28,
+            "w": 17,
+            "h": 22
           },
           "clock": {
             "left": 357,
-            "top": 12,
+            "top": 6,
             "right": 494,
-            "bottom": 64,
+            "bottom": 43,
             "w": 137,
-            "h": 52
+            "h": 37
           },
           "vitals": {
-            "left": 685,
-            "top": 12,
-            "right": 839,
-            "bottom": 54,
-            "w": 154,
-            "h": 42
+            "left": 603,
+            "top": 21,
+            "right": 741,
+            "bottom": 36,
+            "w": 138,
+            "h": 15
           },
           "comms": {
-            "left": 763,
-            "top": 191,
-            "right": 827,
-            "bottom": 235,
+            "left": 12,
+            "top": 64,
+            "right": 76,
+            "bottom": 108,
             "w": 64,
             "h": 44
           },
           "weapons": {
             "left": 667,
-            "top": 128,
+            "top": 64,
             "right": 835,
-            "bottom": 172,
+            "bottom": 108,
             "w": 168,
             "h": 44
           }
@@ -1221,47 +1475,47 @@
             "left": 0,
             "top": 0,
             "right": 568,
-            "bottom": 116,
+            "bottom": 56,
             "w": 568,
-            "h": 116
+            "h": 56
           },
           "brand": {
             "left": 12,
-            "top": 12,
-            "right": 30,
-            "bottom": 35,
-            "w": 18,
-            "h": 23
+            "top": 6,
+            "right": 29,
+            "bottom": 28,
+            "w": 17,
+            "h": 22
           },
           "clock": {
-            "left": 216,
-            "top": 12,
-            "right": 352,
-            "bottom": 58,
-            "w": 137,
-            "h": 46
+            "left": 265,
+            "top": 6,
+            "right": 303,
+            "bottom": 26,
+            "w": 39,
+            "h": 20
           },
           "vitals": {
-            "left": 402,
-            "top": 12,
-            "right": 556,
-            "bottom": 54,
-            "w": 154,
-            "h": 42
+            "left": 320,
+            "top": 21,
+            "right": 458,
+            "bottom": 36,
+            "w": 138,
+            "h": 15
           },
           "comms": {
-            "left": 492,
-            "top": 168,
-            "right": 556,
-            "bottom": 212,
+            "left": 12,
+            "top": 64,
+            "right": 76,
+            "bottom": 108,
             "w": 64,
             "h": 44
           },
           "weapons": {
             "left": 388,
-            "top": 124,
+            "top": 64,
             "right": 552,
-            "bottom": 168,
+            "bottom": 108,
             "w": 164,
             "h": 44
           }

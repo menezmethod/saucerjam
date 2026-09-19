@@ -16,11 +16,13 @@ const DEVICES = [
   { name: "phone-320x568", w: 320, h: 568, dpr: 2, mobile: true },
   { name: "phone-12-390x844", w: 390, h: 844, dpr: 3, mobile: true },
   { name: "phone-14pm-430x932", w: 430, h: 932, dpr: 3, mobile: true },
+  { name: "phone-16-393x852", w: 393, h: 852, dpr: 3, mobile: true },
   { name: "pixel5-393x851", w: 393, h: 851, dpr: 2.75, mobile: true },
   { name: "galaxy-s8-360x740", w: 360, h: 740, dpr: 3, mobile: true },
   // phones, landscape (short height)
   { name: "phone-12-land-844x390", w: 844, h: 390, dpr: 3, mobile: true },
   { name: "phone-14pm-land-932x430", w: 932, h: 430, dpr: 3, mobile: true },
+  { name: "phone-16-land-852x393", w: 852, h: 393, dpr: 3, mobile: true },
   { name: "pixel5-land-851x393", w: 851, h: 393, dpr: 2.75, mobile: true },
   { name: "phone-568x320", w: 568, h: 320, dpr: 2, mobile: true },
   // tablets

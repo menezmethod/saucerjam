@@ -1383,3 +1383,43 @@ button:active { transform: scale(0.97); }
   .vital-label { display: none; }
   .vital-bar { width: 48px; }
 }
+
+/* Landscape phones: a tall stacked top bar eats the play area and the Comms
+   toggle competes with the top-right weapon rail. Compact the chrome and dock
+   Comms top-left (the radar is hidden on touch, so that corner is free). */
+@media (max-height: 480px) and (pointer: coarse) {
+  .top-bar {
+    padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  }
+  .match-brand { font-size: 16px; }
+  .match-brand > span { display: none; }
+  .match-clock strong { font-size: 20px; }
+  .match-clock span { font-size: 11px; margin-top: 2px; }
+  .vitals { flex-direction: row; gap: 8px; }
+  .vital-label { display: none; }
+  .vital-bar { width: 40px; }
+  .vital-num { min-width: 0; }
+  .session-tools { flex-direction: row; align-items: center; gap: 8px; }
+  .chat-toggle {
+    top: calc(var(--top-bar-height, 64px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+  }
+  .chat-panel {
+    top: calc(var(--top-bar-height, 64px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+    width: min(320px, calc(100vw - 24px));
+    max-height: calc(100vh - var(--top-bar-height, 64px) - 24px);
+    overflow: auto;
+  }
+  .chat-log { max-height: 96px; }
+}
+
+/* Narrow landscape phones: the round label makes the centred clock wide enough
+   to hit the vitals, so drop it (round/district remain in the scoreboard). */
+@media (max-height: 480px) and (max-width: 700px) and (pointer: coarse) {
+  .match-clock span { display: none; }
+}

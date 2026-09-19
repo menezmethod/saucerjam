@@ -1,0 +1,16 @@
+[Unit]
+Description=Grafana -> Hermes alert relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=menez
+WorkingDirectory=/home/menez/grafana-hermes-relay
+EnvironmentFile=/home/menez/grafana-hermes-relay/.env
+ExecStart=/usr/bin/python3 /home/menez/grafana-hermes-relay/grafana-hermes-relay.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

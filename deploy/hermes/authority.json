@@ -1,0 +1,56 @@
+{
+  "SaucerJamDown": {
+    "allowed_autonomously": true,
+    "command": "scripts/ops/saucerjam-sre.sh heal",
+    "escalate_when": "two restarts fail",
+    "runbook_anchor": "docs/SRE.md#runbook-saucerjamdown"
+  },
+  "SaucerJamHealthDegraded": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "ranking saves still failing after a restart; back up RANKINGS_FILE before any manual edit",
+    "runbook_anchor": "docs/SRE.md#runbook-rankingsdegraded"
+  },
+  "SaucerJamRoomsSaturated": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "sustained saturation; raising MAX_ROOMS is a capacity decision needing headroom evidence (docs/HOSTING.md)",
+    "runbook_anchor": "docs/SRE.md#runbook-roomssaturated"
+  },
+  "SaucerJamJoinFailureSpike": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "rate_limited or rooms_full dominates and does not self-clear",
+    "runbook_anchor": "docs/SRE.md#runbook-joinfailures"
+  },
+  "SaucerJamManyHumansPerRoom": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "host strained; lowering MAX_ROOM_PLAYERS is a human capacity decision",
+    "runbook_anchor": "docs/SRE.md#runbook-capacity"
+  },
+  "SaucerJamMemoryHigh": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "RSS does not fall after a restart (likely leak)",
+    "runbook_anchor": "docs/SRE.md#runbook-memory"
+  },
+  "SaucerJamRankingSaveErrors": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "save errors continue; volume mount or permissions need a human",
+    "runbook_anchor": "docs/SRE.md#runbook-rankingsdegraded"
+  },
+  "SaucerJamRateLimitStorm": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "single-IP abuse vs a stuck client cannot be distinguished automatically",
+    "runbook_anchor": "docs/SRE.md#runbook-ratelimit"
+  },
+  "SaucerJamPlayersStuck": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "friction ratio stays elevated with no reproducible code cause (design question)",
+    "runbook_anchor": "docs/SRE-INSIGHTS.md"
+  }
+}

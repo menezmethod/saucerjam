@@ -3,11 +3,12 @@
 Fider is the public feedback portal for SaucerJam and future Menezmethod apps. GitHub remains the source of truth for code, reviews, CI, provenance, and releases.
 
 - [Play online](https://qd.menezmethod.com)
-- [Report a bug](https://github.com/menezmethod/saucerjam/issues/new?template=bug_report.yml)
-- [Suggest a feature or balance change](https://github.com/menezmethod/saucerjam/issues/new?template=feature_request.yml)
-- [Join discussions and vote](https://github.com/menezmethod/saucerjam/discussions) (fallback while Fider is being deployed)
+- [Community roadmap, feature suggestions, and voting](https://community.menezmethod.com)
+- [Report a bug or suggest an idea from the game](https://qd.menezmethod.com)
+- [GitHub issue forms](https://github.com/menezmethod/saucerjam/issues) (engineering and security fallback)
 - [Read the roadmap](../ROADMAP.md)
 - [Shared Fider deployment and Supabase integration](./FIDER_SHARED_SERVICE.md)
+- [SaucerJam public game roadmap for Fider](./FIDER_ROADMAP.md)
 
 ## What belongs where
 
@@ -18,6 +19,8 @@ Fider is the public feedback portal for SaucerJam and future Menezmethod apps. G
 Community votes help maintainers prioritize; they do not automatically create work or change the canonical game. Maintainers move accepted work through:
 
 `Inbox -> Needs details -> Triaged -> Duplicate -> Accepted -> Planned -> In progress -> Playtest -> Shipped -> Closed`
+
+Guests can read the board, then sign in through Fider to suggest or vote. In-game submissions require a verified SaucerJam account so reports have attribution and abuse controls.
 
 ## Agent and community contributions
 

@@ -1,6 +1,6 @@
 # SaucerJam Community Portal Plan
 
-Status: planning only. Do not implement this plan until an agent is explicitly assigned to build it.
+Status: live on `community.menezmethod.com`; qd3 has a server-side Fider report bridge.
 
 ## Outcome
 
@@ -46,6 +46,8 @@ Fider is open source and supports public posts, comments, votes, statuses, OAuth
 - https://docs.fider.io/configuring-oauth/
 - https://docs.fider.io/using-webhooks/
 
+The public board is the feature-discovery surface: players can browse the roadmap, suggest features, discuss ideas, and vote. Bugs, feature ideas, balance changes, and questions can also be submitted from the in-game Mission debrief when the pilot is signed in with a verified account.
+
 Featurebase and Canny remain alternatives only if Fider’s maintenance, moderation, or product needs stop fitting. Do not run GitHub Discussions, Fider, a paid provider, and a custom database as competing sources of truth.
 
 ## Voting policy
@@ -86,7 +88,8 @@ Only maintainers change workflow status. Community votes inform priority; they d
 
 Add these links only after the external portal exists:
 
-- Flight menu: `Report a bug`, `Suggest an idea`, `View roadmap`;
+- Flight menu: `Report feedback`, with bug, feature, balance, and question types;
+- Report dialog: `Browse the roadmap and suggest an idea` for voting and longer discussion;
 - round recap: `Report this match` and `Suggest improvement`;
 - website: `Community` and `Changelog`;
 - README: `Play`, `Community`, `Contribute`.
@@ -111,6 +114,12 @@ Use provider authentication/SSO where possible. For any custom submission surfac
 - short raw-event retention period.
 
 The game’s pilot token is not an identity system for the portal. Use a separate provider user ID or SSO subject.
+
+### Guest policy
+
+Keep the in-game write bridge verified-account-only at launch. This preserves attribution, makes rate limits meaningful, and gives players a reliable way to follow up without exposing an anonymous write API. Guests can still browse the public Fider board and use its normal sign-in flow to suggest or vote. If anonymous intake becomes necessary, add a separate Turnstile-gated moderation queue rather than posting directly to the public board.
+
+Attachments are deferred. When enabled, allow them only for verified pilots through signed uploads to quarantined storage, with strict image MIME/size/count limits, malware scanning, and expiring links.
 
 ## Human and agent workflow
 

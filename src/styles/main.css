@@ -1142,6 +1142,16 @@ th {
   }
 }
 
+/* An embedded/ultra-short desktop viewport cannot fit Menu, Comms, and the
+   compact control rail without putting secondary controls on top of each
+   other. Keep the match controls; Comms returns as soon as the viewport has
+   usable height. */
+@media (max-height: 180px) and (max-width: 760px) and (pointer: fine) {
+  .chat-toggle {
+    display: none;
+  }
+}
+
 /* Combat drags must not select HUD text, trigger pull-to-refresh, or show the
    iOS text-selection callout. */
 body { user-select: none; -webkit-user-select: none; overscroll-behavior: none; -webkit-touch-callout: none; }

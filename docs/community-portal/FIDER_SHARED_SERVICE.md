@@ -21,7 +21,7 @@ Required infrastructure:
 3. DNS: `community.menezmethod.com` to the Fider application.
 4. HTTPS at the reverse proxy.
 5. SMTP credentials for sign-in and verification email.
-6. Keep public tenant creation disabled; this deployment is intentionally single-board.
+6. Keep the public board available, but keep engineering/security reports on GitHub and preserve the moderation controls below.
 
 ## Supabase authentication
 
@@ -40,8 +40,8 @@ Never place the Supabase secret/service-role key in the browser, Fider public se
 The first app integration is a normal external link; Fider is not a runtime dependency for joining or playing a match.
 
 - `Community` → `https://community.menezmethod.com`
-- `Report a bug` → Fider bug category with `app:saucerjam`
-- `Suggest an idea` → Fider feature category with `app:saucerjam`
+- `Report feedback` → the in-game bridge, with bug, feature, balance, or question type
+- `Suggest an idea` → the Fider board and roadmap at `https://community.menezmethod.com`
 
 Pass only non-sensitive context such as app name, release version, device category, and map/mode as a prefilled form hint. Never pass pilot tokens, access tokens, player names, precise locations, or private gameplay data.
 
@@ -49,7 +49,7 @@ Pass only non-sensitive context such as app name, release version, device catego
 
 SaucerJam also exposes a narrow server-side report bridge at `POST /api/community/report`. The browser sends the current Supabase access token to the game server; the server verifies the session and confirmed email, applies per-user and per-IP limits, and then calls Fider. The Fider API key is server-only. Fider users are mapped with `reference=supabase:<auth-user-id>` and posts are created with Fider's documented user impersonation header. The endpoint is intentionally not a generic Fider proxy.
 
-The launch limits are one post per ten minutes and five per day per account, with a twenty-per-hour IP backstop. Titles are capped at 120 characters, descriptions at 4,000 characters, and links/attachments are not accepted by the first version. New or suspicious accounts can be challenged with Turnstile without adding friction to every report.
+The launch limits are one post per ten minutes and five per day per account, with a twenty-per-hour IP backstop. Titles are capped at 120 characters, descriptions at 4,000 characters, and links/attachments are not accepted by the first version. The in-game bridge requires a verified account; guests use Fider's normal sign-in flow before posting. New or suspicious accounts can be challenged with Turnstile without adding friction to every report.
 
 Direct Supabase-to-Fider SSO remains deferred until the OAuth 2.1 PKCE flow is proven against the installed Fider release. The report bridge works for Google, Apple, and confirmed email/password accounts without sharing either database.
 
@@ -61,7 +61,7 @@ Fider webhooks can notify a small trusted integration endpoint when a post or st
 
 ## Rollout gates
 
-1. Deploy privately with `SIGNUP_DISABLED=true`.
+1. Deploy privately behind deployment access controls.
 2. Create and test the SaucerJam board.
 3. Verify Supabase sign-in and Fider email verification.
 4. Verify mobile and desktop board layouts.

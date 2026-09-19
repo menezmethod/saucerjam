@@ -288,7 +288,9 @@ class Game {
   openReport() {
     this.menu(false);
     const status = $("report-status");
-    status.textContent = this.authSession?.user ? "" : "Sign in with a verified account before sending feedback.";
+    status.textContent = this.authSession?.user
+      ? ""
+      : "Sign in with a verified account to send from the game. Guests can use the public roadmap link above.";
     $("report-link").hidden = true;
     this.panel("report", true);
   }
@@ -296,7 +298,7 @@ class Game {
     const status = $("report-status"), button = $("send-report");
     const token = this.auth?.accessToken();
     if (!token || !this.authSession?.user) {
-      status.textContent = "Sign in with a verified account before sending feedback.";
+      status.textContent = "Sign in with a verified account to send from the game, or use the public roadmap link above.";
       return;
     }
     const title = $("report-title").value.trim(), description = $("report-description").value.trim();

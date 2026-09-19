@@ -67,6 +67,44 @@ test("bearer token authenticates a webhook with a deterministic proposal", async
   );
 });
 
+test("tolerant parse: <no value> body is queued, not rejected (Fider must not auto-disable)", async () => {
+  await withServer(
+    async (url) => {
+      // Verbatim shape from the incident: Fider rendered the missing post_votes
+      // field as the literal <no value>, which is not valid JSON.
+      const body = `{"post_number": 11, "post_title": "[bug] Catcher probe", "post_description": "Capture the exact webhook body.", "post_url": "https://community.menezmethod.com/posts/11/bug-catcher-probe", "post_votes": <no value>, "post_id": 11}`;
+      const res = await post(url, "/api/community/webhook", body, { authorization: "Bearer fider-tok" });
+      assert.equal(res.status, 202);
+      assert.equal((await res.json()).proposal, "fix-pr");
+      const queue = await fetch(`${url}/api/community/queue`, { headers: { "x-community-token": "tok" } });
+      const { items } = await queue.json();
+      assert.equal(items.length, 1);
+      assert.equal(items[0].number, 11);
+      assert.equal(items[0].title, "[bug] Catcher probe");
+      // The HTTP status is always 202, so degradation must be observable in metrics.
+      const metrics = await (await fetch(`${url}/metrics`)).text();
+      assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="degraded_parse"\} 1/);
+    },
+    { fiderWebhookToken: "fider-tok", communityActionToken: "tok" },
+  );
+});
+
+test("tolerant parse: unusable malformed body still returns 202, queues nothing, and is counted", async () => {
+  await withServer(
+    async (url) => {
+      // Missing closing brace, and no identifier or title to salvage.
+      const body = `{"post_description": "no identifier or title here"`;
+      const res = await post(url, "/api/community/webhook", body, { authorization: "Bearer fider-tok" });
+      assert.equal(res.status, 202);
+      const queue = await fetch(`${url}/api/community/queue`, { headers: { "x-community-token": "tok" } });
+      assert.equal((await queue.json()).items.length, 0);
+      const metrics = await (await fetch(`${url}/metrics`)).text();
+      assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="unusable_item"\} 1/);
+    },
+    { fiderWebhookToken: "fider-tok", communityActionToken: "tok" },
+  );
+});
+
 test("wrong bearer token is rejected", async () => {
   await withServer(
     async (url) => {

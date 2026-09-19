@@ -17,6 +17,27 @@ const fixtures = {
   healthy: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[]}' } },
   broken: { health: { status: 503, body: "down" }, metrics: { status: 404, body: "" }, queue: { status: 200, body: '{"items":[]}' } },
   queue: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[{"id":"42"}]}' } },
+  bulk: {
+    health: { status: 200, body: "{}" },
+    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    queue: {
+      status: 200,
+      body: JSON.stringify({
+        items: Array.from({ length: 12 }, (_, i) => ({
+          id: String(i + 1),
+          number: i + 1,
+          title: "x".repeat(200),
+          kind: "bug",
+          description: "y".repeat(400),
+          url: `https://community.menezmethod.com/posts/${i + 1}/${"z".repeat(100)}`,
+          votes: i,
+          status: "new",
+          proposal: "fix-pr",
+          receivedAt: "2026-09-19T17:36:32.667Z",
+        })),
+      }),
+    },
+  },
   detail: {
     health: { status: 200, body: "{}" },
     metrics: { status: 200, body: "saucerjam_rooms 0\n" },
@@ -92,7 +113,18 @@ check("community identical queue: silent", communityRepeat.code === 0 && communi
 
 // The delivery must say what was processed, not just a bare id.
 const bare = run("community", "bare", "queue");
-check("community minimal item: no undefined placeholders", bare.code === 0 && !/undefined|null|NaN/.test(bare.out), JSON.stringify(bare));
+check(
+  "community minimal item: no undefined placeholders",
+  bare.code === 0 && bare.out.includes("#42") && bare.out.includes("CommunityQueue") && !/undefined|null|NaN/.test(bare.out),
+  JSON.stringify(bare),
+);
+
+const bulk = run("community", "bulk", "bulk");
+check(
+  "community large queue: message stays under Telegram's 4096-char limit",
+  bulk.code === 0 && bulk.out.length < 4096 && bulk.out.includes("more not shown"),
+  `len=${bulk.out.length} ${JSON.stringify(bulk.out.slice(0, 120))}`,
+);
 
 const detail = run("community", "detail", "detail");
 const wants = ["#77", "bug", "[bug] Room list drops the last player", "3 vote(s)", "proposal: fix-pr", "posts/77/", "2026-09-19 17:36 UTC"];

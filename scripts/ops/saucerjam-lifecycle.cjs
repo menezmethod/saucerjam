@@ -38,12 +38,7 @@ const REQUEST_TIMEOUT_MS = Number(process.env.LIFECYCLE_TIMEOUT_MS || 20000);
 // spoofable by any user (anyone can paste the string), and it leaks into the
 // rendered comment as visible debug text. Fider returns the author on every
 // comment, so identity is the reliable signal.
-const BOT_NAME = process.env.LIFECYCLE_BOT_NAME || "Krillix";
 const BOT_ID = process.env.LIFECYCLE_BOT_ID || "1";
-
-// Comments posted by an earlier version of this collector were tagged with an
-// HTML marker. Recognise them so switching detection does not re-ack the board.
-const LEGACY_MARKER = "saucerjam-lifecycle";
 
 // Statuses that mean the report is finished. Fider's status is NOT a boolean:
 // status=open returns only a subset, and treating planned/started as terminal
@@ -58,7 +53,6 @@ const DEFAULTS = {
   backlogCeiling: Number(process.env.LIFECYCLE_BACKLOG_CEILING || 40),
   oldestPendingHours: Number(process.env.LIFECYCLE_OLDEST_PENDING_HOURS || 24 * 14),
   maxActionsPerRun: Number(process.env.LIFECYCLE_MAX_ACTIONS || 5),
-  pageLimit: Number(process.env.LIFECYCLE_PAGE_LIMIT || 50),
 };
 
 const HOUR = 3600 * 1000;
@@ -93,16 +87,8 @@ function hoursBetween(fromMs, toMs) {
 // A comment authored by this collector. Anything else is a human (or another
 // bot) and counts as activity we must not override.
 function isOurs(comment) {
-  const user = (comment && comment.user) || null;
-  if (user && (user.name !== undefined || user.id !== undefined)) {
-    // Author is known: decide on identity alone. A user pasting the legacy
-    // marker string into their own comment must NOT be mistaken for us.
-    if (BOT_ID !== "" && user.id !== undefined && String(user.id) === String(BOT_ID)) return true;
-    if (BOT_NAME && String(user.name) === BOT_NAME) return true;
-    return false;
-  }
-  // Fallback only when the API omits the author entirely.
-  return String((comment && comment.content) || "").includes(LEGACY_MARKER);
+  // Display names and content are player-controlled; only the stable ID is identity.
+  return comment?.user?.id != null && String(comment.user.id) === BOT_ID;
 }
 
 function lastActivityMs(post, comments) {
@@ -129,6 +115,11 @@ function latestMs(comments) {
  */
 function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config = {}, now = Date.now() } = {}) {
   const cfg = { ...DEFAULTS, ...config };
+  for (const key of Object.keys(DEFAULTS)) {
+    if (!Number.isFinite(cfg[key]) || cfg[key] < 0 ||
+        (["maxAttempts", "maxActionsPerRun"].includes(key) && !Number.isInteger(cfg[key])) ||
+        (key === "maxAttempts" && cfg[key] === 0)) throw new Error(`Invalid lifecycle config: ${key}`);
+  }
   const actions = [];
   const findings = [];
   const stats = { total: posts.length, open: 0, working: 0, terminal: 0, unacked: 0, unreadable: 0, oldestPendingHours: 0 };
@@ -157,9 +148,14 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     // this the expiry comment's promise ("reply and it reopens") would be false.
     // Checked before the terminal skip because declined is terminal by status.
     if (status === "declined") {
-      const oursLatest = latestMs(comments.filter(isOurs));
+      // A decline by a maintainer is not our expiry. Use the actual staff
+      // response (author, reason, timestamp), not the time of an arbitrary ack.
+      const response = post.response;
+      const age = /^Closing this one as aged out: (\d+) days/.exec(response?.text || "");
+      const closedAt = isOurs(response) && age && response.text === expireBody(number, Number(age[1]))
+        ? Date.parse(response.respondedAt) : NaN;
       const theirLatest = latestMs(comments.filter((c) => !isOurs(c)));
-      if (theirLatest !== null && (oursLatest === null || theirLatest > oursLatest)) {
+      if (Number.isFinite(closedAt) && theirLatest !== null && theirLatest > closedAt) {
         actions.push({ kind: "reopen", number, title: post.title, reason: "reporter replied after we closed it" });
       }
       stats.terminal++;
@@ -258,7 +254,7 @@ async function api(path, init = {}) {
   const text = await res.text();
   if (!res.ok) throw new Error(`${init.method || "GET"} ${path} -> ${res.status} ${text.slice(0, 160)}`);
   if (!text) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  return JSON.parse(text);
 }
 
 function ackBody(number) {
@@ -285,32 +281,34 @@ function reopenBody() {
 // while leaving it open indefinitely. Verified against the live API.
 const statusPath = (number) => `/api/v1/posts/${number}/status`;
 
-async function setStatus(number, status) {
-  await api(statusPath(number), { method: "PUT", body: JSON.stringify({ status }) });
+async function setStatus(number, status, text) {
+  // Fider stores status and its public response in the same database UPDATE.
+  await api(statusPath(number), { method: "PUT", body: JSON.stringify({ status, text }) });
 }
 
 async function applyAction(action) {
-  if (action.kind === "reopen") {
-    // Reopen first, then tell the reporter - so a comment with no state change
-    // is never left claiming something that did not happen.
-    await setStatus(action.number, "open");
-    await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: reopenBody() }) });
-    return;
+  if (action.kind === "reopen") return setStatus(action.number, "open", reopenBody());
+  if (action.kind === "expire") return setStatus(action.number, "declined", expireBody(action.number, action.ageDays));
+  await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: ackBody(action.number) }) });
+}
+
+function readList(value, key) {
+  const list = Array.isArray(value) ? value : value?.[key];
+  if (!Array.isArray(list) || list.some((item) => !item || typeof item !== "object")) {
+    throw new Error(`Invalid Fider ${key} response`);
   }
-
-  const body = action.kind === "ack" ? ackBody(action.number) : expireBody(action.number, action.ageDays);
-
-  // For a closure, change state BEFORE telling the reporter. Comment-first means a
-  // failed status write leaves a public comment claiming the report was closed
-  // while it is still open - a lie to the reporter. A failed comment after a
-  // successful close is recoverable; a false closure notice is not.
-  if (action.kind === "expire") await setStatus(action.number, "declined");
-  await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: body }) });
+  if (key === "posts" && list.some((p) => !Number.isSafeInteger(p.number) || p.number <= 0 ||
+      !["open", "planned", "started", "completed", "declined", "duplicate"].includes(p.status) ||
+      !Number.isFinite(Date.parse(p.createdAt)))) throw new Error("Invalid Fider post identity, status or timestamp");
+  return list;
 }
 
 async function collect() {
-  const listed = await api(`/api/v1/posts?limit=${DEFAULTS.pageLimit}`);
-  const posts = Array.isArray(listed) ? listed : (listed && listed.posts) || [];
+  // Fider supports limit=all, not offset pagination. Fetch declined explicitly
+  // too: the default view must not decide whether we can honour a reopen promise.
+  const all = readList(await api("/api/v1/posts?view=all&limit=all"), "posts");
+  const declined = readList(await api("/api/v1/posts?view=declined&limit=all"), "posts");
+  const posts = [...new Map([...all, ...declined].map((p) => [p.number, p])).values()];
   const commentsByNumber = {};
   const unknownComments = [];
   for (const post of posts) {
@@ -318,7 +316,11 @@ async function collect() {
     if (!number) continue;
     try {
       const res = await api(`/api/v1/posts/${number}/comments`);
-      commentsByNumber[number] = Array.isArray(res) ? res : (res && res.comments) || [];
+      const comments = readList(res, "comments");
+      if (comments.some((c) => c.user?.id == null || !Number.isFinite(Date.parse(c.createdAt)))) {
+        throw new Error("Invalid Fider comment identity or timestamp");
+      }
+      commentsByNumber[number] = comments;
     } catch {
       // Deliberately do NOT record an empty list. "We could not read the
       // comments" and "there are no comments" must never look alike: treating a
@@ -339,7 +341,7 @@ async function main() {
   try {
     state = await collect();
   } catch (err) {
-    process.stdout.write(`saucerjam-lifecycle: Fider unreachable - ${err.message}\n`);
+    process.stdout.write(`saucerjam-lifecycle: Fider unreachable - ${safe(err.message, 200)}\n`);
     return 1;
   }
 
@@ -351,38 +353,40 @@ async function main() {
 
   if (json) {
     process.stdout.write(JSON.stringify(result, null, 1) + "\n");
-    return 0;
+    return state.unknownComments.length ? 1 : 0;
   }
 
   // Every post-derived value printed here is untrusted input on its way into a
   // message delivered to a human, so it goes through safe() first.
   const lines = [];
-  for (const a of result.actions) {
-    lines.push(`${apply ? "DONE" : "PLAN"} ${a.kind} #${safe(a.number, 20)} - ${a.reason} (${safe(a.title)})`);
+  let failed = state.unknownComments.length > 0;
+  for (const action of result.actions) {
+    const detail = `${action.kind} #${safe(action.number, 20)} - ${action.reason} (${safe(action.title)})`;
+    if (!apply) {
+      lines.push(`PLAN ${detail}`);
+      continue;
+    }
+    try {
+      await applyAction(action);
+      lines.push(`DONE ${detail}`);
+    } catch (err) {
+      failed = true;
+      lines.push(`FAIL ${action.kind} #${safe(action.number, 20)} - ${safe(err.message, 200)}`);
+    }
   }
   for (const f of result.findings) {
     lines.push(`WARN ${f.kind}${f.number ? " #" + safe(f.number, 20) : ""} - ${f.reason}${f.title ? ` (${safe(f.title)})` : ""}`);
   }
 
-  if (apply && result.actions.length) {
-    for (const action of result.actions) {
-      try {
-        await applyAction(action);
-      } catch (err) {
-        lines.push(`FAIL ${action.kind} #${safe(action.number, 20)} - ${safe(err.message, 200)}`);
-      }
-    }
-  }
-
   if (lines.length) process.stdout.write(lines.join("\n") + "\n");
-  return 0;
+  return failed ? 1 : 0;
 }
 
-module.exports = { plan, DEFAULTS, BOT_NAME, BOT_ID, LEGACY_MARKER, TERMINAL_STATUSES, ackBody, expireBody, reopenBody, statusPath, safe };
+module.exports = { plan, DEFAULTS, BOT_ID, TERMINAL_STATUSES, ackBody, expireBody, reopenBody, statusPath, safe };
 
 if (require.main === module) {
   main().then((code) => process.exit(code)).catch((err) => {
-    process.stdout.write(`saucerjam-lifecycle: fatal - ${err.message}\n`);
+    process.stdout.write(`saucerjam-lifecycle: fatal - ${safe(err.message, 200)}\n`);
     process.exit(1);
   });
 }

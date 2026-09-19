@@ -20,6 +20,7 @@ const post = (over = {}) => ({
 });
 const ours = (when = daysAgo(1)) => ({ content: "Thanks for reporting this - it's in the queue.", createdAt: when, user: BOT });
 const theirs = (when = daysAgo(1)) => ({ content: "me too", createdAt: when, user: HUMAN });
+const closure = (when = daysAgo(100)) => ({ text: expireBody(7, 120), respondedAt: when, user: BOT });
 
 const run = (posts, commentsByNumber = {}, config = {}) =>
   plan({ posts, commentsByNumber, config, now: NOW });
@@ -121,7 +122,7 @@ test("a spoofed marker cannot inflate attempts into a spurious escalation", () =
 
 test("a closed report that a human replies to is reopened", () => {
   const r = run(
-    [post({ status: "declined", createdAt: daysAgo(120) })],
+    [post({ status: "declined", createdAt: daysAgo(120), response: closure() })],
     { 7: [ours(daysAgo(100)), theirs(hoursAgo(3))] },
     {},
   );
@@ -130,14 +131,14 @@ test("a closed report that a human replies to is reopened", () => {
 });
 
 test("a closed report nobody replied to stays closed", () => {
-  const r = run([post({ status: "declined", createdAt: daysAgo(120) })], { 7: [ours(daysAgo(100))] }, {});
+  const r = run([post({ status: "declined", createdAt: daysAgo(120), response: closure() })], { 7: [ours(daysAgo(100))] }, {});
   assert.equal(r.actions.length, 0);
   assert.equal(r.stats.terminal, 1);
 });
 
 test("a reply that predates our closure does not reopen anything", () => {
   const r = run(
-    [post({ status: "declined", createdAt: daysAgo(120) })],
+    [post({ status: "declined", createdAt: daysAgo(120), response: closure() })],
     { 7: [theirs(daysAgo(119)), ours(daysAgo(100))] },
     {},
   );
@@ -300,9 +301,8 @@ test("post text is sanitised before it reaches the delivered output", () => {
   assert.ok(!/[\u200B\u00AD\u034F\u180E]/.test(out), "invisibles must be stripped");
 });
 
-test("expiry closes the post BEFORE telling the reporter", async () => {
-  // Comment-first means a failed status write leaves a public claim that the
-  // report was closed while it is still open.
+test("R3 expiry publishes status and reason in one write", async () => {
+  // A separate comment can fail after closing; Fider's status response is atomic.
   const http = require("node:http");
   const { execFile } = require("node:child_process");
   const { promisify } = require("node:util");
@@ -320,9 +320,10 @@ test("expiry closes the post BEFORE telling the reporter", async () => {
 
   const calls = [];
   const server = http.createServer((req, res) => {
-    req.on("data", () => {});
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
-      calls.push(`${req.method} ${req.url}`);
+      calls.push({ method: req.method, url: req.url, body: body && JSON.parse(body) });
       res.setHeader("content-type", "application/json");
       if (/^\/api\/v1\/posts\/\d+\/comments$/.test(req.url)) return res.end(JSON.stringify(stubComments));
       if (req.url === "/api/v1/posts/7/status") return res.end("{}");
@@ -345,11 +346,8 @@ test("expiry closes the post BEFORE telling the reporter", async () => {
     server.close();
   }
 
-  const statusIdx = calls.indexOf("PUT /api/v1/posts/7/status");
-  const commentIdx = calls.indexOf("POST /api/v1/posts/7/comments");
-  assert.ok(statusIdx !== -1, `expiry must close via the status endpoint; calls: ${calls.join(", ")}`);
-  assert.ok(commentIdx !== -1, "expiry must still tell the reporter");
-  assert.ok(statusIdx < commentIdx, "status must change before the public closure comment is posted");
+  const writes = calls.filter((c) => c.method !== "GET");
+  assert.deepEqual(writes, [{ method: "PUT", url: "/api/v1/posts/7/status", body: { status: "declined", text: expireBody(7, 200) } }]);
 
   assert.ok(!stdout.includes("\x1b"), `stdout must not carry terminal escapes: ${JSON.stringify(stdout)}`);
   // The hostile title embeds a newline followed by a fake "DONE expire #999" line.

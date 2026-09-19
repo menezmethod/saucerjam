@@ -1,6 +1,6 @@
 {
   "name": "saucerjam",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Neon arena combat with a shared authoritative multiplayer simulation",
   "scripts": {

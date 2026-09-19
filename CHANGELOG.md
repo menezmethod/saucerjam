@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.0 — unreleased
+
+### Cross-device playability
+- Off-screen **threat arrows** on every device, so touch players get the spatial awareness the desktop radar provided.
+- **Keyboard-only play**: `I J K L` aim independently; `Tab` freed for focus and the scoreboard moved to `T`.
+- **Hull + energy vitals** in the top bar; death panel shows the killer and weapon.
+- **Screen-reader narration** of threats, low hull, death and round end; modal focus trap now reaches the report textarea and links.
+- Independent **music mute** (`Music on/off`) alongside `Sound on/off`.
+- **Menu scroll fix**: the Flight menu now scrolls on iPhone (and every phone/landscape), uses `dvh` so iOS toolbars cannot clip it, respects safe-area insets, and reads as scrollable.
+- Touch **Comms moved out of the fire zone**; 44 px targets; safe-area top bar; linked PWA manifest.
+- Practice spawns near a bot; `prefers-reduced-motion` honoured in the render loop; landing shows a live **population signal**.
+
+### Operations (AI-operated)
+- `GET /metrics` Prometheus exposition with rooms, players, joins/leaves by reason, rounds, events, HTTP/WS latency, memory, and a 7-day retention gauge.
+- Grafana **SaucerJam** dashboard + Prometheus alert rules, wired to the Pi5 stack.
+- **Community automation**: signed Fider webhook → AI triage queue → allow-listed actions; Hermes skill + SRE/community heartbeats. No auto-merge.
+- **Behavioural insights** (`/api/insights`, `docs/SRE-INSIGHTS.md`) to detect player struggle before it is reported.
+- Docs: `SRE.md`, `AUTOMATION.md`, `LOOP.md`, `LAUNCH.md`.
+
 ## 1.3.0 — 2026-09-12
 
 - Added a Suno v6 original soundtrack.

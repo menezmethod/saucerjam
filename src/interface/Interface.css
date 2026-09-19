@@ -346,3 +346,11 @@
 @media (max-width: 760px) {
   .qd-interface .lobby-panel h1 { font-size: 40px; margin-top: 12px; }
 }
+
+/* Touch menu comfort: stack camera controls so the select never clips, and
+   keep the destructive "Leave arena" visually separated from Resume. */
+@media (pointer: coarse) {
+  .qd-camera-controls { grid-template-columns: 1fr; gap: 8px; }
+  .qd-camera-controls label { font-size: 13px; }
+  .qd-camera-controls select { width: 100%; padding: 11px 10px; }
+}

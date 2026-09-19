@@ -354,9 +354,10 @@ Wiring in `src/index.js`:
 - **create**: in `unlockAudio()` after `this.audio` exists →
   `this.music = new MusicBus(this.audio)` then `music.load('signal-hub', …)` and
   `music.play('signal-hub')`.
-- **respect the toggle**: in `updateSound()` / the `sound-button` handler, when
-  `!this.soundOn` call `this.music?.master.gain` → 0 (or `suspend`), restore on re-enable.
-  Storage key `qd-sound` already persists it.
+- **respect the toggles**: `updateSound()` drives two independent mutes —
+  `sound-button` → `music.setSfxMuted(!sfxOn)` (storage `qd-sfx`, migrating the
+  old `qd-sound`) and `music-button` → `music.setMusicMuted(!musicOn)` (storage
+  `qd-music`). The global `music.setMuted()` remains available.
 - **state changes**: `practice()` → `music.play('standby')`; `online()` → after district
   resolves, `music.play(<bed>)`; back to `mode==='lobby'` → `music.play('signal-hub')`.
 - **combat events**: extend `event(e)` —
@@ -371,8 +372,8 @@ Wiring in `src/index.js`:
 - **lazy-load**: `music.load()` the four combat beds inside `online()` before the first
   snapshot; prefetch stings + remaining beds on `requestIdleCallback` during round 1.
 
-Keep it behind the existing `soundOn` gate and the `unlockAudio()` user-gesture unlock —
-no autoplay before interaction.
+Keep it behind the `sfxOn`/`musicOn` gates and the `unlockAudio()` user-gesture
+unlock — no autoplay before interaction.
 
 ---
 

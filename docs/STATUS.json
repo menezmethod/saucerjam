@@ -1,6 +1,6 @@
 {
-  "goal": "Quantum Drift WOW gauntlet",
-  "status": "confluence-1.2.0-verified",
+  "goal": "SaucerJam release 1.4: cross-device playability + AI-operated SRE and community loop",
+  "status": "release-1.4.0-pr-open",
   "passScore": 8.5,
   "integrator": "parent agent (sole core writer)",
   "referenceScope": "Nex Machina, WipEout, Battlerite: aspirational design references, not claimed parity",
@@ -263,5 +263,18 @@
     ],
     "next": "Refine cover and crossing fights based on human play; no additional maps",
     "automation": "Deleted by user; do not recreate"
+  },
+  "nextAction": "Review PR release/1.4.0, run automation setup (COMMUNITY_ACTION_TOKEN, Fider webhook), then deploy and tag 1.4.0",
+  "sreSetup": {
+    "prometheus": "saucerjam job + 8 alert rules loaded on Pi5 (3 groups)",
+    "grafana": "SaucerJam dashboard provisioned (/d/saucerjam-sre/saucerjam)",
+    "relay": "grafana-hermes-relay staged at ~/grafana-hermes-relay on Pi5 (not started)",
+    "scrape": "down until release/1.4.0 deploys (expects /metrics)",
+    "humanTodo": [
+      "set COMMUNITY_ACTION_TOKEN + FIDER_WEBHOOK_SECRET in Coolify",
+      "add Fider webhook",
+      "install Hermes saucerjam-community + saucerjam-sre subscriptions",
+      "start the relay if alert routing is wanted"
+    ]
   }
 }

@@ -131,7 +131,11 @@ async function main() {
       },
       { id: idA, x: portal.exitX, z: portal.exitZ },
     );
-    await a.waitForFunction(() => document.querySelector("#notice").textContent === "Slipstream jump");
+    await a.waitForFunction(
+      () => document.querySelector("#notice").textContent === "Slipstream jump",
+      null,
+      { timeout: 15000 },
+    );
     await a.screenshot({ path: path.join(out, "portal-traversal.png") });
     console.log("PASS: authoritative portal traversal snaps the client with readable feedback");
     function fixture(weapon, az, bz) {

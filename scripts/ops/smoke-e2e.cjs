@@ -10,7 +10,7 @@
 // silent-on-healthy contract of both ops scripts (including dedupe).
 const path = require("node:path");
 const { createHmac } = require("node:crypto");
-const { createGameServer } = require("path.resolve(__dirname, "..", "..", "server", "server")");
+const { createGameServer } = require(path.resolve(__dirname, "..", "..", "server", "server"));
 
 const FIDER_SECRET = "smoke-secret";
 const ACTION_TOKEN = "smoke-token";

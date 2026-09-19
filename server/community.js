@@ -6,12 +6,22 @@ const { createHash, createHmac, timingSafeEqual, randomBytes } = require("node:c
 
 const clean = (v, limit) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, limit) : "");
 
+// Hex shape gate: only 64 hex characters (32 bytes) can be a sha256 digest.
+// Validating the shape *before* comparing means attacker-controlled non-ASCII
+// input (e.g. "é".repeat(64), 128 UTF-8 bytes) returns false instead of making
+// timingSafeEqual throw ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH. Shape failures
+// return false; genuine internal errors (bad secret type, crypto failure)
+// propagate so the request handler can fail closed and count them.
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
 function verifySignature(secret, rawBody, header) {
   if (!secret || typeof header !== "string") return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const provided = header.replace(/^sha256=/i, "").trim();
-  if (provided.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
+  const provided = header.replace(/^sha256=/i, "").trim().toLowerCase();
+  if (!SHA256_HEX.test(provided)) return false;
+  const expected = createHmac("sha256", secret).update(rawBody).digest();
+  const actual = Buffer.from(provided, "hex");
+  if (actual.length !== expected.length) return false;
+  return timingSafeEqual(expected, actual);
 }
 
 // Shared-secret bearer token for senders that cannot produce an HMAC (Fider

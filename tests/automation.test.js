@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createHmac } = require("node:crypto");
 const { createGameServer } = require("../server/server");
-const { propose } = require("../server/community");
+const { propose, verifySignature } = require("../server/community");
 
 async function withServer(fn, options = {}) {
   const game = createGameServer({ tick: false, rankingsFile: null, ...options });
@@ -167,8 +167,73 @@ test("propose() maps untrusted text to an allow-listed proposal only", () => {
 });
 
 test("report bridge is unavailable (503) when Fider is not configured", async () => {
+  // Force the unconfigured state: the option defaults fall back to the ambient
+  // FIDER_BASE_URL/FIDER_API_KEY, which would make this depend on the machine
+  // running the suite instead of exercising the 503 branch.
   await withServer(async (url) => {
     const res = await post(url, "/api/community/report", JSON.stringify({ kind: "bug", title: "x y z", description: "a".repeat(20) }));
     assert.equal(res.status, 503);
-  });
+  }, { fiderBaseUrl: "", fiderApiKey: "" });
+});
+
+// A1: attacker-controlled signatures must never throw, and a valid token must
+// still authenticate when the (bogus) signature check is evaluated first.
+test("verifySignature rejects malformed input instead of throwing", () => {
+  const secret = "s";
+  const body = JSON.stringify({ post_number: 41, post_title: "[bug] crash" });
+  // 64 characters but 128 UTF-8 bytes: the old character-length gate let this
+  // through to timingSafeEqual, which threw ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH.
+  assert.doesNotThrow(() => verifySignature(secret, body, "é".repeat(64)));
+  assert.equal(verifySignature(secret, body, "é".repeat(64)), false);
+  assert.equal(verifySignature(secret, body, "a".repeat(65)), false);
+  assert.equal(verifySignature(secret, body, "g".repeat(64)), false);
+  const good = sign(secret, body);
+  assert.equal(verifySignature(secret, body, good), true);
+  assert.equal(verifySignature(secret, body, `sha256=${good}`), true);
+  assert.equal(verifySignature(secret, body, good.toUpperCase()), true);
+});
+
+test("valid bearer token authenticates even when the signature header is bogus", async () => {
+  await withServer(
+    async (url) => {
+      const body = JSON.stringify({ post_number: 42, post_title: "[bug] crash" });
+      const res = await post(url, "/api/community/webhook", body, {
+        authorization: "Bearer fider-tok",
+        "x-fider-signature": "é".repeat(64),
+      });
+      assert.equal(res.status, 202);
+      assert.equal((await res.json()).proposal, "fix-pr");
+    },
+    { fiderWebhookToken: "fider-tok" },
+  );
+});
+
+test("valid HMAC authenticates when no token is presented", async () => {
+  await withServer(
+    async (url) => {
+      const body = JSON.stringify({ post_number: 43, post_title: "[feature] add replays" });
+      const res = await post(url, "/api/community/webhook", body, { "x-fider-signature": sign("s", body) });
+      assert.equal(res.status, 202);
+      assert.equal((await res.json()).proposal, "prototype-pr");
+    },
+    { fiderWebhookSecret: "s" },
+  );
+});
+
+test("internal verification error fails closed and is counted, never 500", async () => {
+  await withServer(
+    async (url) => {
+      const body = JSON.stringify({ post_number: 44, post_title: "[bug] crash" });
+      const res = await post(url, "/api/community/webhook", body, {
+        authorization: "Bearer wrong",
+        "x-fider-signature": "a".repeat(64),
+      });
+      assert.equal(res.status, 401);
+      const metrics = await (await fetch(`${url}/metrics`)).text();
+      assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="verification_error"\} 1/);
+    },
+    // A non-string secret makes the HMAC primitive itself throw; the handler
+    // must catch it, fail closed, and count it rather than surfacing a 500.
+    { fiderWebhookSecret: {}, fiderWebhookToken: "right" },
+  );
 });

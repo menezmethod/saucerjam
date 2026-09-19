@@ -162,6 +162,9 @@ class Game {
     });
     $("menu-button").onclick = () => this.menu(true);
     $("resume").onclick = () => this.menu(false);
+    $("report-button").onclick = () => this.openReport();
+    $("close-report").onclick = () => this.panel("report", false);
+    $("send-report").onclick = () => this.sendReport();
     $("leave-game").onclick = () => this.leave();
     $("help-button").onclick = $("lobby-help").onclick = () => {
       this.panel("help",true);
@@ -179,6 +182,12 @@ class Game {
       this.updateSound();
       this.unlockAudio();
     };
+    $("chat-toggle").onclick = () => this.toggleChat();
+    $("chat-close").onclick = () => this.toggleChat(false);
+    $("chat-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.sendChat();
+    });
     $("share-room").onclick = () => this.share();
     document.querySelectorAll("[data-weapon]").forEach((button) => {
       button.onclick = () => this.selectWeapon(button.dataset.weapon);
@@ -236,6 +245,80 @@ class Game {
     } catch (error) {
       status.textContent = error?.message || "Account action failed. Try again.";
     }
+  }
+  openReport() {
+    this.menu(false);
+    const status = $("report-status");
+    status.textContent = this.authSession?.user ? "" : "Sign in with a verified account before sending feedback.";
+    $("report-link").hidden = true;
+    this.panel("report", true);
+  }
+  async sendReport() {
+    const status = $("report-status"), button = $("send-report");
+    const token = this.auth?.accessToken();
+    if (!token || !this.authSession?.user) {
+      status.textContent = "Sign in with a verified account before sending feedback.";
+      return;
+    }
+    const title = $("report-title").value.trim(), description = $("report-description").value.trim();
+    if (title.length < 4 || description.length < 10) {
+      status.textContent = "Add a short title and a few details first.";
+      return;
+    }
+    button.disabled = true;
+    status.textContent = "Sending to the community desk…";
+    try {
+      const response = await fetch("/api/community/report", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          kind: $("report-kind").value,
+          title,
+          description,
+          context: {
+            mode: this.mode,
+            mapId: this.map?.id,
+            device: matchMedia("(pointer: coarse)").matches ? "touch" : "desktop",
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "The community portal is unavailable.");
+      status.textContent = "Sent. Thank you for helping tune the next sortie.";
+      $("report-link").href = data.url || "https://community.menezmethod.com";
+      $("report-link").hidden = false;
+      $("report-title").value = "";
+      $("report-description").value = "";
+    } catch (error) {
+      status.textContent = error.message || "The report could not be sent.";
+    } finally {
+      button.disabled = false;
+    }
+  }
+  toggleChat(open = $("chat").hidden) {
+    $("chat").hidden = !open;
+    $("chat-toggle").setAttribute("aria-expanded", String(open));
+    if (open) $("chat-input").focus();
+  }
+  sendChat() {
+    const input = $("chat-input"), text = input.value.trim();
+    if (!text) return;
+    if (!this.socket?.connected || this.mode !== "online") {
+      this.addChatMessage({ name: "Comms", text: "Chat is available in online arenas." });
+      return;
+    }
+    this.socket.timeout(2000).emit("chat", { text }, (error, response) => {
+      if (error || response?.error) this.notice(response?.error || "Chat is unavailable.", 4);
+    });
+    input.value = "";
+  }
+  addChatMessage(message) {
+    const log = $("chat-log"), line = document.createElement("p"), name = document.createElement("b");
+    name.textContent = `${message.name || "Pilot"}:`;
+    line.append(name, document.createTextNode(` ${message.text || ""}`));
+    log.append(line);
+    while (log.children.length > 40) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
   }
   updateAuth(session, error = null) {
     this.authSession = session || null;
@@ -574,6 +657,8 @@ class Game {
     $("hud").hidden = false;
     $("menu").hidden = $("help").hidden = $("scoreboard").hidden = true;
     $("kill-feed").replaceChildren();
+    $("chat-log").replaceChildren();
+    this.toggleChat(false);
     $("notice").textContent = "";
     $("room-label").textContent =
       mode === "practice"
@@ -671,6 +756,9 @@ class Game {
     this.socket.on("events", (events) => {
       if (this.mode === "online" && this.connected)
         for (const e of events) this.event(e);
+    });
+    this.socket.on("chat", (message) => {
+      if (this.mode === "online" && this.connected) this.addChatMessage(message);
     });
   }
   joinOnline() {

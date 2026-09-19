@@ -132,6 +132,17 @@
           >You <i></i> <span id="pilot-count">4 pilots</span> <kbd>M</kbd></span
         >
       </aside>
+      <section id="chat" class="chat-panel" aria-label="Arena chat" hidden>
+        <div class="chat-head">
+          <strong>Comms</strong><button id="chat-close" class="small" type="button">Hide</button>
+        </div>
+        <div id="chat-log" class="chat-log" aria-live="polite" aria-label="Chat messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" maxlength="160" autocomplete="off" placeholder="Message your arena…" aria-label="Chat message" />
+          <button class="small" type="submit">Send</button>
+        </form>
+      </section>
+      <button id="chat-toggle" class="chat-toggle small" type="button" aria-expanded="false">Comms</button>
       <div id="hit-marker" hidden>×</div>
       <div id="damage-flash"></div>
       <div id="death-panel" class="center-message" hidden>
@@ -199,6 +210,7 @@
         <p id="pause-message">Online matches keep running.</p>
         <button id="resume" class="primary">Resume flight</button
         ><button id="help-button">Controls & weapons</button
+        ><button id="report-button">Report feedback</button
         ><button id="fullscreen-button">Enter full screen</button
         ><button id="leave-game">Leave arena</button>
         <p id="menu-status" role="status"></p>
@@ -253,6 +265,30 @@
           <tbody id="scores"></tbody>
         </table>
         <button id="close-scores">Back to flight</button>
+      </div>
+    </section>
+    <section id="report" class="modal" hidden>
+      <div class="dialog report-dialog">
+        <span class="report-kicker">Mission debrief</span>
+        <h2>Make the next sortie better.</h2>
+        <p>Send a focused note to the SaucerJam crew. Your current arena context is attached automatically.</p>
+        <label for="report-kind">What is this about?</label>
+        <select id="report-kind">
+          <option value="bug">Something broke</option>
+          <option value="feature">Idea for the game</option>
+          <option value="balance">Balance or feel</option>
+          <option value="question">Question</option>
+        </select>
+        <label for="report-title">Short title</label>
+        <input id="report-title" maxlength="120" placeholder="What should we know?" autocomplete="off" />
+        <label for="report-description">Details</label>
+        <textarea id="report-description" maxlength="4000" rows="6" placeholder="What happened, and what did you expect?"></textarea>
+        <p id="report-status" class="report-status" role="status" aria-live="polite"></p>
+        <a id="report-link" class="report-link" href="https://community.menezmethod.com" target="_blank" rel="noreferrer" hidden>Open it in the community portal</a>
+        <div class="report-actions">
+          <button id="close-report" type="button">Back to flight</button>
+          <button id="send-report" type="button" class="primary">Send report</button>
+        </div>
       </div>
     </section>
     <noscript>Enable JavaScript in a modern browser to play SaucerJam.</noscript>

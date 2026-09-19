@@ -389,6 +389,62 @@ body.hud-idle .flight-hint {
 .radar.collapsed {
   display: none;
 }
+.chat-toggle {
+  position: fixed;
+  right: 24px;
+  bottom: 132px;
+  z-index: 4;
+}
+.chat-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 174px;
+  width: min(330px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid #35516c;
+  border-radius: 10px;
+  background: #081322e8;
+  box-shadow: 0 16px 45px #0008;
+  z-index: 4;
+  backdrop-filter: blur(12px);
+}
+.chat-head,
+.chat-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-head {
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #c7edf8;
+}
+.chat-log {
+  min-height: 52px;
+  max-height: 180px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px 10px;
+  color: #c6d7e6;
+  font-size: 12px;
+}
+.chat-log p {
+  margin: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.chat-log b {
+  color: #84ebff;
+  margin-right: 5px;
+}
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+}
 .combat-bar {
   position: fixed;
   bottom: 44px;
@@ -517,6 +573,63 @@ body.hud-idle .flight-hint {
 }
 #menu-status {
   overflow-wrap: anywhere;
+}
+.report-dialog {
+  width: 470px;
+  border-color: #4a7186;
+  background: linear-gradient(145deg, #102238, #0c1728 72%);
+}
+.report-kicker {
+  color: var(--cyan);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.report-dialog label {
+  color: #b8cbdd;
+  font-size: 12px;
+  margin-top: 3px;
+}
+.report-dialog select,
+.report-dialog textarea {
+  width: 100%;
+  background: #080f20;
+  border: 1px solid #405873;
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 11px 12px;
+  font: inherit;
+}
+.report-dialog select:focus-visible,
+.report-dialog textarea:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.report-dialog textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.report-status {
+  min-height: 20px;
+  margin: 0 !important;
+}
+.report-link {
+  color: var(--cyan);
+  font-size: 12px;
+  text-decoration: none;
+}
+.report-link:hover {
+  text-decoration: underline;
+}
+.report-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.report-actions button {
+  flex: 1;
 }
 .help-columns {
   display: grid;
@@ -748,6 +861,14 @@ th {
   .radar > span {
     font-size: 8px;
     padding: 0 5px 5px;
+  }
+  .chat-toggle {
+    right: 12px;
+    bottom: 108px;
+  }
+  .chat-panel {
+    right: 12px;
+    bottom: 148px;
   }
   .radar kbd,
   .radar > span > i {

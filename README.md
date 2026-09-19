@@ -28,7 +28,7 @@ For friends outside your LAN, run the same server on a reachable host or use a s
 
 Browser arena shooter with one connected, expanding world, bot practice, private invites, and server-authoritative multiplayer. Download a ready-built Node server from [GitHub Releases](https://github.com/menezmethod/saucerjam/releases). Extract it, run `npm ci --omit=dev`, then `npm run serve`. Node.js 20+ is required; there is no native desktop installer.
 
-See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), and the [next milestones](docs/ROADMAP.md).
+See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), [next milestones](docs/ROADMAP.md), and the [community feedback guide](docs/community-portal/README.md).
 
 ## Controls
 

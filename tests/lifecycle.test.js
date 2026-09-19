@@ -48,15 +48,22 @@ test("a human comment does not count as our acknowledgement", () => {
   assert.equal(r.actions[0].kind, "ack");
 });
 
-test("an old, never-reproduced, idle report ages out with a reason", () => {
+test("an aged-out report publishes the idle period it measured, not the post age", () => {
+  // 200 days old, but the reporter replied only 61 days ago. The gate measures
+  // IDLE time, so publishing the post's age would write "200 days with no
+  // activity" into the post's permanent public response - a number the collector
+  // never observed. It also must not claim a reproduction attempt it cannot see.
   const r = run(
-    [post({ createdAt: daysAgo(90) })],
-    { 7: [ours(daysAgo(89))] },
+    [post({ createdAt: daysAgo(200) })],
+    { 7: [ours(daysAgo(199)), theirs(daysAgo(61))] },
     { expireAfterDays: 60 },
   );
   assert.equal(r.actions.length, 1);
   assert.equal(r.actions[0].kind, "expire");
-  assert.match(r.actions[0].reason, /no reproduction/);
+  assert.equal(r.actions[0].ageDays, 61, "must publish idle days, not post age");
+  assert.match(r.actions[0].reason, /no activity for 61 days/);
+  assert.doesNotMatch(r.actions[0].reason, /200 days/);
+  assert.doesNotMatch(r.actions[0].reason, /no reproduction/, "nothing here observes a reproduction attempt");
 });
 
 test("an unacknowledged old report is acknowledged first, then ages out on a later run", () => {
@@ -197,15 +204,19 @@ test("an oversized backlog raises a warning", () => {
   assert.match(b.reason, /6 open reports exceeds the ceiling of 5/);
 });
 
-test("an over-age pending report raises the liveness warning", () => {
+test("a stalled board does not emit a warning on every tick", () => {
+  // A collector that has stopped running cannot report its own absence, so an
+  // age-based warning is not a dead-man switch - it is hourly wallpaper on any
+  // board with an old post, and it trains the reader to ignore the exit-1 FAIL
+  // lines that exist to be noticed. Missed-run detection belongs to the
+  // scheduler. The age stays in stats so an external monitor can use it.
   const r = run(
     [post({ createdAt: daysAgo(30), status: "planned" })],
     { 7: [ours(daysAgo(29))] },
     { oldestPendingHours: 24 * 14 },
   );
-  const l = r.findings.find((f) => f.kind === "liveness");
-  assert.ok(l, "a stalled loop must be visible even when the board is small");
-  assert.match(l.reason, /oldest open report is 720h/);
+  assert.equal(r.findings.filter((f) => f.kind === "liveness").length, 0);
+  assert.equal(r.stats.oldestPendingHours, 720, "age is still reported for external monitoring");
 });
 
 test("one run bounds how much it mutates", () => {
@@ -347,16 +358,18 @@ test("R3 expiry publishes status and reason in one write", async () => {
   }
 
   const writes = calls.filter((c) => c.method !== "GET");
-  assert.deepEqual(writes, [{ method: "PUT", url: "/api/v1/posts/7/status", body: { status: "declined", text: expireBody(7, 200) } }]);
+  // The stub post is 200 days old and its only comment is 199 days old, so the
+  // measured IDLE period is 199 days. Publishing 200 - the post's age - would be
+  // a number the collector never observed.
+  assert.deepEqual(writes, [{ method: "PUT", url: "/api/v1/posts/7/status", body: { status: "declined", text: expireBody(7, 199) } }]);
 
   assert.ok(!stdout.includes("\x1b"), `stdout must not carry terminal escapes: ${JSON.stringify(stdout)}`);
   // The hostile title embeds a newline followed by a fake "DONE expire #999" line.
-  // Assert the output is EXACTLY the two lines we produced - a prefix check alone
-  // would pass a forged line that happens to start with "DONE".
+  // Assert the output is EXACTLY the lines we produced - a prefix check alone would
+  // pass a forged line that happens to start with "DONE".
   const outLines = stdout.trim().split("\n");
-  assert.equal(outLines.length, 2, `injected content forged extra output lines: ${JSON.stringify(stdout)}`);
-  assert.match(outLines[0], /^DONE expire #7 - /, `unexpected first line: ${JSON.stringify(outLines[0])}`);
-  assert.match(outLines[1], /^WARN liveness - /, `unexpected second line: ${JSON.stringify(outLines[1])}`);
+  assert.equal(outLines.length, 1, `injected content forged extra output lines: ${JSON.stringify(stdout)}`);
+  assert.match(outLines[0], /^DONE expire #7 - /, `unexpected line: ${JSON.stringify(outLines[0])}`);
 });
 
 test("published comments leak no marker and never quote raw report text", () => {

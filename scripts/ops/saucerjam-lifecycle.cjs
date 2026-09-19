@@ -116,13 +116,18 @@ function latestMs(comments) {
 function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config = {}, now = Date.now() } = {}) {
   const cfg = { ...DEFAULTS, ...config };
   for (const key of Object.keys(DEFAULTS)) {
-    if (!Number.isFinite(cfg[key]) || cfg[key] < 0 ||
-        (["maxAttempts", "maxActionsPerRun"].includes(key) && !Number.isInteger(cfg[key])) ||
-        (key === "maxAttempts" && cfg[key] === 0)) throw new Error(`Invalid lifecycle config: ${key}`);
+    // Zero is rejected for every key, not just maxAttempts. A zero window is not
+    // "disabled", it is a collector that silently does nothing or expires
+    // everything instantly while still reporting exit 0 and empty stdout - i.e.
+    // indistinguishable from healthy.
+    if (!Number.isFinite(cfg[key]) || cfg[key] <= 0 ||
+        (["maxAttempts", "maxActionsPerRun"].includes(key) && !Number.isInteger(cfg[key]))) {
+      throw new Error(`Invalid lifecycle config: ${key}`);
+    }
   }
   const actions = [];
   const findings = [];
-  const stats = { total: posts.length, open: 0, working: 0, terminal: 0, unacked: 0, unreadable: 0, oldestPendingHours: 0 };
+  const stats = { total: posts.length, open: 0, working: 0, terminal: 0, unacked: 0, unackedOverdue: 0, unreadable: 0, oldestPendingHours: 0 };
   const unreadable = new Set(unknownComments.map(String));
 
   for (const post of posts) {
@@ -151,12 +156,24 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
       // A decline by a maintainer is not our expiry. Use the actual staff
       // response (author, reason, timestamp), not the time of an arbitrary ack.
       const response = post.response;
-      const age = /^Closing this one as aged out: (\d+) days/.exec(response?.text || "");
-      const closedAt = isOurs(response) && age && response.text === expireBody(number, Number(age[1]))
+      // Identity of the closure is the author plus the stable shape of our own
+      // sentence - NOT the exact prose. Comparing the full text means one future
+      // wording change silently stops every already-closed post from ever
+      // reopening, while those posts keep promising "reply and it reopens".
+      const closedMarker = /^Closing this one as aged out: (\d+) days/.exec(response?.text || "");
+      const closedAt = isOurs(response) && closedMarker && Number.isFinite(Date.parse(response?.respondedAt))
         ? Date.parse(response.respondedAt) : NaN;
-      const theirLatest = latestMs(comments.filter((c) => !isOurs(c)));
+      // Only the person who filed the report may reopen it. A maintainer adding a
+      // closing note must not flip an aged-out report back to open, and the reason
+      // we publish must not call a maintainer "the reporter".
+      const authorId = post.user?.id == null ? null : String(post.user.id);
+      const replies = comments.filter((c) => !isOurs(c) && (authorId === null || String(c.user?.id) === authorId));
+      const theirLatest = latestMs(replies);
       if (Number.isFinite(closedAt) && theirLatest !== null && theirLatest > closedAt) {
-        actions.push({ kind: "reopen", number, title: post.title, reason: "reporter replied after we closed it" });
+        actions.push({
+          kind: "reopen", number, title: post.title,
+          reason: authorId === null ? "someone replied after we closed it" : "reporter replied after we closed it",
+        });
       }
       stats.terminal++;
       continue;
@@ -169,7 +186,14 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     const ageHours = hoursBetween(post.createdAt, now);
     const attempts = comments.filter(isOurs).length;
     const acked = attempts > 0;
-    if (!acked) stats.unacked++;
+    if (!acked) {
+      stats.unacked++;
+      // Only "overdue" is worth waking anyone for. Reporting a report that is
+      // merely young would deliver a WARN on every hourly tick for its first
+      // ackAfterHours, and that wallpaper is what makes the exit-1 FAIL alerts
+      // get ignored.
+      if (ageHours !== null && ageHours >= cfg.ackAfterHours) stats.unackedOverdue++;
+    }
 
     if (ageHours !== null && ageHours > stats.oldestPendingHours) {
       stats.oldestPendingHours = Math.round(ageHours);
@@ -183,14 +207,16 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     const idleMs = lastActivityMs(post, comments);
     const idleDays = idleMs === null ? ageDays : (now - idleMs) / DAY;
 
-    // 1. Escalate: consumed its attempt budget without converging. Surface it
-    //    explicitly instead of retrying forever.
+    // 1. Escalate: consumed its attempt budget without converging. Surface it, but
+    //    do NOT stop here. The `continue` that used to sit below made escalation
+    //    the only state in the machine with no exit: the report was never
+    //    acknowledged, never expired, never reopened-from, and emitted a WARN on
+    //    every tick forever. Surfacing a problem must not also strand it.
     if (attempts >= cfg.maxAttempts) {
       findings.push({
         kind: "escalate", number, title: post.title, attempts,
         reason: `consumed ${attempts}/${cfg.maxAttempts} attempts without reaching a fix`,
       });
-      continue;
     }
 
     // 2. Acknowledge: nobody has told the reporter we saw it.
@@ -207,9 +233,14 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     //    ack itself is an attempt, so requiring zero would mean nothing ever
     //    ages out. Being idle is the signal that matters.
     if (!isWorking(status) && ageDays >= cfg.expireAfterDays && idleDays >= cfg.expireAfterDays) {
+      // Publish the IDLE period, which is what the gate actually measured - not the
+      // post's age. A 200-day-old report whose reporter replied 61 days ago was
+      // being closed with "200 days with no further activity": a claim the
+      // collector never observed, written permanently into the post's response.
+      const idle = Math.max(1, Math.round(idleDays));
       actions.push({
-        kind: "expire", number, title: post.title, ageDays: Math.round(ageDays),
-        reason: `no reproduction and no activity for ${Math.round(ageDays)} days`,
+        kind: "expire", number, title: post.title, ageDays: idle,
+        reason: `no activity for ${idle} days`,
       });
     }
   }
@@ -220,16 +251,20 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
       kind: "backlog", reason: `${stats.open} open reports exceeds the ceiling of ${cfg.backlogCeiling}`,
     });
   }
-  if (stats.oldestPendingHours > cfg.oldestPendingHours) {
-    findings.push({
-      kind: "liveness",
-      reason: `oldest open report is ${stats.oldestPendingHours}h old (threshold ${cfg.oldestPendingHours}h)`,
-    });
-  }
-  if (stats.unacked > 0 && actions.every((a) => a.kind !== "ack")) {
+  // There is deliberately NO "liveness" finding here. A collector that has stopped
+  // running cannot report its own absence, so an age-based warning is not a
+  // dead-man switch - it is hourly wallpaper on any board with an old post, and it
+  // trains the reader to ignore the exit-1 FAIL lines that matter. The age is still
+  // reported in stats for an external monitor; missed-run detection belongs to the
+  // scheduler, which is the only thing positioned to know a run never happened.
+  //
+  // `unacked` fires only when acks are genuinely overdue AND this run is not
+  // already about to ack them - otherwise it is the same wallpaper.
+  const plannedAcks = actions.filter((a) => a.kind === "ack").length;
+  if (stats.unackedOverdue > plannedAcks) {
     findings.push({
       kind: "unacked",
-      reason: `${stats.unacked} open report(s) still have no acknowledgement`,
+      reason: `${stats.unackedOverdue - plannedAcks} report(s) are overdue for acknowledgement`,
     });
   }
 
@@ -258,7 +293,9 @@ async function api(path, init = {}) {
 }
 
 function ackBody(number) {
-  return `Thanks for reporting this - it's in the queue.
+  // Says only what the collector observed: it saw the report. It enqueues nothing,
+  // so it must not claim the report is "in the queue".
+  return `Thanks for reporting this - we've seen it.
 
 What happens next: we try to reproduce it. If we can, it becomes a tracked fix. If we can't reproduce it from the description, we'll ask for the missing details rather than guess.
 
@@ -266,13 +303,16 @@ No action needed from you.`;
 }
 
 function expireBody(number, ageDays) {
-  return `Closing this one as aged out: ${ageDays} days with no reproduction and no further activity. We'd rather close it honestly than leave it open forever.
+  // `ageDays` is the IDLE period actually measured by the gate. The wording must
+  // not claim a reproduction attempt happened - nothing here observes one.
+  // The "aged out: <n> days" prefix is also the closure marker matched on reopen.
+  return `Closing this one as aged out: ${ageDays} days with no activity. We'd rather close it honestly than leave it open forever.
 
 This is not a judgement on the report. If you can still reproduce it, reply here with the steps and it reopens automatically.`;
 }
 
 function reopenBody() {
-  return `Reopened - thanks for following up. This is back in the queue and will be looked at again.`;
+  return `Reopened - thanks for following up. We'll take another look.`;
 }
 
 // Fider changes status through a DEDICATED endpoint. `PUT /api/v1/posts/{n}` accepts

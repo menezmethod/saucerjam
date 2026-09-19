@@ -3,18 +3,23 @@
 // healthy board must produce no output at all.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { plan, MARKER, ackBody, expireBody } = require("../scripts/ops/saucerjam-lifecycle.cjs");
+const { plan, ackBody, expireBody, reopenBody } = require("../scripts/ops/saucerjam-lifecycle.cjs");
 
 const NOW = Date.parse("2026-09-19T12:00:00Z");
 const hoursAgo = (h) => new Date(NOW - h * 3600 * 1000).toISOString();
 const daysAgo = (d) => hoursAgo(d * 24);
 
+// Fider returns the author on every comment; identity is what distinguishes
+// our comments from a player's.
+const BOT = { id: 1, name: "Krillix" };
+const HUMAN = { id: 42, name: "player" };
+
 const post = (over = {}) => ({
   number: 7, title: "[bug] something broke", status: "open",
   createdAt: daysAgo(2), ...over,
 });
-const ours = (when = daysAgo(1)) => ({ content: `${MARKER}\nacked`, createdAt: when });
-const theirs = (when = daysAgo(1)) => ({ content: "me too", createdAt: when });
+const ours = (when = daysAgo(1)) => ({ content: "Thanks for reporting this - it's in the queue.", createdAt: when, user: BOT });
+const theirs = (when = daysAgo(1)) => ({ content: "me too", createdAt: when, user: HUMAN });
 
 const run = (posts, commentsByNumber = {}, config = {}) =>
   plan({ posts, commentsByNumber, config, now: NOW });
@@ -92,6 +97,62 @@ test("work in progress is still acknowledged", () => {
   assert.equal(r.actions[0].kind, "ack", "a planned item with no comment is still an unacknowledged reporter");
 });
 
+test("our comments are identified by author, not by content", () => {
+  const r = run([post({ createdAt: hoursAgo(10) })], { 7: [ours()] }, { ackAfterHours: 4 });
+  assert.equal(r.actions.length, 0, "an author-matched comment counts as our acknowledgement");
+});
+
+test("a player pasting the legacy marker cannot impersonate us", () => {
+  const forged = { content: "<!-- saucerjam-lifecycle --> acked", createdAt: hoursAgo(5), user: HUMAN };
+  const r = run([post({ createdAt: hoursAgo(10) })], { 7: [forged] }, { ackAfterHours: 4 });
+  assert.equal(r.actions.length, 1);
+  assert.equal(r.actions[0].kind, "ack", "a spoofed marker must not suppress the acknowledgement");
+});
+
+test("a spoofed marker cannot inflate attempts into a spurious escalation", () => {
+  const forged = (i) => ({ content: "<!-- saucerjam-lifecycle -->", createdAt: daysAgo(i), user: HUMAN });
+  const r = run(
+    [post({ createdAt: daysAgo(10) })],
+    { 7: [forged(3), forged(2), forged(1)] },
+    { maxAttempts: 3, ackAfterHours: 4 },
+  );
+  assert.equal(r.findings.filter((f) => f.kind === "escalate").length, 0, "player comments must not count as our attempts");
+});
+
+test("a closed report that a human replies to is reopened", () => {
+  const r = run(
+    [post({ status: "declined", createdAt: daysAgo(120) })],
+    { 7: [ours(daysAgo(100)), theirs(hoursAgo(3))] },
+    {},
+  );
+  assert.equal(r.actions.length, 1);
+  assert.equal(r.actions[0].kind, "reopen", "the expiry promise must be honoured");
+});
+
+test("a closed report nobody replied to stays closed", () => {
+  const r = run([post({ status: "declined", createdAt: daysAgo(120) })], { 7: [ours(daysAgo(100))] }, {});
+  assert.equal(r.actions.length, 0);
+  assert.equal(r.stats.terminal, 1);
+});
+
+test("a reply that predates our closure does not reopen anything", () => {
+  const r = run(
+    [post({ status: "declined", createdAt: daysAgo(120) })],
+    { 7: [theirs(daysAgo(119)), ours(daysAgo(100))] },
+    {},
+  );
+  assert.equal(r.actions.length, 0, "only replies after closure reopen");
+});
+
+test("completed work is never dragged back open", () => {
+  const r = run(
+    [post({ status: "completed", createdAt: daysAgo(120) })],
+    { 7: [ours(daysAgo(100)), theirs(hoursAgo(3))] },
+    {},
+  );
+  assert.equal(r.actions.length, 0, "shipped work must stay shipped");
+});
+
 test("terminal statuses are ignored entirely", () => {
   for (const status of ["completed", "declined", "duplicate"]) {
     const r = run([post({ status, createdAt: daysAgo(400) })], {}, {});
@@ -164,11 +225,66 @@ test("a report with no usable number is ignored rather than crashing", () => {
   assert.equal(r.actions.length, 0);
 });
 
-test("the published comments carry a machine marker and never quote raw report text", () => {
-  for (const body of [ackBody(7), expireBody(7, 90)]) {
-    assert.ok(body.includes(MARKER), "comments must be identifiable as ours");
+test("expiry closes through the status endpoint, never the edit endpoint", async () => {
+  // End-to-end against a stub Fider. This is the test that catches the class of
+  // bug where PUT /api/v1/posts/{n} returns 200 while ignoring `status`, leaving
+  // the post open after we told the reporter it was closed.
+  const http = require("node:http");
+  const { execFile } = require("node:child_process");
+  const { promisify } = require("node:util");
+  const run = promisify(execFile);
+
+  const DAY = 86400000;
+  const old = new Date(Date.now() - 200 * DAY).toISOString();
+  const stubPost = { id: 7, number: 7, title: "[bug] stale", description: "", status: "open", createdAt: old, votesCount: 0 };
+  const stubComments = [{
+    id: 1, content: "Thanks for reporting this - it's in the queue.",
+    createdAt: new Date(Date.now() - 199 * DAY).toISOString(), user: { id: 1, name: "Krillix" },
+  }];
+
+  const calls = [];
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      calls.push(`${req.method} ${req.url}`);
+      res.setHeader("content-type", "application/json");
+      if (/^\/api\/v1\/posts\/\d+\/comments$/.test(req.url)) return res.end(JSON.stringify(stubComments));
+      if (req.url === "/api/v1/posts/7/status") return res.end("{}");
+      if (req.url === "/api/v1/posts/7") return res.end(JSON.stringify(stubPost));
+      if (req.url.startsWith("/api/v1/posts")) return res.end(JSON.stringify([stubPost]));
+      res.end("{}");
+    });
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const port = server.address().port;
+
+  try {
+    await run(process.execPath, [require.resolve("../scripts/ops/saucerjam-lifecycle.cjs"), "--apply"], {
+      env: { ...process.env, FIDER_BASE_URL: `http://127.0.0.1:${port}`, FIDER_API_KEY: "test" },
+      timeout: 20000,
+    });
+  } finally {
+    server.close();
+  }
+
+  assert.ok(
+    calls.includes("PUT /api/v1/posts/7/status"),
+    `expiry must put to the status endpoint; calls were: ${calls.join(", ")}`,
+  );
+  assert.ok(
+    !calls.includes("PUT /api/v1/posts/7"),
+    "expiry must NOT use the edit endpoint, which silently ignores status",
+  );
+});
+
+test("published comments leak no marker and never quote raw report text", () => {
+  for (const body of [ackBody(7), expireBody(7, 90), reopenBody()]) {
+    assert.ok(!body.includes("saucerjam-lifecycle"), "no machine marker may appear in public text");
+    assert.ok(!body.includes("<!--"), "no HTML comment may appear in public text");
+    assert.ok(body.length > 20);
   }
   assert.ok(!ackBody(7).includes("[bug] something broke"));
   assert.match(expireBody(7, 90), /90 days/);
-  assert.match(expireBody(7, 90), /reopens immediately/);
+  assert.match(expireBody(7, 90), /reopens automatically/);
 });

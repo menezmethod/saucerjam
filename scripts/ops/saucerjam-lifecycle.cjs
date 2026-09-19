@@ -34,9 +34,16 @@ const BASE_URL = (process.env.FIDER_BASE_URL || "https://community.menezmethod.c
 const API_KEY = process.env.FIDER_API_KEY || "";
 const REQUEST_TIMEOUT_MS = Number(process.env.LIFECYCLE_TIMEOUT_MS || 20000);
 
-// Marks a comment as authored by this collector, so "has this been acknowledged"
-// and "how many attempts has it consumed" are derivable from Fider alone.
-const MARKER = "<!-- saucerjam-lifecycle -->";
+// Identify our own comments by AUTHOR, not by content. A content marker is
+// spoofable by any user (anyone can paste the string), and it leaks into the
+// rendered comment as visible debug text. Fider returns the author on every
+// comment, so identity is the reliable signal.
+const BOT_NAME = process.env.LIFECYCLE_BOT_NAME || "Krillix";
+const BOT_ID = process.env.LIFECYCLE_BOT_ID || "1";
+
+// Comments posted by an earlier version of this collector were tagged with an
+// HTML marker. Recognise them so switching detection does not re-ack the board.
+const LEGACY_MARKER = "saucerjam-lifecycle";
 
 // Statuses that mean the report is finished. Fider's status is NOT a boolean:
 // status=open returns only a subset, and treating planned/started as terminal
@@ -66,10 +73,19 @@ function hoursBetween(fromMs, toMs) {
   return (toMs - t) / HOUR;
 }
 
-// A comment authored by this collector. Anything else is a human (or another bot)
-// and counts as activity we must not override.
+// A comment authored by this collector. Anything else is a human (or another
+// bot) and counts as activity we must not override.
 function isOurs(comment) {
-  return String((comment && comment.content) || "").includes(MARKER);
+  const user = (comment && comment.user) || null;
+  if (user && (user.name !== undefined || user.id !== undefined)) {
+    // Author is known: decide on identity alone. A user pasting the legacy
+    // marker string into their own comment must NOT be mistaken for us.
+    if (BOT_ID !== "" && user.id !== undefined && String(user.id) === String(BOT_ID)) return true;
+    if (BOT_NAME && String(user.name) === BOT_NAME) return true;
+    return false;
+  }
+  // Fallback only when the API omits the author entirely.
+  return String((comment && comment.content) || "").includes(LEGACY_MARKER);
 }
 
 function lastActivityMs(post, comments) {
@@ -79,6 +95,15 @@ function lastActivityMs(post, comments) {
     if (Number.isFinite(t)) times.push(t);
   }
   return times.length ? Math.max(...times) : null;
+}
+
+function latestMs(comments) {
+  let latest = null;
+  for (const c of comments) {
+    const t = Date.parse(c && c.createdAt);
+    if (Number.isFinite(t) && (latest === null || t > latest)) latest = t;
+  }
+  return latest;
 }
 
 /**
@@ -96,6 +121,19 @@ function plan({ posts = [], commentsByNumber = {}, config = {}, now = Date.now()
     if (!number) continue;
     const status = String(post.status || "").toLowerCase();
     const comments = commentsByNumber[number] || [];
+
+    // A closed report that a human has replied to since we closed it. Without
+    // this the expiry comment's promise ("reply and it reopens") would be false.
+    // Checked before the terminal skip because declined is terminal by status.
+    if (status === "declined") {
+      const oursLatest = latestMs(comments.filter(isOurs));
+      const theirLatest = latestMs(comments.filter((c) => !isOurs(c)));
+      if (theirLatest !== null && (oursLatest === null || theirLatest > oursLatest)) {
+        actions.push({ kind: "reopen", number, title: post.title, reason: "reporter replied after we closed it" });
+      }
+      stats.terminal++;
+      continue;
+    }
 
     if (isTerminal(status)) { stats.terminal++; continue; }
     stats.open++;
@@ -193,8 +231,7 @@ async function api(path, init = {}) {
 }
 
 function ackBody(number) {
-  return `${MARKER}
-Thanks for reporting this - it's in the queue.
+  return `Thanks for reporting this - it's in the queue.
 
 What happens next: we try to reproduce it. If we can, it becomes a tracked fix. If we can't reproduce it from the description, we'll ask for the missing details rather than guess.
 
@@ -202,23 +239,37 @@ No action needed from you.`;
 }
 
 function expireBody(number, ageDays) {
-  return `${MARKER}
-Closing this one as aged out: ${ageDays} days with no reproduction and no further activity. We'd rather close it honestly than leave it open forever.
+  return `Closing this one as aged out: ${ageDays} days with no reproduction and no further activity. We'd rather close it honestly than leave it open forever.
 
-This is not a judgement on the report. If you can still reproduce it, reply here with the steps and it reopens immediately.`;
+This is not a judgement on the report. If you can still reproduce it, reply here with the steps and it reopens automatically.`;
+}
+
+function reopenBody() {
+  return `Reopened - thanks for following up. This is back in the queue and will be looked at again.`;
+}
+
+// Fider changes status through a DEDICATED endpoint. `PUT /api/v1/posts/{n}` accepts
+// only title/description and silently ignores `status`: it returns 200 while changing
+// nothing, so a closure written that way would tell the reporter the report was closed
+// while leaving it open indefinitely. Verified against the live API.
+const statusPath = (number) => `/api/v1/posts/${number}/status`;
+
+async function setStatus(number, status) {
+  await api(statusPath(number), { method: "PUT", body: JSON.stringify({ status }) });
 }
 
 async function applyAction(action) {
+  if (action.kind === "reopen") {
+    // Reopen first, then tell the reporter - so a comment with no state change
+    // is never left claiming something that did not happen.
+    await setStatus(action.number, "open");
+    await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: reopenBody() }) });
+    return;
+  }
+
   const body = action.kind === "ack" ? ackBody(action.number) : expireBody(action.number, action.ageDays);
   await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: body }) });
-
-  if (action.kind === "expire") {
-    const post = await api(`/api/v1/posts/${action.number}`);
-    await api(`/api/v1/posts/${action.number}`, {
-      method: "PUT",
-      body: JSON.stringify({ title: post.title, description: post.description || "", status: "declined" }),
-    });
-  }
+  if (action.kind === "expire") await setStatus(action.number, "declined");
 }
 
 async function collect() {
@@ -280,7 +331,7 @@ async function main() {
   return 0;
 }
 
-module.exports = { plan, DEFAULTS, MARKER, TERMINAL_STATUSES, ackBody, expireBody };
+module.exports = { plan, DEFAULTS, BOT_NAME, BOT_ID, LEGACY_MARKER, TERMINAL_STATUSES, ackBody, expireBody, reopenBody, statusPath };
 
 if (require.main === module) {
   main().then((code) => process.exit(code)).catch((err) => {

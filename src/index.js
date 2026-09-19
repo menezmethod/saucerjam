@@ -232,6 +232,7 @@ class Game {
     const provider = (name) => this.authAction(() => this.auth.signInWithProvider(name));
     $("auth-google").onclick = () => provider("google");
     $("auth-apple").onclick = () => provider("apple");
+    $("email-toggle").onclick = () => this.toggleEmailAuth();
     $("auth-sign-in").onclick = () => this.authAction(() => this.auth.signIn($("auth-email").value.trim(), $("auth-password").value));
     $("auth-sign-up").onclick = () => this.authAction(() => this.auth.signUp($("auth-email").value.trim(), $("auth-password").value), "registered");
     $("auth-sign-out").onclick = () => this.authAction(() => this.auth.signOut());
@@ -245,6 +246,11 @@ class Game {
     } catch (error) {
       status.textContent = error?.message || "Account action failed. Try again.";
     }
+  }
+  toggleEmailAuth(open = $("email-auth").hidden) {
+    $("email-auth").hidden = !open;
+    $("email-toggle").setAttribute("aria-expanded", String(open));
+    if (open) $("auth-email").focus();
   }
   openReport() {
     this.menu(false);
@@ -327,6 +333,8 @@ class Game {
     const configured = Boolean(this.auth.client);
     for (const id of ["auth-google", "auth-apple", "auth-sign-in", "auth-sign-up"]) $(id).disabled = !configured;
     panel.dataset.authenticated = user ? "true" : "false";
+    $("auth-sign-out").hidden = !user;
+    this.toggleEmailAuth(false);
     $("account-status").textContent = user ? (user.email || "Signed-in pilot") : "Guest pilot";
     $("account-copy").textContent = user ? "Your pilot identity and online records are linked to this account." : "Sign in to carry your callsign and records between devices.";
     if (error) $("auth-status").textContent = "Account session could not be restored. You can continue as a guest.";

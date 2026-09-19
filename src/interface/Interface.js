@@ -10,7 +10,7 @@ const node = (tag, className, text) => {
   return element;
 };
 const themes = {
-  confluence: {color:'#a3daee',label:'One world · expands at 3 / 5 / 7 pilots',mark:'01'},
+  confluence: {color:'#a3daee',label:'Expands at 3 / 5 / 7 pilots',mark:'01'},
   foundry: { color: '#ffae70', label: 'Industrial forge', mark: '01' },
   canopy: { color: '#b4dc95', label: 'Research garden', mark: '02' },
   glacier: { color: '#a3daee', label: 'Polar relay', mark: '03' },

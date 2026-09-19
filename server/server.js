@@ -10,6 +10,36 @@ const { Metrics } = require("./metrics");
 const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
 const { Insights } = require("./insights");
 
+// Fider's webhook content is a Go template edited by hand in its admin UI, so it
+// drifts. A missing field renders as the literal `<no value>`, which is invalid
+// JSON, and a dropped brace breaks the whole body. Salvage the fields we can
+// from the raw text instead of rejecting the request: a non-2xx response makes
+// Fider silently auto-disable the webhook (status 1 -> 3). Unquoted `<no value>`
+// is treated as an empty string, never an error; unknown/malformed fields are
+// ignored. Returns a flat post-shaped object (CommunityQueue.ingest validates).
+function parseTolerantWebhook(raw) {
+  const text = typeof raw === "string" ? raw : "";
+  const intField = (name) => {
+    const match = new RegExp(`"${name}"\\s*:\\s*(-?\\d+)`).exec(text);
+    return match ? Number(match[1]) : undefined;
+  };
+  const strField = (name) => {
+    const quoted = new RegExp(`"${name}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(text);
+    if (quoted) return quoted[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    // Go template emitted the field without a value; accept it as absent.
+    if (new RegExp(`"${name}"\\s*:\\s*<no\\s*value>`).test(text)) return "";
+    return undefined;
+  };
+  return {
+    id: intField("post_id") ?? intField("id"),
+    number: intField("post_number") ?? intField("number"),
+    title: strField("post_title") ?? strField("title"),
+    description: strField("post_description") ?? strField("description"),
+    url: strField("post_url") ?? strField("url"),
+    votes: intField("post_votes") ?? intField("votes"),
+  };
+}
+
 function createGameServer({
   staticDir = path.join(__dirname, "../dist"),
   tick = true,
@@ -194,13 +224,18 @@ function createGameServer({
       return res.status(401).json({ error: "Invalid webhook credential." });
     }
     let payload;
-    try { payload = JSON.parse(raw || "{}"); } catch {
-      mCommunityRejected.add({ reason: "bad_json" });
-      return res.status(400).json({ error: "Invalid webhook payload." });
+    let degraded = false;
+    try {
+      payload = JSON.parse(raw || "{}");
+    } catch {
+      // A non-2xx here makes Fider silently auto-disable this webhook, so a
+      // malformed template must degrade, not fail. Salvage what we can.
+      payload = parseTolerantWebhook(raw);
+      degraded = true;
     }
     // Fider templates emit flat keys (post_number, post_title, ...) via the
     // Go-template webhook content; accept both flat and nested shapes.
-    const post = payload.post || payload.data?.post || payload;
+    const post = payload?.post || payload?.data?.post || payload || {};
     const item = community.ingest({
       id: post.post_id ?? post.id ?? post.post_number ?? post.number,
       number: post.post_number ?? post.number,
@@ -211,8 +246,12 @@ function createGameServer({
     });
     if (!item) {
       mCommunityRejected.add({ reason: "unusable_item" });
-      return res.status(400).json({ error: "Webhook carried no usable post." });
+      // WHY 202 for a body with nothing usable: Fider auto-disables the webhook
+      // on any non-2xx and the failure is silent. Observability lives in the
+      // metrics counter above, not in the HTTP status.
+      return res.status(202).json({ ok: false });
     }
+    if (degraded) mCommunityRejected.add({ reason: "degraded_parse" });
     mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
     return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
   });

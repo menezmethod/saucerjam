@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 export class SupabaseAuth {
-  constructor({ supabaseUrl = "", supabasePublishableKey = "" } = {}) {
+  constructor({ supabaseUrl = "", supabasePublishableKey = "", authProviders = ["google"] } = {}) {
+    this.providers = new Set(Array.isArray(authProviders) ? authProviders : ["google"]);
     this.client = supabaseUrl && supabasePublishableKey
       ? createClient(supabaseUrl, supabasePublishableKey, {
           auth: { autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", persistSession: true },

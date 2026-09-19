@@ -55,16 +55,16 @@
           <button id="email-toggle" class="account-divider" type="button" aria-expanded="false" aria-controls="email-auth">
             <span>or email</span><span class="account-divider-mark" aria-hidden="true">+</span>
           </button>
-          <div id="email-auth" hidden>
+          <form id="email-auth" hidden>
             <div class="account-fields">
-              <input id="auth-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" />
-              <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" minlength="8" />
+              <input id="auth-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required />
+              <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" minlength="8" required />
             </div>
             <div class="account-actions">
-              <button id="auth-sign-in" type="button">Sign in</button>
-              <button id="auth-sign-up" type="button" class="primary">Register</button>
+              <button id="auth-sign-in" type="submit">Sign in</button>
+              <button id="auth-sign-up" type="submit" class="primary">Register</button>
             </div>
-          </div>
+          </form>
           <div class="account-actions account-session-actions"><button id="auth-sign-out" type="button" hidden>Sign out</button></div>
           <p id="auth-status" role="status" aria-live="polite"></p>
         </section>

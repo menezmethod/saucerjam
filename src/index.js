@@ -233,8 +233,12 @@ class Game {
     $("auth-google").onclick = () => provider("google");
     $("auth-apple").onclick = () => provider("apple");
     $("email-toggle").onclick = () => this.toggleEmailAuth();
-    $("auth-sign-in").onclick = () => this.authAction(() => this.auth.signIn($("auth-email").value.trim(), $("auth-password").value));
-    $("auth-sign-up").onclick = () => this.authAction(() => this.auth.signUp($("auth-email").value.trim(), $("auth-password").value), "registered");
+    $("email-auth").onsubmit = (event) => {
+      event.preventDefault();
+      const email = $("auth-email").value.trim(), password = $("auth-password").value;
+      const registering = event.submitter?.id === "auth-sign-up";
+      this.authAction(registering ? () => this.auth.signUp(email, password) : () => this.auth.signIn(email, password), registering ? "registered" : "signed-in");
+    };
     $("auth-sign-out").onclick = () => this.authAction(() => this.auth.signOut());
   }
   async authAction(action, success = "signed-in") {
@@ -331,7 +335,12 @@ class Game {
     const panel = $("account");
     const user = session?.user;
     const configured = Boolean(this.auth.client);
-    for (const id of ["auth-google", "auth-apple", "auth-sign-in", "auth-sign-up"]) $(id).disabled = !configured;
+    for (const id of ["auth-sign-in", "auth-sign-up"]) $(id).disabled = !configured;
+    for (const provider of ["google", "apple"]) {
+      const button = $("auth-" + provider), enabled = configured && this.auth.providers.has(provider);
+      button.hidden = !this.auth.providers.has(provider);
+      button.disabled = !enabled;
+    }
     panel.dataset.authenticated = user ? "true" : "false";
     $("auth-sign-out").hidden = !user;
     this.toggleEmailAuth(false);
@@ -528,12 +537,12 @@ class Game {
   key(e, down) {
     // Keyup may target a newly focused form field: always release first.
     if (!down) this.keys.delete(e.code);
-    const modal=['help','scoreboard','menu'].map($).find(el=>!el.hidden);
+    const modal=['help','scoreboard','menu','report'].map($).find(el=>!el.hidden);
     if(modal){
       this.clearInput();
       if(down&&e.code==='Escape'){
         e.preventDefault();
-        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else this.panel('help',false);
+        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else this.panel(modal.id,false);
       }else if(down&&e.code==='Tab'){
         e.preventDefault();
         const targets=[...modal.querySelectorAll('button,input,select,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);

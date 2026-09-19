@@ -141,6 +141,7 @@ function createGameServer({
   app.use("/api", express.json({ limit: "12kb", strict: true }));
   app.get("/api/config", (_req, res) => res.json({
     authEnabled: Boolean(supabaseUrl && supabasePublishableKey),
+    authProviders: String(process.env.SUPABASE_AUTH_PROVIDERS || "google").split(",").map(provider => provider.trim().toLowerCase()).filter(Boolean),
     supabaseUrl: supabaseUrl || "",
     supabasePublishableKey: supabasePublishableKey || "",
   }));

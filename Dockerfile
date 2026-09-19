@@ -15,6 +15,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY server/server.js ./server/server.js
 COPY server/rankings ./server/rankings
+COPY server/metrics.js ./server/metrics.js
+COPY server/community.js ./server/community.js
+COPY server/insights.js ./server/insights.js
 RUN mkdir -p /app/server/data && chown node:node /app/server/data
 COPY shared ./shared
 USER node

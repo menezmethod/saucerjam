@@ -20,12 +20,29 @@ import hashlib
 import hmac
 import json
 import os
+import socket
+import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TOKEN = os.environ.get("GRAFANA_RELAY_TOKEN", "")
 HERMES_URL = os.environ.get("HERMES_WEBHOOK_URL", "")
 HERMES_SECRET = os.environ.get("HERMES_WEBHOOK_SECRET", "")
 PORT = int(os.environ.get("PORT", "8787"))
+STARTED = time.monotonic()
+
+
+def hermes_reachable():
+    """Cheap TCP probe so a watchdog can tell 'relay up' from 'relay can't reach Hermes'."""
+    if not HERMES_URL:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(HERMES_URL)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        with socket.create_connection((parsed.hostname, port), timeout=2):
+            return True
+    except Exception:
+        return False
 
 
 class Relay(BaseHTTPRequestHandler):
@@ -35,6 +52,20 @@ class Relay(BaseHTTPRequestHandler):
     def _deny(self, code, message):
         body = json.dumps({"error": message}).encode()
         self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if self.path.rstrip("/") not in ("", "/health"):
+            return self._deny(404, "not found")
+        body = json.dumps({
+            "ok": True,
+            "uptime": round(time.monotonic() - STARTED, 1),
+            "hermes_reachable": hermes_reachable(),
+        }).encode()
+        self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

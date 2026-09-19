@@ -31,17 +31,9 @@ alert-worthy signal**, not an absolute count.
 4. If a signal persists without a code cause, it becomes a design question for a
    human, not an automated change.
 
-Suggested first thresholds (tune with real data, do not treat as truth):
-
-```yaml
-- alert: SaucerJamPlayersStuck
-  expr: insight_friction_ratio{signal="stuck_no_input_per_session"} > 0.15
-  for: 30m
-  labels: { severity: warning, service: saucerjam }
-  annotations:
-    summary: "New pilots are joining but not playing"
-    runbook_url: ".../docs/SRE.md"
-```
+The threshold lives in `deploy/monitoring/saucerjam.rules.yml` as
+`SaucerJamPlayersStuck` (`insight_friction_ratio{signal="stuck_no_input_per_session"} > 0.15`
+for 30m). Tune the threshold there with real data; do not treat it as truth.
 
 ## Privacy guardrails
 

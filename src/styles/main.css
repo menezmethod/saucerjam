@@ -6,6 +6,10 @@
   --line: #2b4058;
   --cyan: #5eeaff;
   --orange: #ffae69;
+  /* Rendered height of the three-button Arena/Scores/Sound stack in
+     .flight-tools. The fixed Comms toggle (and its panel) sit above it on
+     desktop; update this if the rail buttons change size. */
+  --flight-tools-height: 106px;
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   font-size: 14px;
 }
@@ -169,20 +173,6 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-.room-divider {
-  font-size: 12px;
-  color: #9dafc2;
-  margin-top: 11px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.room-divider:after {
-  content: "";
-  height: 1px;
-  background: #2b4058;
-  flex: 1;
 }
 .room-actions {
   display: grid;
@@ -372,7 +362,7 @@ body.hud-idle .flight-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   padding: 0 10px 10px;
   color: #acbfd2;
 }
@@ -384,10 +374,69 @@ body.hud-idle .flight-hint {
 }
 .radar kbd {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 11px;
 }
 .radar.collapsed {
   display: none;
+}
+.chat-toggle {
+  position: fixed;
+  right: 24px;
+  /* Clear the flight-tools rail pinned to the bottom of .combat-bar (bar
+     bottom 44px, then the 106px stack, then an 8px gap). The compact
+     breakpoints below override this with their own rail heights. */
+  bottom: calc(44px + var(--flight-tools-height) + 8px);
+  z-index: 4;
+}
+.chat-panel {
+  position: fixed;
+  right: 24px;
+  bottom: calc(44px + var(--flight-tools-height) + 50px);
+  width: min(330px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid #35516c;
+  border-radius: 10px;
+  background: #081322e8;
+  box-shadow: 0 16px 45px #0008;
+  z-index: 4;
+  backdrop-filter: blur(12px);
+}
+.chat-head,
+.chat-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-head {
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #c7edf8;
+}
+.chat-log {
+  min-height: 52px;
+  max-height: 180px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px 10px;
+  color: #c6d7e6;
+  font-size: 12px;
+}
+.chat-log p {
+  margin: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.chat-log b {
+  color: #84ebff;
+  margin-right: 5px;
+}
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 .combat-bar {
   position: fixed;
@@ -436,7 +485,7 @@ body.hud-idle .flight-hint {
   display: block;
   color: #9dafc2;
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 4px;
 }
 .weapon.selected {
@@ -517,6 +566,63 @@ body.hud-idle .flight-hint {
 }
 #menu-status {
   overflow-wrap: anywhere;
+}
+.report-dialog {
+  width: 470px;
+  border-color: #4a7186;
+  background: linear-gradient(145deg, #102238, #0c1728 72%);
+}
+.report-kicker {
+  color: var(--cyan);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.report-dialog label {
+  color: #b8cbdd;
+  font-size: 12px;
+  margin-top: 3px;
+}
+.report-dialog select,
+.report-dialog textarea {
+  width: 100%;
+  background: #080f20;
+  border: 1px solid #405873;
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 11px 12px;
+  font: inherit;
+}
+.report-dialog select:focus-visible,
+.report-dialog textarea:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.report-dialog textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.report-status {
+  min-height: 20px;
+  margin: 0 !important;
+}
+.report-link {
+  color: var(--cyan);
+  font-size: 12px;
+  text-decoration: none;
+}
+.report-link:hover {
+  text-decoration: underline;
+}
+.report-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.report-actions button {
+  flex: 1;
 }
 .help-columns {
   display: grid;
@@ -667,6 +773,15 @@ th {
     gap: 6px;
     align-items: end;
   }
+  /* Stack vitals so the centred clock never runs into their bars. */
+  .vitals {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .vital-bar {
+    width: 58px;
+  }
   .match-brand {
     gap: 8px;
   }
@@ -732,13 +847,13 @@ th {
     font-size: 24px;
   }
   .match-clock span {
-    font-size: 9px;
+    font-size: 11px;
   }
   .top-bar {
     padding: 12px;
   }
   .session-tools {
-    font-size: 9px;
+    font-size: 10px;
   }
   .radar {
     top: 100px;
@@ -746,8 +861,16 @@ th {
     width: 115px;
   }
   .radar > span {
-    font-size: 8px;
+    font-size: 9px;
     padding: 0 5px 5px;
+  }
+  .chat-toggle {
+    right: 12px;
+    bottom: 108px;
+  }
+  .chat-panel {
+    right: 12px;
+    bottom: 148px;
   }
   .radar kbd,
   .radar > span > i {
@@ -769,7 +892,7 @@ th {
     font-size: 11px;
   }
   .weapon small {
-    font-size: 8px;
+    font-size: 9px;
   }
   .weapon kbd {
     font-size: 9px;
@@ -782,7 +905,7 @@ th {
     gap: 3px;
   }
   .flight-tools .small {
-    font-size: 9px;
+    font-size: 10px;
     padding: 5px;
   }
   .flight-tools kbd {
@@ -805,7 +928,7 @@ th {
   #kill-feed {
     top: 87px;
     right: 12px;
-    font-size: 9px;
+    font-size: 10px;
     max-width: 220px;
   }
   #notice {
@@ -868,6 +991,10 @@ th {
   .combat-bar {
     bottom: max(16px, env(safe-area-inset-bottom));
   }
+  /* Weapons sit top-right on touch; drop the feed below them. */
+  #kill-feed {
+    top: calc(var(--top-bar-height, 90px) + 74px);
+  }
   .desktop-key,
   .match-brand > span {
     display: none;
@@ -877,6 +1004,17 @@ th {
   }
   .session-tools > #connection {
     display: none;
+  }
+  /* Fingers are less precise than a mouse: keep every HUD control at least
+     44px tall (Apple HIG) and clear of notches/Dynamic Island. */
+  .small,
+  .weapons > .weapon {
+    min-height: 44px;
+  }
+  .top-bar {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
   }
 }
 @media (max-height: 730px) and (min-width: 701px) {
@@ -901,9 +1039,147 @@ th {
     font-size: 22px;
   }
 }
+/* Landscape phones and embedded previews can be short enough that the normal
+   top-bar metadata collides with the clock. Keep the actionable controls and
+   timer; the room/status text is repeated in the menu and radar. */
+@media (max-height: 420px) and (max-width: 760px) and (pointer: fine) {
+  .top-bar {
+    padding: 8px 12px;
+  }
+
+  .match-brand {
+    font-size: 17px;
+  }
+
+  .match-brand > span,
+  #connection,
+  .match-clock span {
+    display: none;
+  }
+
+  .match-clock strong {
+    font-size: 20px;
+  }
+
+  .radar {
+    top: 54px;
+    width: 92px;
+  }
+
+  .radar > span {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+}
+
+/* Compact control rail: at tablet and short desktop widths the weapon strip,
+   flight tools, and hint used to occupy the same horizontal lane. Keep one
+   clear rail, then fall back to icon-first weapons only when labels no longer
+   fit. */
+@media (max-width: 760px) and (pointer: fine) {
+  .combat-bar {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+  }
+
+  .weapons {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .weapon {
+    min-width: 0;
+    flex: 1 1 0;
+    gap: 6px;
+    padding: 9px 8px;
+  }
+
+  .weapon kbd {
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+
+  .weapon span {
+    min-width: 0;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .weapon small {
+    font-size: 8px;
+    margin-top: 2px;
+  }
+
+  .combat-bar > .flight-tools {
+    position: static;
+    gap: 3px;
+  }
+
+  .flight-tools .small {
+    min-width: 58px;
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+
+  .flight-hint {
+    display: none;
+  }
+
+  /* Keep Comms in the quiet lane immediately above the control rail. */
+  .chat-toggle {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px);
+  }
+}
+
+@media (max-width: 430px) and (pointer: fine) {
+  .combat-bar {
+    gap: 6px;
+  }
+
+  .weapon {
+    justify-content: center;
+    padding: 9px 7px;
+  }
+
+  .weapon-icon {
+    display: block;
+  }
+
+  .weapon span,
+  .weapon small {
+    display: none;
+  }
+
+  .weapon kbd {
+    font-size: 8px;
+  }
+
+  .flight-tools .small {
+    min-width: 52px;
+    padding-inline: 4px;
+  }
+
+  .flight-tools kbd {
+    display: none;
+  }
+}
+
+/* An embedded/ultra-short desktop viewport cannot fit Menu, Comms, and the
+   compact control rail without putting secondary controls on top of each
+   other. Keep the match controls; Comms returns as soon as the viewport has
+   usable height. */
+@media (max-height: 180px) and (max-width: 760px) and (pointer: fine) {
+  .chat-toggle {
+    display: none;
   }
 }
 
@@ -989,4 +1265,161 @@ body.touch-active .combat-bar {
   justify-content: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* ---- Vitals (hull + energy) ---------------------------------------- */
+.vitals {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.vital {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #b4c9de;
+}
+.vital-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+.vital-bar {
+  position: relative;
+  width: 72px;
+  height: 6px;
+  border-radius: 3px;
+  background: #223247;
+  overflow: hidden;
+}
+.vital-bar i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transition: transform 0.15s ease;
+  background: #91edbb;
+}
+.vital-num {
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #e8f3fc;
+}
+#vital-hull[data-condition="damaged"] .vital-bar i { background: #ffcc76; }
+#vital-hull[data-condition="critical"] .vital-bar i { background: #ff8792; }
+#vital-energy .vital-bar i { background: #5eeaff; }
+body.hud-idle .vitals { opacity: 1; }
+
+/* ---- Off-screen threat arrows -------------------------------------- */
+#threat-arrows {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+#threat-arrows i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 15px solid currentColor;
+  color: #ff8792;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px #000a);
+  transition: transform 0.1s linear, opacity 0.2s ease;
+}
+
+/* ---- Screen-reader only -------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Motion budget -------------------------------------------------- */
+@keyframes qd-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes qd-rise { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#hit-marker:not([hidden]) { animation: qd-pop 0.12s ease-out; }
+.modal:not([hidden]) > .dialog { animation: qd-rise 0.18s ease-out; }
+button:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal:not([hidden]) > .dialog,
+  #hit-marker:not([hidden]) { animation: none; }
+  button:active { transform: none; }
+  #threat-arrows i { transition: none; }
+}
+
+/* ---- Weapon identity (icon + key colour) --------------------------- */
+[data-weapon="LASER"] .weapon-icon,
+[data-weapon="LASER"] kbd { color: #5eeaff; }
+[data-weapon="GRENADE"] .weapon-icon,
+[data-weapon="GRENADE"] kbd { color: #bc91ff; }
+[data-weapon="BOUNCE"] .weapon-icon,
+[data-weapon="BOUNCE"] kbd { color: #ff91d5; }
+.weapon.selected .weapon-icon { filter: drop-shadow(0 0 4px currentColor); }
+
+.wordmark-mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  color: var(--cyan);
+}
+.wordmark { letter-spacing: -0.03em; }
+
+/* Small phones: drop the vitals labels so the bars clear the centred clock. */
+@media (max-width: 430px) {
+  .vital-label { display: none; }
+  .vital-bar { width: 48px; }
+}
+
+/* Landscape phones: a tall stacked top bar eats the play area and the Comms
+   toggle competes with the top-right weapon rail. Compact the chrome and dock
+   Comms top-left (the radar is hidden on touch, so that corner is free). */
+@media (max-height: 480px) and (pointer: coarse) {
+  .top-bar {
+    padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  }
+  .match-brand { font-size: 16px; }
+  .match-brand > span { display: none; }
+  .match-clock strong { font-size: 20px; }
+  .match-clock span { font-size: 11px; margin-top: 2px; }
+  .vitals { flex-direction: row; gap: 8px; }
+  .vital-label { display: none; }
+  .vital-bar { width: 40px; }
+  .vital-num { min-width: 0; }
+  .session-tools { flex-direction: row; align-items: center; gap: 8px; }
+  .chat-toggle {
+    top: calc(var(--top-bar-height, 64px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+  }
+  .chat-panel {
+    top: calc(var(--top-bar-height, 64px) + 8px);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+    width: min(320px, calc(100vw - 24px));
+    max-height: calc(100vh - var(--top-bar-height, 64px) - 24px);
+    overflow: auto;
+  }
+  .chat-log { max-height: 96px; }
+}
+
+/* Narrow landscape phones: the round label makes the centred clock wide enough
+   to hit the vitals, so drop it (round/district remain in the scoreboard). */
+@media (max-height: 480px) and (max-width: 700px) and (pointer: coarse) {
+  .match-clock span { display: none; }
 }

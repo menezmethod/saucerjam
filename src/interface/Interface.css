@@ -6,19 +6,34 @@
 .qd-interface .lobby-panel { width: 328px; margin: clamp(22px, 4vh, 44px) 0 245px clamp(22px, 3vw, 48px); padding: 0; }
 .qd-interface .wordmark { font-size: 24px; letter-spacing: -1.5px; }
 .qd-interface .wordmark span { font-size: 10px; text-transform: uppercase; letter-spacing: .15em; padding-left: 13px; }
-.qd-interface .lobby-panel h1 { font-size: clamp(48px, 4.6vw, 70px); line-height: .94; letter-spacing: -.055em; margin: 24px 0 16px; }
+.qd-interface .lobby-panel h1 { font-size: clamp(36px, 3.3vw, 52px); line-height: .96; letter-spacing: -.05em; margin: 24px 0 16px; }
 .qd-interface .lobby-panel .intro { font-size: 13px; line-height: 1.5; margin-bottom: 18px; }
+.qd-interface .account-panel { margin: 14px 0 16px; padding: 12px; border: 1px solid #304753; border-radius: 4px; background: #09151ce8; }
+.qd-interface .account-kicker { display: flex; justify-content: space-between; gap: 10px; color: #9dafb8; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
+.qd-interface .account-kicker strong { color: #b8e8c8; font-weight: 500; }
+.qd-interface .account-panel h2 { color: var(--qd-paper); font-size: 18px; letter-spacing: -.03em; margin: 9px 0 4px; }
+.qd-interface .account-panel p { color: #aab9c0; font-size: 10px; line-height: 1.45; margin: 0 0 9px; }
+.qd-interface .account-providers, .qd-interface .account-actions { display: flex; gap: 6px; }
+.qd-interface .account-panel button { flex: 1; min-width: 0; min-height: 44px; padding: 10px 7px; font-size: 11px; white-space: nowrap; }
+.qd-interface .account-providers button { background: #142630; border-color: #49616b; }
+.qd-interface .account-divider { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 44px; margin: 6px 0; padding: 0; border: 0; background: transparent; color: #81939c; font-size: 10px; text-transform: uppercase; letter-spacing: .13em; }
+.qd-interface .account-divider::before, .qd-interface .account-divider::after { content: ''; height: 1px; flex: 1; background: #304753; }
+.qd-interface .account-divider:hover { background: transparent; border-color: transparent; color: #dce9d9; }
+.qd-interface .account-divider-mark { width: 13px; color: #e0eab6; font-size: 14px; font-weight: 400; line-height: 1; transition: transform .16s ease; }
+.qd-interface .account-divider[aria-expanded='true'] .account-divider-mark { transform: rotate(45deg); }
+.qd-interface .account-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.qd-interface .account-panel input { width: 100%; min-height: 44px; padding: 10px 8px; font-size: 12px; }
+.qd-interface #auth-status { min-height: 14px; margin: 7px 0 0; color: #e4c58d; }
+.qd-interface .account-panel[data-authenticated='true'] .account-providers, .qd-interface .account-panel[data-authenticated='true'] .account-divider, .qd-interface .account-panel[data-authenticated='true'] .account-fields, .qd-interface .account-panel[data-authenticated='true'] #auth-sign-in, .qd-interface .account-panel[data-authenticated='true'] #auth-sign-up { display: none; }
+.qd-interface .account-panel[data-authenticated='true'] #auth-sign-out { display: block; }
 .qd-interface .lobby-form { gap: 8px; }
-.qd-interface .lobby-form input:not([type='checkbox']) { padding: 10px; background: #0a151ee8; }
+.qd-interface .lobby-form input:not([type='checkbox']) { padding: 10px; min-height: 44px; background: #0a151ee8; }
 .qd-interface .primary-actions button { padding: 12px 10px; font-size: 12px; }
 .qd-interface .primary-actions .primary { background: #e0eab6; border-color: #e0eab6; color: #192620; }
 .qd-interface .primary-actions .primary:hover { background: #eff5d4; }
-.qd-interface .room-divider { margin-top: 7px; font-size: 11px; }
-.qd-interface .room-actions button { padding: 9px; font-size: 11px; }
 .qd-interface #lobby-status { font-size: 11px; min-height: 30px; }
 .qd-interface .lobby-footer { margin-top: 7px; padding-top: 9px; font-size: 10px; }
 .qd-interface .arena-caption { display: none; }
-.qd-identity { color: var(--qd-quiet); font-size: 10px; line-height: 1.5; max-width: 310px; margin: 12px 0 5px; }
 .qd-records-link { background: transparent; border: 0; border-bottom: 1px solid #85949b; padding: 5px 0; font-size: 11px; color: #e0eab6; }
 .qd-map-picker { position: absolute; bottom: 23px; left: clamp(22px, 3vw, 48px); right: clamp(22px, 3vw, 48px); pointer-events: auto; }
 .qd-picker-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 10px; }
@@ -102,6 +117,7 @@
   .qd-interface .lobby-panel h1 { font-size: 48px; margin: 18px 0 12px; }
   .qd-interface .lobby-panel h1 br { display: none; }
   .qd-interface .lobby-panel .intro { font-size: 12px; margin-bottom: 14px; }
+  .qd-interface .account-fields { grid-template-columns: 1fr; }
   .qd-map-picker { position: relative; inset: auto; margin-top: 28px; padding-bottom: 6px; }
   .qd-map-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .qd-map-card { padding-inline: 10px; }
@@ -167,3 +183,166 @@
 .qd-advanced-camera .qd-camera-controls { border: 0; margin: 0; padding-top: 4px; }
 
 .qd-map-card:only-child { grid-column: 1 / -1; }
+
+/* Landing pass: make the first launch decision the visual anchor. The
+   account controls stay available, but sit below guest play instead of
+   competing with it. */
+.qd-interface #lobby {
+  align-items: stretch;
+  background:
+    radial-gradient(circle at 78% 44%, #2c9bb61c, transparent 35%),
+    linear-gradient(90deg, #060e17f5 0%, #071016cf 28%, #07101640 58%, #07101600 78%),
+    linear-gradient(0deg, #060e17dd, #060e1700 48%);
+}
+.qd-interface .lobby-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 44px));
+  max-width: 420px;
+  min-height: 0;
+}
+/* Document order is the landing hierarchy: brand, hero headline, gameplay
+   promise, guest launch, then the secondary disclosures. */
+.qd-interface .lobby-panel h1 {
+  margin-top: 14px;
+  margin-bottom: 12px;
+  text-wrap: balance;
+}
+.qd-interface .lobby-panel .intro {
+  max-width: 29ch;
+  margin-bottom: 20px;
+}
+.qd-interface .lobby-form {
+  max-width: none;
+  gap: 9px;
+}
+.qd-interface .lobby-form > label {
+  color: #d0ddd9;
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+.qd-interface .primary-actions {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.qd-interface .primary-actions button {
+  min-height: 50px;
+  padding: 13px 12px;
+}
+.qd-interface .primary-actions #quick-play {
+  box-shadow: 0 0 0 1px #e0eab64d, 0 10px 28px #0008;
+  font-size: 13px;
+}
+.qd-interface .primary-actions #practice {
+  background: #12232b;
+  border-color: #526c75;
+  color: #d0ddd9;
+}
+.qd-interface .room-actions button,
+.qd-interface .room-actions input {
+  min-height: 44px;
+  padding: 9px;
+  font-size: 11px;
+}
+.qd-interface .account-panel {
+  margin: 0;
+  padding: 13px 0 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+}
+.qd-interface .account-panel h2 {
+  font-size: 16px;
+  margin-top: 7px;
+}
+.qd-interface .account-panel p {
+  max-width: 35ch;
+}
+.qd-interface .lobby-footer {
+  max-width: none;
+  gap: 14px;
+}
+.qd-interface .lobby-footer .text-button {
+  min-height: 44px;
+  padding: 10px 0;
+}
+.qd-interface .qd-records-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+}
+
+/* Five destinations now fit in one quiet rail on desktop, instead of
+   creating a second row that pushes the launch controls below the fold. */
+.qd-interface .qd-map-cards {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.qd-interface .qd-map-card {
+  padding: 8px 10px 0;
+}
+.qd-interface .qd-map-art { height: 58px; }
+.qd-interface .qd-map-name { font-size: 16px; }
+.qd-interface .qd-map-subtitle { margin-bottom: 6px; }
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  .qd-interface .qd-map-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .qd-interface #lobby {
+    background:
+      linear-gradient(180deg, #071016f2 0%, #071016dd 54%, #071016f5 100%),
+      radial-gradient(circle at 50% 0%, #2c9bb61c, transparent 45%);
+  }
+  .qd-interface .lobby-panel {
+    width: 100%;
+    max-width: none;
+  }
+  .qd-interface .lobby-panel h1 { margin-top: 16px; }
+  .qd-interface .primary-actions { grid-template-columns: 1fr 1fr; }
+  .qd-interface .primary-actions button { min-height: 48px; }
+  .qd-interface .qd-map-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qd-interface .qd-map-art { height: 64px; }
+}
+
+/* Play-first landing: guest launch owns the fold, the brand and hero stay
+   compact, and every secondary decision is a native disclosure that opens
+   only when the pilot (or an error that needs showing) asks for it. */
+.qd-interface .lobby-reassurance {
+  color: #9fb6b9;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+}
+.lobby-disclosure { border-top: 1px solid #2b4058; }
+.lobby-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 2px;
+  color: #d0ddd9;
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.lobby-disclosure > summary::-webkit-details-marker { display: none; }
+.lobby-disclosure > summary::after {
+  content: '+';
+  color: #e0eab6;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform .16s ease;
+}
+.lobby-disclosure[open] > summary::after { transform: rotate(45deg); }
+.lobby-disclosure > summary:focus-visible { outline: 2px solid #edf9d2; outline-offset: 3px; }
+.lobby-disclosure-body { padding: 0 0 4px; }
+.qd-interface .lobby-disclosure .check { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) {
+  .lobby-disclosure > summary::after { transition: none; }
+}
+@media (max-width: 760px) {
+  .qd-interface .lobby-panel h1 { font-size: 40px; margin-top: 12px; }
+}

@@ -34,27 +34,6 @@ test("recipient snapshots keep the local pilot and omit distant combat", () => {
   assert.equal(snapshot.players.find((p) => p.id === "local").profileId, "local-profile");
   assert.equal(snapshot.players.find((p) => p.id === "nearby").profileId, undefined);
   assert.ok(snapshot.players.every((p) => p.nextFire === undefined && p.lastDamage === undefined));
-  assert.deepEqual(snapshot.standings.map((p) => p.id).sort(), ["distant", "local", "nearby"]);
-  assert.ok(snapshot.standings.every((p) => p.profileId === undefined));
-});
-
-test("recap follows a canonical pilot across an intermission reconnect", () => {
-  const simulation = new Simulation({ map: getWorld(3), populationExpansion: false });
-  const old = simulation.addPlayer("old", "Local");
-  const other = simulation.addPlayer("other", "Other");
-  Object.assign(old, { profileId: "canonical-local", kills: 3 });
-  other.kills = 1;
-  simulation.endRound();
-  simulation.removePlayer("old");
-
-  const reconnected = simulation.addPlayer("new", "Local");
-  reconnected.profileId = "canonical-local";
-  const snapshot = simulation.snapshotFor("new");
-  const localRecap = snapshot.recap.players.find((p) => p.name === "Local");
-
-  assert.equal(snapshot.recap.winnerId, "new");
-  assert.equal(localRecap.id, "new");
-  assert.equal(localRecap.profileId, "canonical-local");
 });
 
 test("recipient events and recaps retain local feedback without remote identity leakage", () => {

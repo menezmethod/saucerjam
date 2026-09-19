@@ -15,7 +15,7 @@ export class ArenaRenderer {
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(55,1,.1,400);this.rig=new CameraRig(this.camera);
     this.world=new World(this.scene,this.renderer);this.fx=new CombatFX(this.scene);
-    this.ships=new Map();this.shots=new Map();this.pickups=new Map();this.view=0;this.zoom=1;this.cameraReady=false;this.frameTime=0;
+    this.ships=new Map();this.shots=new Map();this.pickups=new Map();this.view=0;this.zoom=1;this.cameraReady=false;this.frameTime=0;this.reduceMotion=false;
     this.ray=new THREE.Raycaster();this.floor=new THREE.Plane(new THREE.Vector3(0,1,0),-Y);
     const overlay=document.createElement('div');overlay.id='ship-indicators';overlay.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4';document.getElementById('hud').append(overlay);this.indicators=new ShipIndicators(overlay);this.indicatorRoot=overlay;
     this.reticle=new THREE.Mesh(new THREE.RingGeometry(.5,.56,32),new THREE.MeshBasicMaterial({color:'#8defff',depthTest:false,transparent:true,opacity:.85}));this.reticle.rotation.x=-Math.PI/2;this.reticle.renderOrder=5;this.reticle.visible=false;this.scene.add(this.reticle);
@@ -94,7 +94,9 @@ export class ArenaRenderer {
     for(const[id,pickup]of this.pickups)if(!present.has(id)){this.scene.remove(pickup.group);this.dispose(pickup.group);this.pickups.delete(id);}
   }
   draw(state,playerId,predicted,aim,weapon,dt,lobby=false){
-    this.frameTime+=dt;
+    // Freeze idle bob/spin under prefers-reduced-motion; combat effects and
+    // user-driven motion still play.
+    if(!this.reduceMotion)this.frameTime+=dt;
     const worldOnly=this.showcaseModule==='world';this.world.setShowcase?.(this.showcaseModule||'arena');
     const rendered=[], present=new Set();
     for(const serverPlayer of state.players){
@@ -123,7 +125,7 @@ export class ArenaRenderer {
     if(this.reticle.visible){let{x,z}=aim;if(weapon==='GRENADE'){const dx=x-predicted.x,dz=z-predicted.z,scale=Math.min(1,WEAPONS.GRENADE.range/(Math.hypot(dx,dz)||1));x=predicted.x+dx*scale;z=predicted.z+dz*scale;}this.reticle.position.set(x,.15,z);this.reticle.material.color.set(WEAPONS[weapon].color);this.grenadeRing.position.set(x,.12,z);}
     const local=rendered.find(p=>p.id===playerId);
     if(!this.cameraReady)this.rig.reset();
-    this.rig.update({player:local,aim,map:this.map,dt,lobby:lobby||worldOnly,view:this.view,zoom:this.zoom});this.cameraReady=true;
+    this.rig.update({player:local,aim,map:this.map,dt,lobby:lobby||worldOnly,view:this.view,zoom:this.zoom,reducedMotion:this.reduceMotion});this.cameraReady=true;
     for(const ship of this.ships.values())ship.silhouette.visible=ship.alive&&!lobby&&!worldOnly&&coverOccludes(this.camera.position,ship.group.position,this.map.obstacles);
     this.world.update(this.frameTime,dt);
     if(!worldOnly)this.fx.update({...state,players:rendered},dt,this.ships);else this.fx.clear();
@@ -131,5 +133,5 @@ export class ArenaRenderer {
     if(!lobby&&!worldOnly)this.indicators.update({players:rendered,localId:playerId,camera:this.camera,width:this.width,height:this.height,time:state.time,aim});
     this.renderer.render(this.scene,this.camera);
   }
-  dispose(root){root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
+  dispose(root){this.resizeObserver?.disconnect();this.visualViewport?.removeEventListener('resize',this.onVisualViewportResize);root.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){m.map?.dispose();m.dispose();}});}
 }

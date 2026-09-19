@@ -16,19 +16,19 @@ Open **http://localhost:8080**. `npm start` builds the client and starts the ser
 - **Practice with bots** starts immediately and runs locally in your browser. Once loaded, practice does not need a network connection. Menu pauses practice.
 - **Play online** joins a public arena. Bots fill vacant seats up to four pilots and leave as humans join.
 - **Create room** gives you a private room code. Turn off bot fill for human-only matches.
-- **Copy invite** copies a link for friends. They enter a callsign and press Join. The server's default admission limit is 32 humans per room; that is not a tested performance target.
+- **Copy invite** copies a link for friends. They enter a callsign and press Join. Rooms admit up to 32 pilots by default (`MAX_ROOM_PLAYERS`).
 - Rounds end after 20 eliminations or five minutes. The next round starts automatically after ten seconds.
-- A generated soundtrack and SFX play by default; toggle with **Sound on/off**. See [docs/AUDIO.md](docs/AUDIO.md) for the cue map and how to rebuild the assets.
+- A generated soundtrack and SFX play by default; toggle **Sound on/off** (effects) and **Music on/off** (beds and stings) independently. See [docs/AUDIO.md](docs/AUDIO.md) for the cue map and how to rebuild the assets.
 
 For another computer on your LAN, open the **LAN play** address printed by the server (for example `http://192.168.0.9:8080`). Create/copy the invite from that address so friends get a reachable link; `localhost` always means their own computer. Allow incoming connections to the chosen port if your firewall prompts.
 
-For friends outside your LAN, run the same server on a reachable host or use a shared private network such as Tailscale. The Coolify deployment setup and public verification steps are in [hosting and operations](docs/HOSTING.md). Serve it through HTTPS for public browser access and clipboard support. Active rooms are in memory. An intentional last-human exit closes the room; transport loss keeps it paused for 30 seconds so automatic reconnect can recover it. Completed online round results persist in `server/data/rankings.json` (override with `RANKINGS_FILE`). Rejoining an active round under the same browser pilot identity preserves its combat resources, death timers and performance counters. If everyone disconnected and the room closed, create a new one.
+For friends outside your LAN, run the same server on a reachable host or use a shared private network such as Tailscale. The production deployment uses Coolify; see [hosting and operations](docs/HOSTING.md). Serve it through HTTPS for public browser access and clipboard support. Active rooms are in memory. An intentional last-human exit closes the room; transport loss keeps it paused for 30 seconds so automatic reconnect can recover it. Completed online round results persist in `server/data/rankings.json` (override with `RANKINGS_FILE`). Rejoining an active round under the same browser pilot identity preserves its combat resources, death timers and performance counters. If everyone disconnected and the room closed, create a new one.
 
-## Browser release
+## v1.0 release
 
-The current source version is 1.3.0. For a tagged release, download the prebuilt browser client and Node server from [GitHub Releases](https://github.com/menezmethod/saucerjam/releases). Extract it, run `npm ci --omit=dev`, then `npm run serve`. Node.js 20+ is required; there is no native desktop installer. A public play URL should be advertised only after the [live deployment checks](docs/HOSTING.md) pass.
+Browser arena shooter with one connected, expanding world, bot practice, private invites, and server-authoritative multiplayer. Download a ready-built Node server from [GitHub Releases](https://github.com/menezmethod/saucerjam/releases). Extract it, run `npm ci --omit=dev`, then `npm run serve`. Node.js 20+ is required; there is no native desktop installer.
 
-See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), and the [next milestones](docs/ROADMAP.md).
+See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), [next milestones](docs/ROADMAP.md), and the [community feedback guide](docs/community-portal/README.md).
 
 ## Controls
 
@@ -38,16 +38,17 @@ See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), and the [next mil
 | A / D, left / right | Move left / right on screen |
 | Q / E | Alternative left / right movement |
 | Mouse | Aim independently of movement |
+| I / J / K / L | Aim without a mouse (keyboard-only play) |
 | Hold left click or Space | Fire selected weapon |
 | 1 / 2 / 3 | Laser / grenade / ricochet |
 | X | Cycle weapon |
 | V | Arena / full-map toggle (other views in Flight menu) |
 | M | Toggle radar |
-| Tab | Toggle scoreboard |
+| T | Toggle scoreboard |
 | C | Controls and weapon guide |
 | Escape | Flight menu |
 
-Touch screens get a drag joystick for movement on the left and tap-to-fire aiming on the right; there is no separate Fire button. Keyboard and mouse give the most precise control.
+Touch screens get a floating drag joystick in the lower-left for movement; tap anywhere else on the arena to aim and fire at that point (there is no separate Fire button). A one-time touch guide explains the two-thumb scheme on first play. Keyboard and mouse give the most precise control.
 
 ## Combat
 
@@ -64,7 +65,7 @@ npm run dev          # Client rebuilds on :8080, server on :3000 through a proxy
 npm run build        # Production client in dist/
 npm run serve        # Serve an existing build on :8080
 npm test             # Builds the client, then runs simulation and Socket.IO tests
-CHROME_BACKEND=native npm run test:browser # Production-browser end-to-end tests; run build first
+npm run test:browser # Production-browser end-to-end tests; run build first
 ```
 
 The browser suite uses installed Google Chrome on macOS, `CHROME_PATH` when provided, or Playwright Chromium (`npx playwright install chromium`). It tests independent clients, room invites, replicated controls, all three weapons, death/respawn, cameras, network loss/reconnect, practice, mobile layout, and asset-independent procedural ships. Screenshots go in `test-results/`.
@@ -77,6 +78,8 @@ docker compose up --build -d
 
 The container serves everything on port 8080 and keeps completed results in the named `rankings` volume. Override `PORT` for a direct Node deployment. If you intentionally host the frontend separately, set `CLIENT_URL` to the allowed frontend origin(s), comma-separated, and proxy `/socket.io/` to this server. The default same-origin setup needs no CORS configuration.
 
+Optional accounts use Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (or the legacy `SUPABASE_ANON_KEY`) on the server; the publishable key is safe to expose to the browser, but never expose a `service_role` key. Enable Email, Google, and Apple in Supabase Authentication, and add the local and production game URLs to the provider redirect allowlist. Guests can still play without an account.
+
 ## Engine
 
 - `shared/simulation.js`: one fixed-step 60 Hz simulation for server and practice. Owns movement, map collision, swept projectile hits, grenade blast damage, energy, bots, safe spawns, and rounds.
@@ -84,7 +87,7 @@ The container serves everything on port 8080 and keeps completed results in the 
 - `src/index.js`: controls, lobby/HUD, predicted movement with acknowledged-input replay, remote interpolation, audio, and reconnect handling.
 - `src/core/ArenaRenderer.js`: Three.js rendering, procedural ships, integrated environment/camera modules, targeting, and bounded transient effects.
 
-Multiplayer is designed for a single server process. Pilot identity is a random token retained in browser storage; clearing it creates a new pilot. Records are scoped to one server and are not authenticated cross-device accounts. Horizontal scaling and cross-region matchmaking are not implemented.
+Multiplayer is designed for a single server process. Guests use a random browser token; signed-in pilots use their verified Supabase user ID, so records can follow them across devices. Horizontal scaling and cross-region matchmaking are not implemented.
 
 ## Arenas and pilot records
 
@@ -98,4 +101,8 @@ Pilot records include lifetime and per-map score, wins, kills/deaths, damage, ac
 
 Beyond the test suite above, `node scripts/verification/confluence.cjs` checks two browsers, seven connected pilots, and synchronized map expansion/reset. `npm run capture -- --map foundry --camera tactical --time dusk --state combat --out test-results/capture` captures a single reference scene. These staged diagnostics require `?showcase`; their synthetic counters never become online records. Headless SwiftShader FPS is a regression measure, not a native GPU benchmark.
 
-Admission defaults to eight rooms, 32 humans per room, and 96 connected sockets. These are protective limits, not a measured concurrency guarantee. Set `MAX_ROOM_PLAYERS`, `MAX_ROOMS`, and `MAX_CONNECTIONS` to the levels verified on your host before inviting a larger audience.
+Capacity defaults to eight rooms (up to eight humans each) and 96 connected sockets. These are protective admission limits, not a measured 64-player performance guarantee. Configure `MAX_ROOMS` and `MAX_CONNECTIONS` only after load testing your host.
+
+## Junction mini-release (v1.1.0)
+
+Select Junction for offset central cover, tight side pockets, and quick flanks using the existing Foundry art. It is optional and does not alter the original rotation. See [release loop](docs/RELEASE-LOOP.md) for incremental delivery.

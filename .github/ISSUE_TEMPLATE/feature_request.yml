@@ -1,0 +1,60 @@
+name: Feature or balance request
+description: Suggest a player-facing improvement, balance change, content idea, or documentation fix.
+title: "[Idea]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For early discussion and voting, also consider posting in [GitHub Discussions](https://github.com/menezmethod/saucerjam/discussions). Votes guide priority; they do not guarantee implementation.
+  - type: dropdown
+    id: type
+    attributes:
+      label: Request type
+      options:
+        - Feature
+        - Combat or balance
+        - Mobile UX
+        - Ship, art, or lore
+        - Documentation
+        - Performance or scale
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What player problem would this solve? Include who is affected.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest useful version. Avoid prescribing an implementation unless it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or reference material
+      description: Add playtest notes, screenshots, mockups, or links. State the source and license for borrowed material.
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Contribution provenance
+      description: If you include code, art, audio, or AI-assisted material, disclose the source, tools, and rights/license.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for duplicates.
+          required: true
+        - label: I understand this request will be reviewed for security, performance, moderation, and IP concerns.
+          required: true

@@ -78,3 +78,34 @@ Validation: syntax check passes; `node --test src/interface/interface.test.cjs` 
 ## Camera simplification handoff
 
 Flight menu now offers one immediate **Arena (recommended)** action (`onCamera(0)`). Camera selection and zoom are inside a native, initially collapsed **Advanced camera views** disclosure. Existing IDs/ranges remain unchanged: `qd-camera` values `0` Arena (recommended), `1` Chase, `2` Full map, `3` Isometric; `qd-zoom` 0.7–1.5. Selecting Arena does not reset zoom. Parent owns camera geometry and the V Arena/Full map toggle. Browser flows targeting legacy views must open `.qd-advanced-camera` via its summary before selecting `#qd-camera`. Module tests assert collapsed default, exact option labels, advanced selection and Arena callback.
+
+## Play-first landing handoff
+
+The landing page now leads with guest launch and hides every secondary decision
+behind a native disclosure. Measured evidence, not adjectives:
+`scripts/verification/landing.cjs` (Playwright, real server) writes
+`docs/verification/landing-redesign/measurements.json`.
+
+- `setMaps(maps)` hides `.qd-map-picker` when **fewer than two** live maps exist
+  (`this.picker.hidden = this.maps.length < 2`). `shared/maps` exports a single
+  live world, so the picker no longer renders a one-card "destination" choice;
+  the world registry, `getMap`, map state and records are untouched. Cards,
+  `[data-map-id]` hooks and the four-plus-world rail still render when a second
+  world is registered, so the two-map path in `interface.test.cjs` still holds.
+- `mountLobby` mounts the records link into `.lobby-footer` when the host markup
+  provides it (fallback: `.lobby-panel`), keeping "How to fly" + "Pilot records"
+  as one compact link row. The `.qd-identity` browser-token paragraph was
+  removed; that copy now lives inside the account disclosure (`#account-copy`).
+- Host markup (not the module) owns the two disclosures: `#lobby-friends`
+  ("Play with friends" — `#create-room`, `#room-code`, `#join-room`,
+  `#fill-bots`) and `#lobby-account` ("Sign in / save your pilot" — every
+  existing auth id, including the `#email-toggle` → `#email-auth` pattern).
+  The module only supplies `.lobby-disclosure` styling, so the host must open
+  the owning disclosure whenever it writes a message into it: `index.js` opens
+  `#lobby-account` on an auth error and `#lobby-friends` for a `?room=` invite.
+- Host behaviour that browser automation depends on: room controls and auth
+  fields are inside collapsed disclosures, so flows must open
+  `#lobby-friends` / `#lobby-account` (or load `?room=CODE`) before clicking
+  `#create-room`, `#join-room`, `#fill-bots` or an auth control. The lobby also
+  no longer swallows `Tab`/arrow keys, so landing controls are keyboard
+  reachable (`#pilot-name` → `#quick-play` → `#practice` → links).

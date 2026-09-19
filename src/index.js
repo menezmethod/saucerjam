@@ -2,8 +2,10 @@ import "./styles/main.css";
 import { io } from "socket.io-client";
 import { stickVector, reanchor } from "./input/stick";
 import { ArenaRenderer } from "./core/ArenaRenderer";
+import { ThreatArrows } from "./view/ThreatArrows";
 import {Interface} from "./interface/Interface";
 import {MusicBus, BED_FOR_DISTRICT} from "./audio/MusicBus";
+import { SupabaseAuth } from "./auth/SupabaseAuth";
 import {MAPS,getMap,getWorld} from "../shared/maps";
 import {
   Simulation,
@@ -32,7 +34,7 @@ const storage = {
   },
 };
 class Game {
-  constructor() {
+  constructor(runtimeConfig = {}) {
     this.mode = "lobby";
     this.selectedMap = "confluence";
     this.profileToken=storage.get("qd-profile", "");
@@ -51,10 +53,19 @@ class Game {
     this.idleTimer = null;
     this.ping = 0;
     this.connected = false;
-    this.soundOn = storage.get("qd-sound", "on") === "on";
+    this.sfxOn = storage.get("qd-sfx", storage.get("qd-sound", "on")) === "on";
+    this.musicOn = storage.get("qd-music", "on") === "on";
     this.music = null;
+    this.reduceMotion = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+    this.threats = new ThreatArrows($("threat-arrows"));
+    this.lastThreatKey = "";
+    this.lastThreatAnnounce = 0;
+    this.lastKiller = null;
+    this._sr = { dead: false, low: false, over: false };
     this._audioState = { bed: null, dead: false, roundOver: false };
+    this.auth = new SupabaseAuth(runtimeConfig);
     this.renderer = new ArenaRenderer($("arena"));
+    this.renderer.reduceMotion = this.reduceMotion;
     this.demo = this.makePractice(true);
     this.state = this.demo.snapshot();
     this.map = this.demo.map;
@@ -70,14 +81,16 @@ class Game {
     const invite = new URLSearchParams(location.search).get("room");
     if (invite) {
       $("room-code").value = invite.toUpperCase();
+      this.openFriendsDisclosure();
       $("lobby-status").textContent =
         "Room invite ready. Enter your callsign and choose Join.";
-      $("quick-play").hidden = true;
-      $("join-room").classList.add("primary");
     }
     this.bind();
     this.interface=new Interface({maps:MAPS,onMap:id=>this.chooseMap(id),onLeaderboard:scope=>this.loadLeaderboard(scope),onPractice:()=>this.practice(),onOnline:scope=>{if(scope&&scope!=='overall')this.chooseMap(scope);this.online('quick');},onCamera:view=>this.setView(view),onZoom:zoom=>{this.renderer.zoom=Number(zoom);}});
     this.interface.setMaps(MAPS,this.selectedMap);
+    this.bindAuth();
+    this.auth.onChange((session) => this.updateAuth(session));
+    this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
     this.loadCareer();
     // Read-only diagnostics for support and end-to-end verification.
@@ -92,6 +105,8 @@ class Game {
             connected: this.connected,
             view: this.renderer.view,
             weapon: this.weapon,
+            aim: this.aim,
+            reducedMotion: this.reduceMotion,
             state: this.state,
             predicted: this.predicted,
             renderer: this.renderer.renderer.info.render,
@@ -110,7 +125,7 @@ class Game {
   }
   applyMap(map){this.map=map;this.renderer.buildArena(map);this.renderer.cameraReady=false;}
   async loadCareer(){
-    try{const response=await fetch('/api/profile',{headers:{'x-pilot-token':this.profileToken}});if(!response.ok)throw new Error('Flight records unavailable');const data=await response.json();this.career=data.profile;this.profileId=data.playerId;this.careerError=data.error;return data;}
+    try{const headers={'x-pilot-token':this.profileToken},token=this.auth?.accessToken();if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch('/api/profile',{headers});if(!response.ok)throw new Error('Flight records unavailable');const data=await response.json();this.career=data.profile;this.profileId=data.playerId;this.careerError=data.error;return data;}
     catch(error){this.careerError=error.message;return {profile:null,error:error.message};}
   }
   async loadLeaderboard(scope='overall'){
@@ -145,6 +160,19 @@ class Game {
     if (!demo) sim.addPlayer("local", $("pilot-name").value);
     for (let i = 0; i < (demo ? 4 : 3); i++)
       sim.addPlayer(`bot-${i}`, ["Vector", "Nova", "Echo", "Flux"][i], true);
+    // Practice used to spawn you alone in the far corner of the full world.
+    // Bias the first spawn toward the nearest bot so contact happens in the
+    // opening seconds instead of after a long empty flight.
+    if (!demo) {
+      const local = sim.players.get("local"), bot = sim.players.get("bot-0");
+      if (local && bot) {
+        const a = Math.atan2(bot.x, bot.z);
+        const cx = bot.x - Math.sin(a) * 14, cz = bot.z - Math.cos(a) * 14;
+        if (!blocked(cx, cz, RULES.radius, sim.map)) { local.x = cx; local.z = cz; }
+        local.angle = Math.atan2(bot.x - local.x, bot.z - local.z);
+        local.aimAngle = local.angle;
+      }
+    }
     sim.drainEvents();
     return sim;
   }
@@ -159,17 +187,12 @@ class Game {
     });
     $("menu-button").onclick = () => this.menu(true);
     $("resume").onclick = () => this.menu(false);
+    $("report-button").onclick = () => this.openReport();
+    $("close-report").onclick = () => this.panel("report", false);
+    $("send-report").onclick = () => this.sendReport();
     $("leave-game").onclick = () => this.leave();
-    $("fullscreen-button").onclick = () => this.toggleFullscreen();
-    for (const event of ["fullscreenchange", "webkitfullscreenchange", "webkitfullscreenerror"])
-      document.addEventListener(event, () => this.updateFullscreenLabel());
     $("help-button").onclick = $("lobby-help").onclick = () => {
       this.panel("help",true);
-      this.clearInput();
-    };
-    $("dismiss-touch-onboarding").onclick = () => {
-      storage.set("qd-touch-guide", "seen");
-      $("touch-onboarding").hidden = true;
       this.clearInput();
     };
     $("close-help").onclick = () => {
@@ -180,40 +203,48 @@ class Game {
     $("close-scores").onclick = () => this.scores(true);
     $("view-button").onclick = () => this.cycleView();
     $("sound-button").onclick = () => {
-      this.soundOn = !this.soundOn;
+      this.sfxOn = !this.sfxOn;
       this.updateSound();
       this.unlockAudio();
     };
+    $("music-button").onclick = () => {
+      this.musicOn = !this.musicOn;
+      this.updateSound();
+      this.unlockAudio();
+    };
+    $("dismiss-touch-onboarding").onclick = () => {
+      $("touch-onboarding").hidden = true;
+      storage.set("qd-touch-guide", "seen");
+    };
+    $("chat-toggle").onclick = () => this.toggleChat();
+    $("chat-close").onclick = () => this.toggleChat(false);
+    $("chat-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.sendChat();
+    });
     $("share-room").onclick = () => this.share();
     document.querySelectorAll("[data-weapon]").forEach((button) => {
-      const select = () => this.selectWeapon(button.dataset.weapon);
-      button.onclick = select;
-      button.addEventListener("pointerdown", (e) => {
-        if (e.pointerType !== "mouse") {
-          e.preventDefault();
-          select();
-        }
-      });
+      button.onclick = () => this.selectWeapon(button.dataset.weapon);
     });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
+    window.addEventListener("wheel", (e) => {
+      if (
+        !this.active() ||
+        window.matchMedia?.("(pointer: fine)").matches === false ||
+        this.interfaceModal ||
+        !$("menu").hidden ||
+        !$("help").hidden ||
+        !$("scoreboard").hidden ||
+        !e.deltaY
+      ) return;
+      if (e.target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
+      e.preventDefault();
+      this.cycleWeapon(e.deltaY < 0 ? -1 : 1);
+    }, { passive: false });
     window.addEventListener("blur", () => this.clearInput());
     document.addEventListener("visibilitychange", () => this.clearInput());
     window.addEventListener("orientationchange", () => this.clearInput());
-    // iOS can treat a held movement thumb plus a weapon tap as a page-zoom
-    // gesture. The game owns the viewport, so keep Safari's gesture events
-    // from escaping the controls.
-    const gameplaySurface = () =>
-      ["practice", "online"].includes(this.mode) &&
-      $("menu").hidden && $("help").hidden && $("scoreboard").hidden;
-    const stopViewportGesture = (e) => {
-      if (gameplaySurface()) e.preventDefault();
-    };
-    for (const type of ["gesturestart", "gesturechange", "gestureend"])
-      document.addEventListener(type, stopViewportGesture, { passive: false });
-    document.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1 && gameplaySurface()) e.preventDefault();
-    }, { passive: false });
     document.addEventListener("focusin", (e) => {
       if (e.target.closest?.('input,textarea,select,[contenteditable="true"]')) this.clearInput();
     });
@@ -244,6 +275,144 @@ class Game {
         );
     });
     this.bindInputChrome();
+  }
+  bindAuth() {
+    const provider = (name) => this.authAction(() => this.auth.signInWithProvider(name));
+    $("auth-google").onclick = () => provider("google");
+    $("auth-apple").onclick = () => provider("apple");
+    $("email-toggle").onclick = () => this.toggleEmailAuth();
+    $("email-auth").onsubmit = (event) => {
+      event.preventDefault();
+      const email = $("auth-email").value.trim(), password = $("auth-password").value;
+      const registering = event.submitter?.id === "auth-sign-up";
+      this.authAction(registering ? () => this.auth.signUp(email, password) : () => this.auth.signIn(email, password), registering ? "registered" : "signed-in");
+    };
+    $("auth-sign-out").onclick = () => this.authAction(() => this.auth.signOut());
+  }
+  // Secondary landing choices live in native disclosures; open the one that
+  // owns the message so nothing important is ever written into a collapsed
+  // region the pilot cannot see.
+  openFriendsDisclosure() {
+    $("lobby-friends")?.setAttribute("open", "");
+  }
+  openAuthDisclosure(message) {
+    $("lobby-account")?.setAttribute("open", "");
+    if (message == null) return;
+    // The live region must already be exposed when its text changes or screen
+    // readers stay silent, so write on the next task, after the disclosure opens.
+    const status = $("auth-status");
+    setTimeout(() => { status.textContent = message; }, 0);
+  }
+  async authAction(action, success = "signed-in") {
+    const status = $("auth-status");
+    status.textContent = "Working…";
+    try {
+      const result = await action();
+      status.textContent = success === "registered" && !result?.session ? "Check your email to verify the account." : "Ready to fly.";
+    } catch (error) {
+      this.openAuthDisclosure(error?.message || "Account action failed. Try again.");
+    }
+  }
+  toggleEmailAuth(open = $("email-auth").hidden) {
+    $("email-auth").hidden = !open;
+    $("email-toggle").setAttribute("aria-expanded", String(open));
+    if (open) $("auth-email").focus();
+  }
+  openReport() {
+    this.menu(false);
+    const status = $("report-status");
+    status.textContent = this.authSession?.user
+      ? ""
+      : "Sign in with a verified account to send from the game. Guests can use the public roadmap link above.";
+    $("report-link").hidden = true;
+    this.panel("report", true);
+  }
+  async sendReport() {
+    const status = $("report-status"), button = $("send-report");
+    const token = this.auth?.accessToken();
+    if (!token || !this.authSession?.user) {
+      status.textContent = "Sign in with a verified account to send from the game, or use the public roadmap link above.";
+      return;
+    }
+    const title = $("report-title").value.trim(), description = $("report-description").value.trim();
+    if (title.length < 4 || description.length < 10) {
+      status.textContent = "Add a short title and a few details first.";
+      return;
+    }
+    button.disabled = true;
+    status.textContent = "Sending to the community desk…";
+    try {
+      const response = await fetch("/api/community/report", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          kind: $("report-kind").value,
+          title,
+          description,
+          context: {
+            mode: this.mode,
+            mapId: this.map?.id,
+            device: matchMedia("(pointer: coarse)").matches ? "touch" : "desktop",
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "The community portal is unavailable.");
+      status.textContent = "Sent. Thank you for helping tune the next sortie.";
+      $("report-link").href = data.url || "https://community.menezmethod.com";
+      $("report-link").hidden = false;
+      $("report-title").value = "";
+      $("report-description").value = "";
+    } catch (error) {
+      status.textContent = error.message || "The report could not be sent.";
+    } finally {
+      button.disabled = false;
+    }
+  }
+  toggleChat(open = $("chat").hidden) {
+    $("chat").hidden = !open;
+    $("chat-toggle").setAttribute("aria-expanded", String(open));
+    if (open) $("chat-input").focus();
+  }
+  sendChat() {
+    const input = $("chat-input"), text = input.value.trim();
+    if (!text) return;
+    if (!this.socket?.connected || this.mode !== "online") {
+      this.addChatMessage({ name: "Comms", text: "Chat is available in online arenas." });
+      return;
+    }
+    this.socket.timeout(2000).emit("chat", { text }, (error, response) => {
+      if (error || response?.error) this.notice(response?.error || "Chat is unavailable.", 4);
+    });
+    input.value = "";
+  }
+  addChatMessage(message) {
+    const log = $("chat-log"), line = document.createElement("p"), name = document.createElement("b");
+    name.textContent = `${message.name || "Pilot"}:`;
+    line.append(name, document.createTextNode(` ${message.text || ""}`));
+    log.append(line);
+    while (log.children.length > 40) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
+  }
+  updateAuth(session, error = null) {
+    this.authSession = session || null;
+    const panel = $("account");
+    const user = session?.user;
+    const configured = Boolean(this.auth.client);
+    for (const id of ["auth-sign-in", "auth-sign-up"]) $(id).disabled = !configured;
+    for (const provider of ["google", "apple"]) {
+      const button = $("auth-" + provider), enabled = configured && this.auth.providers.has(provider);
+      button.hidden = !this.auth.providers.has(provider);
+      button.disabled = !enabled;
+    }
+    panel.dataset.authenticated = user ? "true" : "false";
+    $("auth-sign-out").hidden = !user;
+    this.toggleEmailAuth(false);
+    $("account-status").textContent = user ? (user.email || "Signed-in pilot") : "Guest pilot";
+    $("account-copy").textContent = user ? "Your pilot identity and online records are linked to this account." : "Sign in to carry your callsign and records between devices.";
+    if (error) this.openAuthDisclosure("Account session could not be restored. You can continue as a guest.");
+    else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
+    if (user) this.loadCareer();
   }
   pointerDown(e) {
       if (!this.active()) return;
@@ -356,6 +525,28 @@ class Game {
     new ResizeObserver(syncTopBarHeight).observe($("hud").querySelector(".top-bar"));
     window.addEventListener("orientationchange", () => setTimeout(syncTopBarHeight, 200));
     syncTopBarHeight();
+    // The fixed Comms toggle sits above the flight-tools rail, whose height
+    // changes with the button set and breakpoint. Measure the rail while it
+    // lives in the combat bar; once touch relocates it into the Flight menu,
+    // drop the override so the CSS fallback (the desktop rail height) applies
+    // and mobile keeps its own bottom offset.
+    const flightTools = document.querySelector(".flight-tools");
+    new ResizeObserver(() => this.syncRails()).observe(flightTools);
+    this.syncRails();
+  }
+  // Keep --flight-tools-height accurate while the rail lives in the combat
+  // bar; drop it when touch relocates the tools into the Flight menu.
+  syncRails() {
+    const tools = document.querySelector(".flight-tools");
+    if (!tools) return;
+    if (!tools.closest(".combat-bar")) {
+      document.documentElement.style.removeProperty("--flight-tools-height");
+      return;
+    }
+    document.documentElement.style.setProperty(
+      "--flight-tools-height",
+      `${tools.getBoundingClientRect().height}px`,
+    );
   }
   // Aim and start firing toward a pointer's position -- shared by mouse
   // clicks and any touch assigned the "fire" role (see the arena pointer
@@ -411,7 +602,6 @@ class Game {
       $("menu").hidden &&
       $("help").hidden &&
       $("scoreboard").hidden &&
-      $("touch-onboarding").hidden &&
       !document.hidden && !this.interfaceModal &&
       (this.mode !== "online" || this.connected)
     );
@@ -433,15 +623,15 @@ class Game {
   key(e, down) {
     // Keyup may target a newly focused form field: always release first.
     if (!down) this.keys.delete(e.code);
-    const modal=['help','scoreboard','menu','touch-onboarding'].map($).find(el=>!el.hidden);
+    const modal=['help','scoreboard','menu','report'].map($).find(el=>!el.hidden);
     if(modal){
       this.clearInput();
       if(down&&e.code==='Escape'){
         e.preventDefault();
-        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else if(modal.id==='touch-onboarding')return;else this.panel('help',false);
+        if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else this.panel(modal.id,false);
       }else if(down&&e.code==='Tab'){
         e.preventDefault();
-        const targets=[...modal.querySelectorAll('button,input,select,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+        const targets=[...modal.querySelectorAll('button,input,select,textarea,a[href],summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
         const index=targets.indexOf(document.activeElement),next=(index+(e.shiftKey?-1:1)+targets.length)%targets.length;
         targets[next]?.focus();
       }
@@ -461,18 +651,26 @@ class Game {
       "ArrowLeft",
       "ArrowRight",
       "Space",
-      "Tab",
+      "KeyT",
       "Escape",
       "KeyV",
       "KeyM",
       "KeyC",
       "KeyX",
+      "KeyI",
+      "KeyJ",
+      "KeyK",
+      "KeyL",
       "Digit1",
       "Digit2",
       "Digit3",
     ];
     if (!recognized.includes(e.code)) return;
-    if (e.code === "Tab" && !["practice", "online"].includes(this.mode)) return;
+    // Only the arena consumes flight keys. Leaving everything but Escape alone
+    // in the lobby keeps Tab and arrow traversal of the landing controls
+    // native -- a swallowed Tab made every landing control unreachable by
+    // keyboard, which is the one thing a play-first page cannot afford.
+    if (!["practice", "online"].includes(this.mode) && e.code !== "Escape") return;
     e.preventDefault();
     if (!down) {
       this.keys.delete(e.code);
@@ -488,7 +686,7 @@ class Game {
       return;
     }
     if (!["practice", "online"].includes(this.mode)) return;
-    if (e.code === "Tab") {
+    if (e.code === "KeyT") {
       this.scores(!$("scoreboard").hidden);
       return;
     }
@@ -507,26 +705,19 @@ class Game {
       this.selectWeapon(
         ["LASER", "GRENADE", "BOUNCE"][Number(e.code.slice(-1)) - 1],
       );
-    if (e.code === "KeyX")
-      this.selectWeapon(
-        ["LASER", "GRENADE", "BOUNCE"][
-          (["LASER", "GRENADE", "BOUNCE"].indexOf(this.weapon) + 1) % 3
-        ],
-      );
+    if (e.code === "KeyX") this.cycleWeapon();
+  }
+  cycleWeapon(step = 1) {
+    const weapons = ["LASER", "GRENADE", "BOUNCE"],
+      index = weapons.indexOf(this.weapon);
+    this.selectWeapon(weapons[(index + step + weapons.length) % weapons.length]);
   }
   selectWeapon(weapon) {
-    if (!Object.hasOwn(WEAPONS, weapon)) return;
     this.weapon = weapon;
-    $("weapon-hint").textContent = WEAPONS[weapon].hint;
     document.querySelectorAll("[data-weapon]").forEach((b) => {
       b.classList.toggle("selected", b.dataset.weapon === weapon);
       b.setAttribute("aria-pressed", String(b.dataset.weapon === weapon));
     });
-  }
-  cycleWeapon(direction = 1) {
-    const weapons = ["LASER", "GRENADE", "BOUNCE"];
-    const index = weapons.indexOf(this.weapon);
-    this.selectWeapon(weapons[(index + direction + weapons.length) % weapons.length]);
   }
   cycleView() {
     this.setView(this.renderer.view===2?0:2);
@@ -548,6 +739,15 @@ class Game {
     const horizontal=this.stick.active?this.stick.x:on('KeyD','ArrowRight','KeyE')-on('KeyA','ArrowLeft','KeyQ');
     const vertical=this.stick.active?this.stick.z:on('KeyW','ArrowUp')-on('KeyS','ArrowDown');
     const move=this.renderer.screenMovement(horizontal,vertical);
+    // Keyboard aim (IJKL) so the game is fully playable without a pointer.
+    // It writes this.aim, which the reticle and HUD indicators already read.
+    const aimH = on("KeyL") - on("KeyJ"),
+      aimV = on("KeyK") - on("KeyI");
+    if ((aimH || aimV) && this.active()) {
+      const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
+      const dir = this.renderer.screenMovement(aimH, aimV);
+      if (me && (dir.x || dir.z)) this.aim = { x: me.x + dir.x * 14, z: me.z + dir.z * 14 };
+    }
     return {
       seq: ++this.seq,
       move: this.active()?move:{x:0,z:0},
@@ -576,8 +776,16 @@ class Game {
     this.setView(0);this.renderer.zoom=1;
     $("lobby").hidden = true;
     $("hud").hidden = false;
+    this.syncRails();
     $("menu").hidden = $("help").hidden = $("scoreboard").hidden = true;
+    // First-run touch players never saw the desktop key legend; teach the
+    // two-thumb scheme once, before they have to guess it mid-firefight.
+    $("touch-onboarding").hidden =
+      !document.body.classList.contains("touch-active") ||
+      storage.get("qd-touch-guide") === "seen";
     $("kill-feed").replaceChildren();
+    $("chat-log").replaceChildren();
+    this.toggleChat(false);
     $("notice").textContent = "";
     $("room-label").textContent =
       mode === "practice"
@@ -594,40 +802,6 @@ class Game {
     this._audioState.roundOver = false;
     this.unlockAudio();
     this.syncMusicToMode();
-    this.showTouchOnboarding();
-  }
-  showTouchOnboarding() {
-    if (!document.body.classList.contains("touch-active")) return;
-    if (storage.get("qd-touch-guide", "") === "seen") return;
-    $("touch-onboarding").hidden = false;
-    this.clearInput();
-  }
-  updateFullscreenLabel() {
-    const full = document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement;
-    $("fullscreen-button").textContent = full ? "Exit full screen" : "Enter full screen";
-  }
-  async toggleFullscreen() {
-    const full = document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement;
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    try {
-      if (full) {
-        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
-        if (exit) await exit.call(document);
-      } else {
-        const element = document.documentElement;
-        const enter = element.requestFullscreen || element.webkitRequestFullscreen || element.webkitRequestFullScreen;
-        if (enter) await enter.call(element);
-        else throw new Error("fullscreen unavailable");
-      }
-    } catch {
-      const message = ios
-        ? "On iPhone/iPad: use Share → Add to Home Screen for full-screen play."
-        : "Full screen is unavailable in this browser.";
-      $("menu-status").textContent = message;
-      this.notice(message, 7);
-    }
-    this.updateFullscreenLabel();
   }
   practice() {
     this.socket?.disconnect();
@@ -641,7 +815,7 @@ class Game {
     for (const id of ["quick-play", "practice", "create-room", "join-room"])
       $(id).disabled = busy;
   }
-  online(mode) {
+  async online(mode) {
     if (this.mode === "connecting") return;
     if (mode === "join" && !$("room-code").value.trim()) {
       $("lobby-status").textContent = "Enter your friend’s room code first.";
@@ -652,6 +826,7 @@ class Game {
     this.mode = "connecting";
     this.setBusy(true);
     $("lobby-status").textContent = "Connecting to the arena…";
+    await this.authReady;
     this.joinRequest = {
       mode,
       name: $("pilot-name").value,
@@ -666,6 +841,7 @@ class Game {
   setupSocket() {
     this.socket = io({
       autoConnect: false,
+      auth: (callback) => callback({ accessToken: this.auth?.accessToken() || "" }),
       timeout: 6000,
       reconnection: true,
       reconnectionDelay: 500,
@@ -676,7 +852,7 @@ class Game {
     this.socket.on("connect_error", () => {
       if (this.mode === "connecting")
         this.failJoin(
-          "Cannot reach the arena. Check your connection or choose Practice.",
+          "Cannot reach the game server. Start it with npm start, or play practice.",
         );
       else if (this.mode === "online")
         this.notice("Connection lost. Retrying… Open Menu to leave.", 30);
@@ -708,6 +884,9 @@ class Game {
       if (this.mode === "online" && this.connected)
         for (const e of events) this.event(e);
     });
+    this.socket.on("chat", (message) => {
+      if (this.mode === "online" && this.connected) this.addChatMessage(message);
+    });
   }
   joinOnline() {
     if (!["connecting", "online"].includes(this.mode)) return;
@@ -738,7 +917,6 @@ class Game {
     this.setBusy(false);
     $("lobby").hidden = false;
     $("hud").hidden = $("menu").hidden = true;
-    $("touch-onboarding").hidden = true;
     $("lobby-status").textContent = message;
     this.syncMusicToMode();
   }
@@ -860,15 +1038,7 @@ class Game {
   event(e) {
     if(e.type==='mapChanged'&&e.announcement){
       this.notice(e.announcement,6);
-      this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4});
-    }
-    if(e.type==='portalExit'&&e.player===this.playerId){
-      this.notice('Slipstream jump',1.2);
-      this.vibrate(18);
-    }
-    if(e.type==='pickup'&&e.player===this.playerId){
-      this.notice(`Reactor bloom · hull ${e.health} · energy ${e.energy}`,1.8);
-      this.vibrate([12,30,12]);
+      this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4,bus:'music'});
     }
     this.renderer.event(e);
     if (e.type === "fire")
@@ -892,6 +1062,7 @@ class Game {
       setTimeout(() => entry.remove(), 6000);
       if (e.player === this.playerId) {
         this.clearInput();
+        this.lastKiller = { name: e.killer, weapon: e.weapon };
         this.music?.oneShot("ship-destroyed", { gain: 0.7 });
         this.music?.duck(-9, 3);
         this._audioState.dead = true;
@@ -900,7 +1071,7 @@ class Game {
     if (e.type === "explosion") this.playSound("EXPLOSION", 0.5);
   }
   unlockAudio() {
-    if (!this.soundOn) return;
+    if (!this.sfxOn && !this.musicOn) return;
     try {
       if (!this.audio)
         this.audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -935,13 +1106,17 @@ class Game {
     return d && BED_FOR_DISTRICT[d.id];
   }
   updateSound() {
-    $("sound-button").textContent = this.soundOn ? "Sound on" : "Sound off";
-    $("sound-button").setAttribute("aria-pressed", String(this.soundOn));
-    storage.set("qd-sound", this.soundOn ? "on" : "off");
-    this.music?.setMuted(!this.soundOn);
+    $("sound-button").textContent = this.sfxOn ? "Sound on" : "Sound off";
+    $("sound-button").setAttribute("aria-pressed", String(this.sfxOn));
+    $("music-button").textContent = this.musicOn ? "Music on" : "Music off";
+    $("music-button").setAttribute("aria-pressed", String(this.musicOn));
+    storage.set("qd-sfx", this.sfxOn ? "on" : "off");
+    storage.set("qd-music", this.musicOn ? "on" : "off");
+    this.music?.setSfxMuted(!this.sfxOn);
+    this.music?.setMusicMuted(!this.musicOn);
   }
   playSound(weapon, volume) {
-    if (!this.soundOn) return;
+    if (!this.sfxOn) return;
     const now = this.audio?.currentTime ?? 0;
     if (this.lastSound && now - this.lastSound < 0.04) return;
     this.lastSound = now;
@@ -978,9 +1153,11 @@ class Game {
     const dt = Math.min((now - this.lastFrame) / 1000, 0.1);
     if(this.showcaseConfig?.module==="effects"&&Math.floor(now/700)!==this.lastShowcaseFx){this.lastShowcaseFx=Math.floor(now/700);this.renderer.event({type:"explosion",x:0,z:-9,radius:5});}
     this.lastFrame = now;
+    const keyboardAiming =
+      this.keys.has("KeyI") || this.keys.has("KeyJ") || this.keys.has("KeyK") || this.keys.has("KeyL");
     if (this.mouse && this.active())
       this.aim = this.renderer.aimAt(this.mouse.x, this.mouse.y);
-    else if (!this.mouse) this.aim = null;
+    else if (!this.mouse && !keyboardAiming) this.aim = null;
     this.accumulator += dt;
     while (this.accumulator >= STEP) {
       if (this.mode === "lobby" || this.mode === "connecting") {
@@ -1063,6 +1240,19 @@ class Game {
       1,
       Math.ceil(p.respawnAt - state.time),
     );
+    $("death-killer").textContent = this.lastKiller
+      ? `Eliminated by ${this.lastKiller.name} · ${WEAPONS[this.lastKiller.weapon]?.name || this.lastKiller.weapon}`
+      : "";
+    this.updateVitals(p);
+    this.threats.update({
+      players: state.players,
+      localId: this.playerId,
+      camera: this.renderer.camera,
+      width: this.renderer.width,
+      height: this.renderer.height,
+      reduced: this.reduceMotion,
+    });
+    this.announceStatus(state, p);
     $("round-panel").hidden = !state.restartAt;
     $("winner").textContent = `${state.winner || ""} wins`;
     $("next-round").textContent =
@@ -1081,6 +1271,47 @@ class Game {
     this.radar(p);
     this.updateMusic(state, p);
   }
+  updateVitals(p) {
+    const hull = Math.max(0, Math.min(100, p.health));
+    const energy = Math.max(0, Math.min(100, p.energy));
+    $("vital-hull-fill").style.transform = `scaleX(${hull / 100})`;
+    $("vital-hull-num").textContent = Math.round(hull);
+    $("vital-hull").dataset.condition =
+      hull <= 25 ? "critical" : hull <= 50 ? "damaged" : "healthy";
+    $("vital-energy-fill").style.transform = `scaleX(${energy / 100})`;
+    $("vital-energy-num").textContent = Math.round(energy);
+  }
+  // Screen-reader narration of the battle state the canvas cannot convey.
+  announceStatus(state, p) {
+    const el = $("sr-status");
+    const over = !!state.restartAt;
+    if (!p.alive && !this._sr.dead) {
+      el.textContent = `Ship destroyed. Respawning in ${Math.max(1, Math.ceil(p.respawnAt - state.time))} seconds.`;
+      this._sr.dead = true;
+    } else if (p.alive && this._sr.dead) {
+      el.textContent = "Respawned. Hull and energy restored.";
+      this._sr.dead = false;
+    }
+    const low = p.health <= 25 && p.alive;
+    if (low && !this._sr.low) { el.textContent = `Hull critical, ${Math.round(p.health)} percent.`; this._sr.low = true; }
+    else if (!low) this._sr.low = false;
+    if (over && !this._sr.over) { el.textContent = `Round over. ${state.winner || "Nobody"} wins.`; this._sr.over = true; }
+    else if (!over) this._sr.over = false;
+    const now = performance.now();
+    if (p.alive && !over && now - this.lastThreatAnnounce > 5000) {
+      this.lastThreatAnnounce = now;
+      const near = state.players
+        .filter((q) => q.alive && q.id !== p.id)
+        .map((q) => ({ q, d: Math.hypot(q.x - p.x, q.z - p.z) }))
+        .sort((a, b) => a.d - b.d)[0];
+      if (near && near.d < 38) {
+        const bearing = Math.atan2(near.q.x - p.x, near.q.z - p.z);
+        const compass = ["south", "southwest", "west", "northwest", "north", "northeast", "east", "southeast"];
+        const dir = compass[Math.round((((bearing % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8];
+        el.textContent = `Nearest enemy ${Math.round(near.d)} meters to the ${dir}.`;
+      }
+    }
+  }
   // Adaptive score: district-driven bed, round-end stings, respawn chime.
   updateMusic(state, p) {
     if (!this.music) return;
@@ -1094,7 +1325,7 @@ class Game {
     }
     if (over && !this._audioState.roundOver) {
       const mine = state.winner && state.winner === $("pilot-name").value;
-      this.music.oneShot(mine ? "sting-victory" : "sting-recap", { gain: 1, duckDb: -12, duckSeconds: 5 });
+      this.music.oneShot(mine ? "sting-victory" : "sting-recap", { gain: 1, duckDb: -12, duckSeconds: 5, bus: "music" });
     } else if (!over && this._audioState.roundOver) {
       this.music.unduck(0.6);
       this._audioState.bed = null; // force a fresh district resolve next tick
@@ -1109,7 +1340,7 @@ class Game {
     }
   }
   renderScores() {
-    const rows = [...(this.state.standings || this.state.players)]
+    const rows = [...this.state.players]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
       .map((p) => {
         const row = document.createElement("tr");
@@ -1169,10 +1400,16 @@ class Game {
     }
   }
 }
-try {
-  new Game();
-} catch (error) {
+async function boot() {
+  let runtimeConfig = {};
+  try {
+    const response = await fetch("/api/config");
+    if (response.ok) runtimeConfig = await response.json();
+  } catch {}
+  new Game(runtimeConfig);
+}
+boot().catch((error) => {
   console.error(error);
   $("lobby-status").textContent =
     "The 3D renderer could not start. Enable graphics acceleration and reload in a WebGL-capable browser.";
-}
+});

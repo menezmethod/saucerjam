@@ -13,19 +13,109 @@ function createGameServer({
   rankingsFile = null,
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
+  supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
+  supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "",
+  fiderBaseUrl = String(process.env.FIDER_BASE_URL || "").replace(/\/$/, ""),
+  fiderApiKey = String(process.env.FIDER_API_KEY || ""),
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
   maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
   maxConnections = Math.max(8, Math.min(1000, Number(process.env.MAX_CONNECTIONS) || 96)),
+  maxConnectionsPerIp = Math.max(2, Math.min(maxConnections, Number(process.env.MAX_CONNECTIONS_PER_IP) || maxConnections)),
+  joinAttemptsPerIp = Math.max(30, Math.min(1000, Number(process.env.JOIN_ATTEMPTS_PER_IP) || 120)),
 } = {}) {
   const app = express(),
     server = http.createServer(app);
+  app.disable("x-powered-by");
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (req.secure || req.get("x-forwarded-proto") === "https")
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    next();
+  });
+  const trustProxy = process.env.TRUST_PROXY === "true";
+  const clientAddress = (request) => {
+    if (trustProxy) {
+      const forwarded = request.headers["x-forwarded-for"];
+      if (typeof forwarded === "string" && forwarded.split(",")[0].trim()) return forwarded.split(",")[0].trim();
+    }
+    return request.socket?.remoteAddress || request.address || "unknown";
+  };
+  const limiter = (limit, windowMs = 60_000) => {
+    const buckets = new Map();
+    return (key) => {
+      const now = Date.now();
+      let bucket = buckets.get(key);
+      if (!bucket || now - bucket.startedAt >= windowMs) {
+        bucket = { startedAt: now, count: 0 };
+        buckets.set(key, bucket);
+      }
+      bucket.count++;
+      if (buckets.size > 4096)
+        for (const [candidate, value] of buckets) if (now - value.startedAt >= windowMs) buckets.delete(candidate);
+      return bucket.count <= limit;
+    };
+  };
+  const httpLimiter = limiter(120);
+  const healthLimiter = limiter(30);
+  const connectionLimiter = limiter(60);
+  const joinLimiter = limiter(joinAttemptsPerIp);
+  const configuredOrigins = String(process.env.CLIENT_URL || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
+  const originAllowed = (request) => {
+    const origin = request.headers.origin;
+    if (!origin) return true;
+    if (configuredOrigins.length) return configuredOrigins.includes(origin.replace(/\/$/, ""));
+    try {
+      const parsed = new URL(origin);
+      return parsed.host === request.headers.host && ["http:", "https:"].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
   const io = new Server(server, {
     maxHttpBufferSize: 8192,
-    ...(process.env.CLIENT_URL
-      ? { cors: { origin: process.env.CLIENT_URL.split(",") } }
-      : {}),
+    pingTimeout: 20_000,
+    pingInterval: 25_000,
+    allowRequest: (request, callback) => {
+      const allowed = originAllowed(request);
+      callback(allowed ? null : new Error("Origin not allowed."), allowed);
+    },
+    ...(configuredOrigins.length ? { cors: { origin: configuredOrigins } } : {}),
   });
-  io.use((socket, next) => next(io.engine.clientsCount > maxConnections ? new Error("Server is full. Please try again shortly.") : undefined));
+  // ponytail: verify once per socket via Supabase Auth; add cached JWKS verification only when reconnect traffic warrants it.
+  const verifySupabaseToken = async (token) => {
+    if (!token) return null;
+    if (!supabaseUrl || !supabasePublishableKey) throw new Error("Supabase authentication is not configured.");
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: supabasePublishableKey, authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error("Invalid Supabase session.");
+    const user = await response.json();
+    return typeof user?.id === "string" ? user : null;
+  };
+  const activeByIp = new Map();
+  const releaseIp = (socket) => {
+    const key = socket.data.clientAddress;
+    if (!key) return;
+    const count = activeByIp.get(key) || 0;
+    if (count <= 1) activeByIp.delete(key);
+    else activeByIp.set(key, count - 1);
+  };
+  io.use((socket, next) => {
+    const key = clientAddress(socket.handshake);
+    if (io.engine.clientsCount >= maxConnections)
+      return next(new Error("Server is full. Please try again shortly."));
+    if (!connectionLimiter(key)) return next(new Error("Too many connection attempts. Please try again shortly."));
+    const active = activeByIp.get(key) || 0;
+    if (active >= maxConnectionsPerIp) return next(new Error("Too many pilots from this network. Please try again shortly."));
+    activeByIp.set(key, active + 1);
+    socket.data.clientAddress = key;
+    next();
+  });
+  io.use((socket, next) => {
+    const token = typeof socket.handshake.auth?.accessToken === "string" ? socket.handshake.auth.accessToken : "";
+    if (!token) return next();
+    verifySupabaseToken(token).then((user) => { socket.data.authUser = user; next(); }).catch(() => { releaseIp(socket); next(new Error("Sign-in expired. Please sign in again.")); });
+  });
   const rooms = new Map();
   const sendSnapshots = (room) => {
     for (const id of room.humans)
@@ -41,23 +131,124 @@ function createGameServer({
   const pendingSaves = new Set();
   let rankingError = null;
   const profileKey = token => typeof token === "string" && /^[a-zA-Z0-9_-]{20,128}$/.test(token) ? createHash("sha256").update(token).digest("hex") : null;
+  const cleanChatText = (value) => typeof value === "string"
+    ? value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 160)
+    : "";
+  app.use("/api", (req, res, next) => {
+    if (!httpLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+    next();
+  });
+  app.use("/api", express.json({ limit: "12kb", strict: true }));
+  app.get("/api/config", (_req, res) => res.json({
+    authEnabled: Boolean(supabaseUrl && supabasePublishableKey),
+    authProviders: String(process.env.SUPABASE_AUTH_PROVIDERS || "google").split(",").map(provider => provider.trim().toLowerCase()).filter(Boolean),
+    supabaseUrl: supabaseUrl || "",
+    supabasePublishableKey: supabasePublishableKey || "",
+  }));
   app.get("/api/leaderboard", async (req,res) => {
     try { res.json({rows:await rankings.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
   });
   app.get("/api/profile", async (req,res) => {
-    const id=profileKey(req.get("x-pilot-token"));
+    let id = profileKey(req.get("x-pilot-token"));
+    const authorization = req.get("authorization") || "";
+    if (/^Bearer\s+/i.test(authorization)) {
+      try { id = (await verifySupabaseToken(authorization.replace(/^Bearer\s+/i, "").trim()))?.id || null; }
+      catch { return res.status(401).json({error:"Your account session has expired."}); }
+    }
     if(!id) return res.status(400).json({error:"A pilot identity is required."});
     try {res.json({playerId:id,profile:await rankings.getProfile(id),error:rankingError});} catch {res.status(503).json({error:"Flight records are temporarily unavailable."});}
   });
+  const reportUserLimiter = limiter(1, 10 * 60_000);
+  const reportDailyLimiter = limiter(5, 24 * 60 * 60_000);
+  const reportIpLimiter = limiter(20, 60 * 60_000);
+  const cleanFeedback = (value, limit) => typeof value === "string"
+    ? value
+      .replace(/https?:\/\/\S+/gi, "[link removed]")
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+      .replace(/[<>`]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, limit)
+    : "";
+  const fiderRequest = async (endpoint, options = {}) => {
+    const response = await fetch(`${fiderBaseUrl}/api/v1${endpoint}`, {
+      ...options,
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        authorization: `Bearer ${fiderApiKey}`,
+        ...(options.headers || {}),
+      },
+    });
+    if (!response.ok) throw new Error(`Fider request failed (${response.status})`);
+    return response.json();
+  };
+  app.post("/api/community/report", async (req, res) => {
+    if (!fiderBaseUrl || !fiderApiKey) return res.status(503).json({ error: "Community reports are not configured yet." });
+    const authorization = req.get("authorization") || "";
+    if (!/^Bearer\s+/i.test(authorization)) return res.status(401).json({ error: "Sign in with a verified account to report feedback." });
+    let user;
+    try {
+      user = await verifySupabaseToken(authorization.replace(/^Bearer\s+/i, "").trim());
+    } catch {
+      return res.status(401).json({ error: "Your account session has expired. Sign in again." });
+    }
+    if (!user?.id) return res.status(401).json({ error: "Sign in with a verified account to report feedback." });
+    if (!(user.email_confirmed_at || user.confirmed_at)) return res.status(403).json({ error: "Confirm your email before sending feedback." });
+    const userKey = `report:${user.id}`;
+    const ipKey = `report:${clientAddress(req)}`;
+    if (!reportUserLimiter(userKey) || !reportDailyLimiter(userKey) || !reportIpLimiter(ipKey))
+      return res.status(429).json({ error: "Feedback is cooling down. Please try again later." });
+    const kind = ["bug", "feature", "balance", "question"].includes(req.body?.kind) ? req.body.kind : "bug";
+    const title = cleanFeedback(req.body?.title, 120);
+    const description = cleanFeedback(req.body?.description, 4000);
+    if (title.length < 4 || description.length < 10)
+      return res.status(400).json({ error: "Add a short title and a few details so the report is useful." });
+    const context = req.body?.context && typeof req.body.context === "object" ? req.body.context : {};
+    const contextLine = (label, value, limit = 48) => {
+      const cleaned = cleanFeedback(value, limit);
+      return cleaned ? `${label}: ${cleaned}` : "";
+    };
+    const details = [
+      description,
+      "",
+      "— SaucerJam context —",
+      contextLine("Build", process.env.APP_VERSION || "web"),
+      contextLine("Mode", context.mode),
+      contextLine("Map", context.mapId),
+      contextLine("Device", context.device, 80),
+    ].filter(Boolean).join("\n");
+    try {
+      const fiderUser = await fiderRequest("/users", {
+        method: "POST",
+        body: JSON.stringify({
+          name: cleanFeedback(user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "SaucerJam pilot", 80),
+          email: user.email,
+          reference: `supabase:${user.id}`,
+        }),
+      });
+      const post = await fiderRequest("/posts", {
+        method: "POST",
+        headers: { "x-fider-userid": String(fiderUser.id) },
+        body: JSON.stringify({ title: `[${kind}] ${title}`, description: details }),
+      });
+      const postUrl = post?.number ? `${fiderBaseUrl}/posts/${post.number}` : fiderBaseUrl;
+      return res.status(201).json({ ok: true, url: postUrl, number: post?.number || null });
+    } catch (error) {
+      console.error("Fider report failed:", error.message);
+      return res.status(502).json({ error: "The community portal is unavailable. Please try again later." });
+    }
+  });
   app.use(express.static(staticDir));
-  app.get("/health", (_, res) =>
-    res.json({
+  app.get("/health", (req, res) => {
+    if (!healthLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many health checks. Please try again shortly." });
+    return res.json({
       status: "ok",
       rankings:rankingError?"degraded":"ok",
       rooms: rooms.size,
       players: [...rooms.values()].reduce((n, r) => n + r.humans.size, 0),
-    }),
-  );
+    });
+  });
   const makeRoom = (code, bots, mapId = "classic", rotate = false) => {
     const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(),matchId:randomBytes(12).toString("hex") };
     rooms.set(code, room);
@@ -92,16 +283,20 @@ function createGameServer({
   io.on("connection", (socket) => {
     let windowStart = Date.now(),
       packets = 0,
-      lastJoin = 0;
+      lastJoin = 0,
+      chatWindowStart = Date.now(),
+      chatPackets = 0,
+      lastChat = 0;
     socket.on("join", (request, ack) => {
       if (typeof ack !== "function") return;
+      if (!joinLimiter(socket.data.clientAddress)) return ack({ error: "Too many join attempts. Please wait a moment." });
       const now = Date.now();
       if (now - lastJoin < 400)
         return ack({ error: "Please wait a moment before joining again." });
       lastJoin = now;
       if (!request || typeof request !== "object")
         return ack({ error: "Invalid room request." });
-      const profileId = profileKey(request.profileToken) || createHash("sha256").update(socket.id).digest("hex");
+      const profileId = socket.data.authUser?.id || profileKey(request.profileToken) || createHash("sha256").update(socket.id).digest("hex");
       if(socket.data.profileId && socket.data.profileId!==profileId)return ack({error:"Reconnect before changing pilot identity."});
       const mode = request.mode;
       const requestedMap = typeof request.mapId === "string" && allowLegacyMaps && LEGACY_MAPS.some(map=>map.id===request.mapId) ? request.mapId : allowLegacyMaps ? "classic" : "confluence";
@@ -176,11 +371,34 @@ function createGameServer({
       const room = rooms.get(socket.data.room);
       if (room) room.sim.setInput(socket.id, input);
     });
+    socket.on("chat", (payload, ack) => {
+      const room = rooms.get(socket.data.room);
+      const text = cleanChatText(payload?.text);
+      if (!room || !text) return typeof ack === "function" && ack({ error: "Join an arena and enter a message first." });
+      const now = Date.now();
+      if (now - chatWindowStart >= 10_000) {
+        chatWindowStart = now;
+        chatPackets = 0;
+      }
+      if (now - lastChat < 650 || ++chatPackets > 8)
+        return typeof ack === "function" && ack({ error: "Chat is cooling down. Try again in a moment." });
+      lastChat = now;
+      const pilot = room.sim.players.get(socket.id);
+      const message = {
+        id: randomBytes(6).toString("hex"),
+        senderId: socket.data.profileId,
+        name: pilot?.name || "Pilot",
+        text,
+        at: now,
+      };
+      io.to(room.code).emit("chat", message);
+      if (typeof ack === "function") ack({ ok: true });
+    });
     socket.on("pingCheck", (ack) => {
       if (typeof ack === "function") ack();
     });
     socket.on("leave", () => leave(socket));
-    socket.on("disconnect", reason => leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"));
+    socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });
   });
   let previous = performance.now(),
     accumulator = 0;

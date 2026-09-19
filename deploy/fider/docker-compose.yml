@@ -1,0 +1,37 @@
+services:
+  fider-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fider
+      POSTGRES_PASSWORD: ${FIDER_DB_PASSWORD:?set FIDER_DB_PASSWORD in Coolify}
+      POSTGRES_DB: fider
+    volumes:
+      - fider_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fider -d fider"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  fider:
+    image: getfider/fider:stable
+    restart: unless-stopped
+    depends_on:
+      fider-db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      BASE_URL: ${FIDER_BASE_URL:?set FIDER_BASE_URL in Coolify}
+      DATABASE_URL: postgres://fider:${FIDER_DB_PASSWORD}@fider-db:5432/fider?sslmode=disable
+      JWT_SECRET: ${FIDER_JWT_SECRET:?set FIDER_JWT_SECRET in Coolify}
+      EMAIL_NOREPLY: ${FIDER_EMAIL_NOREPLY:?set FIDER_EMAIL_NOREPLY in Coolify}
+      EMAIL_SMTP_HOST: ${FIDER_EMAIL_SMTP_HOST:?set FIDER_EMAIL_SMTP_HOST in Coolify}
+      EMAIL_SMTP_PORT: ${FIDER_EMAIL_SMTP_PORT:-587}
+      EMAIL_SMTP_USERNAME: ${FIDER_EMAIL_SMTP_USERNAME:?set FIDER_EMAIL_SMTP_USERNAME in Coolify}
+      EMAIL_SMTP_PASSWORD: ${FIDER_EMAIL_SMTP_PASSWORD:?set FIDER_EMAIL_SMTP_PASSWORD in Coolify}
+      EMAIL_SMTP_ENABLE_STARTTLS: ${FIDER_EMAIL_SMTP_ENABLE_STARTTLS:-true}
+
+volumes:
+  fider_pg_data:

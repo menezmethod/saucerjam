@@ -1,6 +1,6 @@
 # SaucerJam — Incremental roadmap
 
-Updated 17 September 2026.
+Updated 19 September 2026.
 
 ## Direction
 
@@ -87,6 +87,8 @@ Long-term feature loop:
 `Idea -> Discussion -> RFC -> Prototype -> Playtest -> Vote/feedback -> Maintainer decision -> Canonical release`
 
 Community voting guides priority; it does not bypass performance, security, moderation, or IP review.
+
+The public version of this SaucerJam game roadmap will be published and voted on in the shared Fider portal at `community.menezmethod.com`. See [the public game roadmap](community-portal/FIDER_ROADMAP.md) and [deployment contract](community-portal/FIDER_SHARED_SERVICE.md). GitHub remains canonical for code, issues, pull requests, CI, provenance, and releases.
 
 ## North star
 

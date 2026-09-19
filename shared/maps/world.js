@@ -41,7 +41,7 @@ function getWorld(stage=0){
   obstacles.push({...box(0,c+offset,2,length,3),divider:true});
  }
  const spawnPoints=districts.filter(z=>z.open).flatMap(z=>[-1,1].flatMap(x=>[-1,1].map(s=>({x:z.x+x*22,z:z.z+s*22}))));
- const map={id:'confluence',name:'Confluence',subtitle:'One connected world · industry, forest, orbital rails & ice',theme:'foundry',size:60,stage,districts,obstacles,portals,pickups:pickups.filter(p=>p.sector<=stage),spawnPoints,props:[],palette:{floor:'#18232b',cover:'#53616a',accent:'#ffad69',background:'#090f18'}};
+ const map={id:'confluence',name:'Confluence',subtitle:'Industry, forest, orbital rails & ice',theme:'foundry',size:60,stage,districts,obstacles,portals,pickups:pickups.filter(p=>p.sector<=stage),spawnPoints,props:[],palette:{floor:'#18232b',cover:'#53616a',accent:'#ffad69',background:'#090f18'}};
  cache.set(stage,map);return map;
 }
 function stageForHumans(count){return count>=7?3:count>=5?2:count>=3?1:0;}

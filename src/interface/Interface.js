@@ -10,7 +10,7 @@ const node = (tag, className, text) => {
   return element;
 };
 const themes = {
-  confluence: {color:'#a3daee',label:'One world · expands at 3 / 5 / 7 pilots',mark:'01'},
+  confluence: {color:'#a3daee',label:'Expands at 3 / 5 / 7 pilots',mark:'01'},
   foundry: { color: '#ffae70', label: 'Industrial forge', mark: '01' },
   canopy: { color: '#b4dc95', label: 'Research garden', mark: '02' },
   glacier: { color: '#a3daee', label: 'Polar relay', mark: '03' },
@@ -108,8 +108,10 @@ export class Interface {
   mountLobby() {
     const lobby = $('lobby');
     const panel = lobby?.querySelector('.lobby-panel');
-    this.attach(panel, node('p', 'qd-identity', 'Your callsign and pilot history belong to this browser. No account sign-in.'));
-    this.attach(panel, this.button('Pilot records ↗', () => this.loadLeaderboard('overall'), 'qd-records-link'));
+    // The landing surface keeps one compact link row; guest play never shares
+    // its row with account or room chrome.
+    const links = panel?.querySelector('.lobby-footer') || panel;
+    this.attach(links, this.button('Pilot records ↗', () => this.loadLeaderboard('overall'), 'qd-records-link'));
     this.picker = this.attach(lobby, node('section', 'qd-map-picker'));
     this.picker.setAttribute('aria-label', 'Choose an arena');
     const heading = node('div', 'qd-picker-heading');
@@ -172,7 +174,10 @@ export class Interface {
       card.append(meta, art, title, subtitle, selection);
       this.cards.append(card);
     }
-    this.picker.hidden = !this.maps.length;
+    // A destination picker is only a decision when there is more than one live
+    // world. With a single world the arena is chosen for the player; the world
+    // registry and map state stay authoritative for gameplay and records.
+    this.picker.hidden = this.maps.length < 2;
     this.syncSelection();
     this.renderTabs();
   }

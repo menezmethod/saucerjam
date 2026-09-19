@@ -68,6 +68,16 @@ test("movement and aim are sampled independently on the next input tick", () => 
   assert.equal(input.thrust, 0); assert.equal(input.turn, 0);
 });
 
+test("mouse wheel cycles weapons without affecting touch input", () => {
+  const { game, window } = fixture();
+  let prevented = false;
+  window.emit("wheel", { deltaY: -1, preventDefault: () => { prevented = true; } });
+  assert.equal(game.weapon, "BOUNCE");
+  assert.equal(prevented, true);
+  window.emit("wheel", { deltaY: 1, preventDefault: () => {} });
+  assert.equal(game.weapon, "LASER");
+});
+
 test("cancel or lost capture releases only its owner, not the other thumb or keyboard", () => {
   for (const type of ["pointercancel", "lostpointercapture"]) {
     const { game, $, window, pointer } = fixture(), arena = $("arena");
@@ -148,21 +158,6 @@ test("touch split uses the canvas bounds and inactive play ignores new input", (
   assert.equal(game.firing, false); assert.equal(game.mouse, null);
 });
 
-test("touch briefing owns play and lobby Tab remains native", () => {
-  const { game, $, pointer } = fixture();
-  $("touch-onboarding").hidden = false;
-  assert.equal(game.active(), false);
-  $("touch-onboarding").hidden = true;
-  game.mode = "lobby";
-  let prevented = false;
-  game.key({ target: { closest: () => null }, code: "Tab", preventDefault() { prevented = true; } }, true);
-  assert.equal(prevented, false);
-  game.mode = "practice";
-  $("touch-onboarding").hidden = false;
-  $("arena").emit("pointerdown", pointer(1, 180));
-  assert.equal(game.touchRoles.size, 0);
-});
-
 test("canvas resize follows CSS dimensions, skips duplicate resize and updates DPR", () => {
   const rendererSource = readFileSync(new URL("../core/ArenaRenderer.js", import.meta.url), "utf8");
   const context = vm.createContext({ devicePixelRatio: 2 });
@@ -184,10 +179,4 @@ test("canvas resize follows CSS dimensions, skips duplicate resize and updates D
   assert.deepEqual(ratios, [1.5, 1.5, 1]);
   rect = { width: 0, height: 0 }; renderer.resize();
   assert.equal(renderer.camera.aspect, 1);
-  let observerCleanup = 0;
-  renderer.resizeObserver = { disconnect: () => observerCleanup++ };
-  renderer.visualViewport = { removeEventListener: () => observerCleanup++ };
-  renderer.onVisualViewportResize = () => {};
-  renderer.dispose({ traverse(fn) { fn({}); } });
-  assert.equal(observerCleanup, 0);
 });

@@ -58,7 +58,9 @@ async function main() {
     const a = await newPage();
     await a.screenshot({ path: path.join(out, "lobby.png") });
     await a.fill("#pilot-name", "Alpha");
-    await a.click('[data-map-id="confluence"]');
+    // One live world: the landing page selects it for the player, and room
+    // controls live behind the "Play with friends" disclosure.
+    await a.evaluate(() => { document.getElementById("lobby-friends").open = true; });
     await a.uncheck("#fill-bots");
     await a.click("#create-room");
     await a.waitForFunction(() => window.__qd.getSnapshot().mode === "online");
@@ -168,7 +170,7 @@ async function main() {
     await a.keyboard.up("Space");
     await b.waitForSelector("#death-panel:not([hidden])");
     assert.equal(pa.kills, 1);
-    await a.keyboard.press("Tab");
+    await a.keyboard.press("KeyT");
     await a.waitForSelector("#scoreboard:not([hidden])");
     await a.waitForFunction(() => /Alpha \(you\)1/.test(document.querySelector('#scores').textContent));
     assert.match(await a.textContent("#scores"), /Alpha \(you\)1/);
@@ -285,6 +287,7 @@ async function main() {
     await lag.goto(url);
     await lag.waitForFunction(() => window.__qd);
     await lag.fill("#pilot-name", "Lag test");
+    await lag.evaluate(() => { document.getElementById("lobby-friends").open = true; });
     await lag.fill("#room-code", initialA.room);
     await lag.click("#join-room");
     await lag.waitForFunction(

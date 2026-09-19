@@ -15,6 +15,8 @@ const STATE_DIR = process.env.SAUCERJAM_OPS_STATE_DIR || path.join(ROOT, "logs",
 const FIXTURE = process.env.SAUCERJAM_FIXTURE || "";
 const COOLDOWN_MS = 30 * 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
+// Keeps a delivery well inside Telegram's 4096-char message limit.
+const MAX_REPORTED_ITEMS = 10;
 const APP_UUID = process.env.COOLIFY_APP_SAUCERJAM || "aoeefnsohotlncnvmpgwmaao";
 
 const NAMES = {
@@ -44,6 +46,42 @@ async function sreCondition(fx) {
   return null;
 }
 
+function clip(value, max) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+// One readable block per queued item so the Hermes delivery says what was
+// processed, not just a bare id. Missing fields degrade quietly — Fider can
+// omit them and the queue API is the only source of truth.
+function formatQueueItem(item) {
+  const ref = item.number ?? item.id ?? "?";
+  const kind = item.kind ? String(item.kind) : "item";
+  const lines = [`#${ref} · ${kind} · ${clip(item.title, 120) || "(untitled)"}`];
+  const description = clip(item.description, 200);
+  if (description) lines.push(`   ${description}`);
+  const meta = [];
+  if (item.votes !== undefined && item.votes !== null && !Number.isNaN(Number(item.votes)))
+    meta.push(`${Number(item.votes)} vote(s)`);
+  if (item.status) meta.push(`status: ${item.status}`);
+  if (item.proposal) meta.push(`proposal: ${item.proposal}`);
+  if (item.reference) meta.push(`ref: ${clip(item.reference, 60)}`);
+  if (meta.length) lines.push(`   ${meta.join(" · ")}`);
+  if (item.url) lines.push(`   ${item.url}`);
+  const received = item.receivedAt ? new Date(item.receivedAt) : null;
+  if (received && !Number.isNaN(received.getTime()))
+    lines.push(`   received ${received.toISOString().replace("T", " ").slice(0, 16)} UTC`);
+  return lines.join("\n");
+}
+
+function formatQueueMessage(items) {
+  const shown = items.slice(0, MAX_REPORTED_ITEMS);
+  const parts = [`CommunityQueue: ${items.length} new item(s)`, ...shown.map(formatQueueItem)];
+  const hidden = items.length - shown.length;
+  if (hidden > 0) parts.push(`…and ${hidden} more not shown`);
+  return parts.join("\n");
+}
+
 async function communityCondition(fx) {
   const q = fx
     ? fx.queue
@@ -55,7 +93,7 @@ async function communityCondition(fx) {
   } catch {}
   if (!items.length) return null;
   const ids = items.map((item) => item.id).join(",");
-  return { key: `queue:${ids}`, alert: false, message: `CommunityQueue: ${items.length} new item(s): ${ids}` };
+  return { key: `queue:${ids}`, alert: false, message: formatQueueMessage(items) };
 }
 
 function stateFile(name) {

@@ -8,7 +8,7 @@
 .qd-pilot-hull { height: 100%; }
 .qd-hull-track { display: flex; gap: 1px; height: 100%; }
 .qd-hull-track i { flex: 1; background: linear-gradient(to right, var(--hull) var(--fill), #243440 var(--fill)); box-shadow: 0 0 3px #000b; }
-.qd-local-marker { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); color: #9eeaff; font: 700 8px/1 system-ui, sans-serif; letter-spacing: .12em; text-shadow: 0 1px 2px #000; }
-.qd-protection { position: absolute; left: calc(100% + 3px); top: -3px; color: #cfc2ff; font: 10px/1 system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
+.qd-local-marker { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); color: #9eeaff; font: 700 11px/1 system-ui, sans-serif; letter-spacing: .12em; text-shadow: 0 1px 2px #000; }
+.qd-protection { position: absolute; left: calc(100% + 3px); top: -3px; color: #cfc2ff; font: 11px/1 system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
 
-@media(max-width:599px){.qd-ship-indicator{width:42px;height:5px}.qd-local-marker{bottom:7px;font-size:7px}.qd-protection{font-size:9px}}
+@media(max-width:599px){.qd-ship-indicator{width:42px;height:5px}.qd-local-marker{bottom:7px;font-size:11px}.qd-protection{font-size:11px}}

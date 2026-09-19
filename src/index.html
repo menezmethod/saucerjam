@@ -19,7 +19,7 @@
     <title>SaucerJam</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2712%27 fill=%27%23080f20%27/%3E%3Ctext x=%277%27 y=%2743%27 font-family=%27sans-serif%27 font-weight=%27700%27 font-size=%2730%27 fill=%27%235eeaff%27%3ESJ%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080f20'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%235eeaff' stroke-width='2' opacity='.5'/%3E%3Cellipse cx='16' cy='17' rx='8' ry='3' fill='%235eeaff'/%3E%3Ccircle cx='16' cy='12.5' r='3' fill='%23a3eaf4'/%3E%3C/svg%3E"
     />
   </head>
   <body>
@@ -28,7 +28,16 @@
     </main>
     <section id="lobby" class="overlay">
       <div class="lobby-panel">
-        <div class="wordmark">SJ<span>Orbital combat</span></div>
+        <div class="wordmark">
+          <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true"
+            ><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5" /><ellipse
+              cx="16"
+              cy="17"
+              rx="8"
+              ry="3"
+              fill="currentColor" /><circle cx="16" cy="12.5" r="3" fill="currentColor" /></svg
+          >SaucerJam<span>Orbital combat</span>
+        </div>
         <h1>Fast browser arena combat<span class="title-dot">.</span></h1>
         <p class="intro">
           Fly, dodge and out-gun everyone in five-minute arena rounds.
@@ -117,11 +126,25 @@
           ><span id="round-label">First to 20</span>
         </div>
         <div class="session-tools">
+          <div class="vitals" aria-label="Ship status">
+            <span class="vital vital-hull" id="vital-hull"
+              ><span class="vital-label">Hull</span
+              ><span class="vital-bar"><i id="vital-hull-fill"></i></span
+              ><span class="vital-num" id="vital-hull-num">100</span></span
+            >
+            <span class="vital vital-energy" id="vital-energy"
+              ><span class="vital-label">Energy</span
+              ><span class="vital-bar"><i id="vital-energy-fill"></i></span
+              ><span class="vital-num" id="vital-energy-num">100</span></span
+            >
+          </div>
           <span id="connection">Offline practice</span
           ><button id="menu-button" class="small">Menu <kbd>Esc</kbd></button>
         </div>
       </header>
       <div id="kill-feed" aria-live="polite"></div>
+      <div id="threat-arrows" aria-hidden="true"></div>
+      <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
       <div id="notice" role="status"></div>
       <aside class="radar">
         <canvas
@@ -150,6 +173,7 @@
       <div id="death-panel" class="center-message" hidden>
         <span>Ship destroyed</span>
         <h2>Back in <b id="respawn-time">3</b></h2>
+        <p id="death-killer" class="death-killer"></p>
         <p>Reactor rebuilding. Pick your next angle.</p>
       </div>
       <div id="round-panel" class="center-message" hidden>
@@ -160,19 +184,19 @@
       <footer class="combat-bar">
         <div class="weapons">
           <button data-weapon="LASER" class="weapon selected">
-            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h13M12 5l7 7-7 7"/></svg
+            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 5 13h6l-1 9 8-11h-6l1-9Z"/></svg
             ><kbd>1</kbd><span>Laser<small>25 energy</small></span></button
           ><button data-weapon="GRENADE" class="weapon">
-            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="7"/><path d="M12 7V4m0 0l2.5-2M9.5 2L12 4"/></svg
+            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="15" r="6"/><path d="M11 9V6"/><path d="M11 5a3 3 0 0 1 3-3"/><path d="M15 2l2-2"/></svg
             ><kbd>2</kbd><span>Grenade<small>100 energy</small></span></button
           ><button data-weapon="BOUNCE" class="weapon">
-            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-10 4 7 3-5 6 8"/></svg
+            <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l6-9 4 5 4-7"/><path d="M15 7h4v4"/></svg
             ><kbd>3</kbd><span>Ricochet<small>50 energy</small></span>
           </button>
         </div>
         <div class="flight-tools">
           <button id="view-button" class="small">Arena <kbd>V</kbd></button
-          ><button id="score-button" class="small">Scores <kbd>Tab</kbd></button
+          ><button id="score-button" class="small">Scores <kbd>T</kbd></button
           ><button id="sound-button" class="small" aria-pressed="true">
             Sound on
           </button
@@ -234,9 +258,10 @@
             <p><kbd>A D / ← →</kbd> Move left / right on screen</p>
             <p>Movement stays independent of where you aim.</p>
             <p><kbd>Mouse</kbd> Aim independently</p>
+            <p><kbd>I J K L</kbd> Aim without a mouse (keyboard-only play)</p>
             <p><kbd>Click / Space</kbd> Hold to fire</p>
             <p><kbd>V</kbd> Arena / full map · other views in Flight menu</p>
-            <p><kbd>M</kbd> Radar · <kbd>Tab</kbd> Scoreboard</p>
+            <p><kbd>M</kbd> Radar · <kbd>T</kbd> Scoreboard</p>
           </div>
           <div>
             <h3>Loadout</h3>

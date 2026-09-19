@@ -2,6 +2,7 @@ import "./styles/main.css";
 import { io } from "socket.io-client";
 import { stickVector, reanchor } from "./input/stick";
 import { ArenaRenderer } from "./core/ArenaRenderer";
+import { ThreatArrows } from "./view/ThreatArrows";
 import {Interface} from "./interface/Interface";
 import {MusicBus, BED_FOR_DISTRICT} from "./audio/MusicBus";
 import { SupabaseAuth } from "./auth/SupabaseAuth";
@@ -55,9 +56,16 @@ class Game {
     this.sfxOn = storage.get("qd-sfx", storage.get("qd-sound", "on")) === "on";
     this.musicOn = storage.get("qd-music", "on") === "on";
     this.music = null;
+    this.reduceMotion = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+    this.threats = new ThreatArrows($("threat-arrows"));
+    this.lastThreatKey = "";
+    this.lastThreatAnnounce = 0;
+    this.lastKiller = null;
+    this._sr = { dead: false, low: false, over: false };
     this._audioState = { bed: null, dead: false, roundOver: false };
     this.auth = new SupabaseAuth(runtimeConfig);
     this.renderer = new ArenaRenderer($("arena"));
+    this.renderer.reduceMotion = this.reduceMotion;
     this.demo = this.makePractice(true);
     this.state = this.demo.snapshot();
     this.map = this.demo.map;
@@ -97,6 +105,8 @@ class Game {
             connected: this.connected,
             view: this.renderer.view,
             weapon: this.weapon,
+            aim: this.aim,
+            reducedMotion: this.reduceMotion,
             state: this.state,
             predicted: this.predicted,
             renderer: this.renderer.renderer.info.render,
@@ -150,6 +160,19 @@ class Game {
     if (!demo) sim.addPlayer("local", $("pilot-name").value);
     for (let i = 0; i < (demo ? 4 : 3); i++)
       sim.addPlayer(`bot-${i}`, ["Vector", "Nova", "Echo", "Flux"][i], true);
+    // Practice used to spawn you alone in the far corner of the full world.
+    // Bias the first spawn toward the nearest bot so contact happens in the
+    // opening seconds instead of after a long empty flight.
+    if (!demo) {
+      const local = sim.players.get("local"), bot = sim.players.get("bot-0");
+      if (local && bot) {
+        const a = Math.atan2(bot.x, bot.z);
+        const cx = bot.x - Math.sin(a) * 14, cz = bot.z - Math.cos(a) * 14;
+        if (!blocked(cx, cz, RULES.radius, sim.map)) { local.x = cx; local.z = cz; }
+        local.angle = Math.atan2(bot.x - local.x, bot.z - local.z);
+        local.aimAngle = local.angle;
+      }
+    }
     sim.drainEvents();
     return sim;
   }
@@ -508,18 +531,22 @@ class Game {
     // drop the override so the CSS fallback (the desktop rail height) applies
     // and mobile keeps its own bottom offset.
     const flightTools = document.querySelector(".flight-tools");
-    const syncFlightToolsHeight = () => {
-      if (!flightTools.closest(".combat-bar")) {
-        document.documentElement.style.removeProperty("--flight-tools-height");
-        return;
-      }
-      document.documentElement.style.setProperty(
-        "--flight-tools-height",
-        `${flightTools.getBoundingClientRect().height}px`,
-      );
-    };
-    new ResizeObserver(syncFlightToolsHeight).observe(flightTools);
-    syncFlightToolsHeight();
+    new ResizeObserver(() => this.syncRails()).observe(flightTools);
+    this.syncRails();
+  }
+  // Keep --flight-tools-height accurate while the rail lives in the combat
+  // bar; drop it when touch relocates the tools into the Flight menu.
+  syncRails() {
+    const tools = document.querySelector(".flight-tools");
+    if (!tools) return;
+    if (!tools.closest(".combat-bar")) {
+      document.documentElement.style.removeProperty("--flight-tools-height");
+      return;
+    }
+    document.documentElement.style.setProperty(
+      "--flight-tools-height",
+      `${tools.getBoundingClientRect().height}px`,
+    );
   }
   // Aim and start firing toward a pointer's position -- shared by mouse
   // clicks and any touch assigned the "fire" role (see the arena pointer
@@ -604,7 +631,7 @@ class Game {
         if(modal.id==='menu')this.menu(false);else if(modal.id==='scoreboard')this.scores(true);else this.panel(modal.id,false);
       }else if(down&&e.code==='Tab'){
         e.preventDefault();
-        const targets=[...modal.querySelectorAll('button,input,select,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+        const targets=[...modal.querySelectorAll('button,input,select,textarea,a[href],summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
         const index=targets.indexOf(document.activeElement),next=(index+(e.shiftKey?-1:1)+targets.length)%targets.length;
         targets[next]?.focus();
       }
@@ -624,12 +651,16 @@ class Game {
       "ArrowLeft",
       "ArrowRight",
       "Space",
-      "Tab",
+      "KeyT",
       "Escape",
       "KeyV",
       "KeyM",
       "KeyC",
       "KeyX",
+      "KeyI",
+      "KeyJ",
+      "KeyK",
+      "KeyL",
       "Digit1",
       "Digit2",
       "Digit3",
@@ -655,7 +686,7 @@ class Game {
       return;
     }
     if (!["practice", "online"].includes(this.mode)) return;
-    if (e.code === "Tab") {
+    if (e.code === "KeyT") {
       this.scores(!$("scoreboard").hidden);
       return;
     }
@@ -708,6 +739,15 @@ class Game {
     const horizontal=this.stick.active?this.stick.x:on('KeyD','ArrowRight','KeyE')-on('KeyA','ArrowLeft','KeyQ');
     const vertical=this.stick.active?this.stick.z:on('KeyW','ArrowUp')-on('KeyS','ArrowDown');
     const move=this.renderer.screenMovement(horizontal,vertical);
+    // Keyboard aim (IJKL) so the game is fully playable without a pointer.
+    // It writes this.aim, which the reticle and HUD indicators already read.
+    const aimH = on("KeyL") - on("KeyJ"),
+      aimV = on("KeyK") - on("KeyI");
+    if ((aimH || aimV) && this.active()) {
+      const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
+      const dir = this.renderer.screenMovement(aimH, aimV);
+      if (me && (dir.x || dir.z)) this.aim = { x: me.x + dir.x * 14, z: me.z + dir.z * 14 };
+    }
     return {
       seq: ++this.seq,
       move: this.active()?move:{x:0,z:0},
@@ -736,6 +776,7 @@ class Game {
     this.setView(0);this.renderer.zoom=1;
     $("lobby").hidden = true;
     $("hud").hidden = false;
+    this.syncRails();
     $("menu").hidden = $("help").hidden = $("scoreboard").hidden = true;
     // First-run touch players never saw the desktop key legend; teach the
     // two-thumb scheme once, before they have to guess it mid-firefight.
@@ -1021,6 +1062,7 @@ class Game {
       setTimeout(() => entry.remove(), 6000);
       if (e.player === this.playerId) {
         this.clearInput();
+        this.lastKiller = { name: e.killer, weapon: e.weapon };
         this.music?.oneShot("ship-destroyed", { gain: 0.7 });
         this.music?.duck(-9, 3);
         this._audioState.dead = true;
@@ -1111,9 +1153,11 @@ class Game {
     const dt = Math.min((now - this.lastFrame) / 1000, 0.1);
     if(this.showcaseConfig?.module==="effects"&&Math.floor(now/700)!==this.lastShowcaseFx){this.lastShowcaseFx=Math.floor(now/700);this.renderer.event({type:"explosion",x:0,z:-9,radius:5});}
     this.lastFrame = now;
+    const keyboardAiming =
+      this.keys.has("KeyI") || this.keys.has("KeyJ") || this.keys.has("KeyK") || this.keys.has("KeyL");
     if (this.mouse && this.active())
       this.aim = this.renderer.aimAt(this.mouse.x, this.mouse.y);
-    else if (!this.mouse) this.aim = null;
+    else if (!this.mouse && !keyboardAiming) this.aim = null;
     this.accumulator += dt;
     while (this.accumulator >= STEP) {
       if (this.mode === "lobby" || this.mode === "connecting") {
@@ -1196,6 +1240,19 @@ class Game {
       1,
       Math.ceil(p.respawnAt - state.time),
     );
+    $("death-killer").textContent = this.lastKiller
+      ? `Eliminated by ${this.lastKiller.name} · ${WEAPONS[this.lastKiller.weapon]?.name || this.lastKiller.weapon}`
+      : "";
+    this.updateVitals(p);
+    this.threats.update({
+      players: state.players,
+      localId: this.playerId,
+      camera: this.renderer.camera,
+      width: this.renderer.width,
+      height: this.renderer.height,
+      reduced: this.reduceMotion,
+    });
+    this.announceStatus(state, p);
     $("round-panel").hidden = !state.restartAt;
     $("winner").textContent = `${state.winner || ""} wins`;
     $("next-round").textContent =
@@ -1213,6 +1270,47 @@ class Game {
     if (!$("scoreboard").hidden) this.renderScores();
     this.radar(p);
     this.updateMusic(state, p);
+  }
+  updateVitals(p) {
+    const hull = Math.max(0, Math.min(100, p.health));
+    const energy = Math.max(0, Math.min(100, p.energy));
+    $("vital-hull-fill").style.transform = `scaleX(${hull / 100})`;
+    $("vital-hull-num").textContent = Math.round(hull);
+    $("vital-hull").dataset.condition =
+      hull <= 25 ? "critical" : hull <= 50 ? "damaged" : "healthy";
+    $("vital-energy-fill").style.transform = `scaleX(${energy / 100})`;
+    $("vital-energy-num").textContent = Math.round(energy);
+  }
+  // Screen-reader narration of the battle state the canvas cannot convey.
+  announceStatus(state, p) {
+    const el = $("sr-status");
+    const over = !!state.restartAt;
+    if (!p.alive && !this._sr.dead) {
+      el.textContent = `Ship destroyed. Respawning in ${Math.max(1, Math.ceil(p.respawnAt - state.time))} seconds.`;
+      this._sr.dead = true;
+    } else if (p.alive && this._sr.dead) {
+      el.textContent = "Respawned. Hull and energy restored.";
+      this._sr.dead = false;
+    }
+    const low = p.health <= 25 && p.alive;
+    if (low && !this._sr.low) { el.textContent = `Hull critical, ${Math.round(p.health)} percent.`; this._sr.low = true; }
+    else if (!low) this._sr.low = false;
+    if (over && !this._sr.over) { el.textContent = `Round over. ${state.winner || "Nobody"} wins.`; this._sr.over = true; }
+    else if (!over) this._sr.over = false;
+    const now = performance.now();
+    if (p.alive && !over && now - this.lastThreatAnnounce > 5000) {
+      this.lastThreatAnnounce = now;
+      const near = state.players
+        .filter((q) => q.alive && q.id !== p.id)
+        .map((q) => ({ q, d: Math.hypot(q.x - p.x, q.z - p.z) }))
+        .sort((a, b) => a.d - b.d)[0];
+      if (near && near.d < 38) {
+        const bearing = Math.atan2(near.q.x - p.x, near.q.z - p.z);
+        const compass = ["south", "southwest", "west", "northwest", "north", "northeast", "east", "southeast"];
+        const dir = compass[Math.round((((bearing % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8];
+        el.textContent = `Nearest enemy ${Math.round(near.d)} meters to the ${dir}.`;
+      }
+    }
   }
   // Adaptive score: district-driven bed, round-end stings, respawn chime.
   updateMusic(state, p) {

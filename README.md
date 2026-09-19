@@ -38,12 +38,13 @@ See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), [next milestones]
 | A / D, left / right | Move left / right on screen |
 | Q / E | Alternative left / right movement |
 | Mouse | Aim independently of movement |
+| I / J / K / L | Aim without a mouse (keyboard-only play) |
 | Hold left click or Space | Fire selected weapon |
 | 1 / 2 / 3 | Laser / grenade / ricochet |
 | X | Cycle weapon |
 | V | Arena / full-map toggle (other views in Flight menu) |
 | M | Toggle radar |
-| Tab | Toggle scoreboard |
+| T | Toggle scoreboard |
 | C | Controls and weapon guide |
 | Escape | Flight menu |
 

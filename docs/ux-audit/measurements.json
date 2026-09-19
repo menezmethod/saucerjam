@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T05:10:19.776Z",
+  "generatedAt": "2026-09-19T05:44:47.748Z",
   "devices": [
     {
       "name": "phone-se-375x667",
@@ -78,9 +78,33 @@
             "left": 0,
             "top": 0,
             "right": 375,
-            "bottom": 68,
+            "bottom": 116,
             "w": 375,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 119,
+            "top": 12,
+            "right": 256,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 287,
+            "top": 12,
+            "right": 363,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 299,
@@ -92,21 +116,15 @@
           },
           "weapons": {
             "left": 195,
-            "top": 76,
+            "top": 124,
             "right": 359,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -187,9 +205,33 @@
             "left": 0,
             "top": 0,
             "right": 320,
-            "bottom": 68,
+            "bottom": 116,
             "w": 320,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 92,
+            "top": 12,
+            "right": 228,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 232,
+            "top": 12,
+            "right": 308,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 244,
@@ -201,21 +243,15 @@
           },
           "weapons": {
             "left": 140,
-            "top": 76,
+            "top": 124,
             "right": 304,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -296,9 +332,33 @@
             "left": 0,
             "top": 0,
             "right": 390,
-            "bottom": 68,
+            "bottom": 116,
             "w": 390,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 127,
+            "top": 12,
+            "right": 263,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 302,
+            "top": 12,
+            "right": 378,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 314,
@@ -310,21 +370,15 @@
           },
           "weapons": {
             "left": 210,
-            "top": 76,
+            "top": 124,
             "right": 374,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -405,9 +459,33 @@
             "left": 0,
             "top": 0,
             "right": 430,
-            "bottom": 68,
+            "bottom": 116,
             "w": 430,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 147,
+            "top": 12,
+            "right": 283,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 342,
+            "top": 12,
+            "right": 418,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 354,
@@ -419,21 +497,15 @@
           },
           "weapons": {
             "left": 250,
-            "top": 76,
+            "top": 124,
             "right": 414,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -514,9 +586,33 @@
             "left": 0,
             "top": 0,
             "right": 393,
-            "bottom": 68,
+            "bottom": 116,
             "w": 393,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 128,
+            "top": 12,
+            "right": 265,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 305,
+            "top": 12,
+            "right": 381,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 317,
@@ -528,21 +624,15 @@
           },
           "weapons": {
             "left": 213,
-            "top": 76,
+            "top": 124,
             "right": 377,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -623,9 +713,33 @@
             "left": 0,
             "top": 0,
             "right": 360,
-            "bottom": 68,
+            "bottom": 116,
             "w": 360,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 112,
+            "top": 12,
+            "right": 248,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 272,
+            "top": 12,
+            "right": 348,
+            "bottom": 54,
+            "w": 76,
+            "h": 42
           },
           "comms": {
             "left": 284,
@@ -637,21 +751,15 @@
           },
           "weapons": {
             "left": 180,
-            "top": 76,
+            "top": 124,
             "right": 344,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -732,9 +840,33 @@
             "left": 0,
             "top": 0,
             "right": 844,
-            "bottom": 72,
+            "bottom": 120,
             "w": 844,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 354,
+            "top": 12,
+            "right": 490,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 678,
+            "top": 12,
+            "right": 832,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 756,
@@ -746,9 +878,9 @@
           },
           "weapons": {
             "left": 660,
-            "top": 80,
+            "top": 128,
             "right": 828,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -835,9 +967,33 @@
             "left": 0,
             "top": 0,
             "right": 932,
-            "bottom": 72,
+            "bottom": 120,
             "w": 932,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 398,
+            "top": 12,
+            "right": 534,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 766,
+            "top": 12,
+            "right": 920,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 844,
@@ -849,9 +1005,9 @@
           },
           "weapons": {
             "left": 748,
-            "top": 80,
+            "top": 128,
             "right": 916,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -938,9 +1094,33 @@
             "left": 0,
             "top": 0,
             "right": 851,
-            "bottom": 72,
+            "bottom": 120,
             "w": 851,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 357,
+            "top": 12,
+            "right": 494,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 685,
+            "top": 12,
+            "right": 839,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 763,
@@ -952,9 +1132,9 @@
           },
           "weapons": {
             "left": 667,
-            "top": 80,
+            "top": 128,
             "right": 835,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -1041,9 +1221,33 @@
             "left": 0,
             "top": 0,
             "right": 568,
-            "bottom": 68,
+            "bottom": 116,
             "w": 568,
-            "h": 68
+            "h": 116
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 216,
+            "top": 12,
+            "right": 352,
+            "bottom": 58,
+            "w": 137,
+            "h": 46
+          },
+          "vitals": {
+            "left": 402,
+            "top": 12,
+            "right": 556,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 492,
@@ -1055,21 +1259,15 @@
           },
           "weapons": {
             "left": 388,
-            "top": 76,
+            "top": 124,
             "right": 552,
-            "bottom": 120,
+            "bottom": 168,
             "w": 164,
             "h": 44
           }
         },
         "tapTargets": [],
-        "smallText": [
-          {
-            "id": "round-label",
-            "fs": 9,
-            "text": "Round 1 · FORGE · 4/4 "
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -1150,9 +1348,33 @@
             "left": 0,
             "top": 0,
             "right": 744,
-            "bottom": 72,
+            "bottom": 120,
             "w": 744,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 304,
+            "top": 12,
+            "right": 440,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 578,
+            "top": 12,
+            "right": 732,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 656,
@@ -1164,9 +1386,9 @@
           },
           "weapons": {
             "left": 560,
-            "top": 80,
+            "top": 128,
             "right": 728,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -1253,9 +1475,33 @@
             "left": 0,
             "top": 0,
             "right": 810,
-            "bottom": 72,
+            "bottom": 120,
             "w": 810,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 337,
+            "top": 12,
+            "right": 473,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 644,
+            "top": 12,
+            "right": 798,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 722,
@@ -1267,9 +1513,9 @@
           },
           "weapons": {
             "left": 626,
-            "top": 80,
+            "top": 128,
             "right": 794,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -1356,9 +1602,33 @@
             "left": 0,
             "top": 0,
             "right": 820,
-            "bottom": 72,
+            "bottom": 120,
             "w": 820,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 342,
+            "top": 12,
+            "right": 478,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 654,
+            "top": 12,
+            "right": 808,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 732,
@@ -1370,9 +1640,9 @@
           },
           "weapons": {
             "left": 636,
-            "top": 80,
+            "top": 128,
             "right": 804,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -1459,9 +1729,33 @@
             "left": 0,
             "top": 0,
             "right": 834,
-            "bottom": 72,
+            "bottom": 120,
             "w": 834,
-            "h": 72
+            "h": 120
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 349,
+            "top": 12,
+            "right": 485,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 668,
+            "top": 12,
+            "right": 822,
+            "bottom": 54,
+            "w": 154,
+            "h": 42
           },
           "comms": {
             "left": 746,
@@ -1473,9 +1767,9 @@
           },
           "weapons": {
             "left": 650,
-            "top": 80,
+            "top": 128,
             "right": 818,
-            "bottom": 124,
+            "bottom": 172,
             "w": 168,
             "h": 44
           }
@@ -1565,6 +1859,30 @@
             "bottom": 76,
             "w": 1180,
             "h": 76
+          },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 522,
+            "top": 12,
+            "right": 658,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 762,
+            "top": 27,
+            "right": 1064,
+            "bottom": 42,
+            "w": 302,
+            "h": 15
           },
           "comms": {
             "left": 1092,
@@ -1669,6 +1987,30 @@
             "w": 1024,
             "h": 76
           },
+          "brand": {
+            "left": 12,
+            "top": 12,
+            "right": 30,
+            "bottom": 35,
+            "w": 18,
+            "h": 23
+          },
+          "clock": {
+            "left": 444,
+            "top": 12,
+            "right": 580,
+            "bottom": 64,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 606,
+            "top": 27,
+            "right": 908,
+            "bottom": 42,
+            "w": 302,
+            "h": 15
+          },
           "comms": {
             "left": 936,
             "top": 566,
@@ -1772,13 +2114,37 @@
             "w": 1280,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 572,
+            "top": 20,
+            "right": 708,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 759,
+            "top": 29,
+            "right": 1061,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 1192,
@@ -1790,18 +2156,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 612,
+            "top": 611,
             "right": 420,
             "bottom": 676,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 1160,
+            "left": 1172,
             "top": 533,
             "right": 1256,
             "bottom": 676,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -1829,70 +2195,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -1977,13 +2302,37 @@
             "w": 1366,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 615,
+            "top": 20,
+            "right": 751,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 845,
+            "top": 29,
+            "right": 1147,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 1278,
@@ -1995,18 +2344,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 660,
+            "top": 659,
             "right": 420,
             "bottom": 724,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 1246,
+            "left": 1258,
             "top": 581,
             "right": 1342,
             "bottom": 724,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -2034,70 +2383,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -2182,13 +2490,37 @@
             "w": 1440,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 652,
+            "top": 20,
+            "right": 788,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 919,
+            "top": 29,
+            "right": 1221,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 1352,
@@ -2200,18 +2532,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 792,
+            "top": 791,
             "right": 420,
             "bottom": 856,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 1320,
+            "left": 1332,
             "top": 713,
             "right": 1416,
             "bottom": 856,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -2239,70 +2571,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -2387,13 +2678,37 @@
             "w": 1920,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 892,
+            "top": 20,
+            "right": 1028,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 1399,
+            "top": 29,
+            "right": 1701,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 1832,
@@ -2405,18 +2720,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 972,
+            "top": 971,
             "right": 420,
             "bottom": 1036,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 1800,
+            "left": 1812,
             "top": 893,
             "right": 1896,
             "bottom": 1036,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -2444,70 +2759,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -2592,13 +2866,37 @@
             "w": 2560,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 1212,
+            "top": 20,
+            "right": 1348,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 2039,
+            "top": 29,
+            "right": 2341,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 2472,
@@ -2610,18 +2908,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 1332,
+            "top": 1331,
             "right": 420,
             "bottom": 1396,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 2440,
+            "left": 2452,
             "top": 1253,
             "right": 2536,
             "bottom": 1396,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -2649,70 +2947,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -2797,13 +3054,37 @@
             "w": 3440,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 1652,
+            "top": 20,
+            "right": 1788,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 2919,
+            "top": 29,
+            "right": 3221,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 3352,
@@ -2815,18 +3096,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 1332,
+            "top": 1331,
             "right": 420,
             "bottom": 1396,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 3320,
+            "left": 3332,
             "top": 1253,
             "right": 3416,
             "bottom": 1396,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -2854,70 +3135,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -3002,13 +3242,37 @@
             "w": 3840,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 1852,
+            "top": 20,
+            "right": 1988,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 3319,
+            "top": 29,
+            "right": 3621,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 3752,
@@ -3020,18 +3284,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 2052,
+            "top": 2051,
             "right": 420,
             "bottom": 2116,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 3720,
+            "left": 3732,
             "top": 1973,
             "right": 3816,
             "bottom": 2116,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -3059,70 +3323,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     },
@@ -3207,13 +3430,37 @@
             "w": 3840,
             "h": 74
           },
+          "brand": {
+            "left": 24,
+            "top": 20,
+            "right": 143,
+            "bottom": 54,
+            "w": 119,
+            "h": 34
+          },
+          "clock": {
+            "left": 1852,
+            "top": 20,
+            "right": 1988,
+            "bottom": 72,
+            "w": 137,
+            "h": 52
+          },
+          "vitals": {
+            "left": 3319,
+            "top": 29,
+            "right": 3621,
+            "bottom": 44,
+            "w": 302,
+            "h": 15
+          },
           "radar": {
             "left": 22,
             "top": 95,
             "right": 200,
-            "bottom": 301,
+            "bottom": 304,
             "w": 178,
-            "h": 206
+            "h": 209
           },
           "comms": {
             "left": 3752,
@@ -3225,18 +3472,18 @@
           },
           "weapons": {
             "left": 24,
-            "top": 2052,
+            "top": 2051,
             "right": 420,
             "bottom": 2116,
             "w": 396,
-            "h": 64
+            "h": 65
           },
           "tools": {
-            "left": 3720,
+            "left": 3732,
             "top": 1973,
             "right": 3816,
             "bottom": 2116,
-            "w": 96,
+            "w": 84,
             "h": 143
           },
           "hint": {
@@ -3264,70 +3511,29 @@
           {
             "id": "view-button",
             "label": "Arena V",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "score-button",
-            "label": "Scores Tab",
-            "w": 96,
+            "label": "Scores T",
+            "w": 84,
             "h": 32
           },
           {
             "id": "sound-button",
             "label": "Sound on",
-            "w": 96,
+            "w": 84,
             "h": 32
           },
           {
             "id": "music-button",
             "label": "Music on",
-            "w": 96,
+            "w": 84,
             "h": 32
           }
         ],
-        "smallText": [
-          {
-            "id": "SPAN",
-            "fs": 10,
-            "text": "You  1 human / 4 pilot"
-          },
-          {
-            "id": "pilot-count",
-            "fs": 10,
-            "text": "1 human / 4 pilots"
-          },
-          {
-            "id": "KBD",
-            "fs": 9,
-            "text": "M"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "25 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "100 energy"
-          },
-          {
-            "id": "SMALL",
-            "fs": 10,
-            "text": "50 energy"
-          },
-          {
-            "id": "qd-local-marker",
-            "fs": 8,
-            "text": "YOU"
-          },
-          {
-            "id": "qd-protection",
-            "fs": 10,
-            "text": "⬡"
-          }
-        ],
+        "smallText": [],
         "offscreen": []
       }
     }

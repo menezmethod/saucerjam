@@ -43,6 +43,9 @@ const DEVICES = [
 
 const HUD_CHROME = [
   ["topbar", "#hud .top-bar"],
+  ["brand", "#hud .match-brand"],
+  ["clock", "#hud .match-clock"],
+  ["vitals", "#hud .vitals"],
   ["radar", "#hud .radar"],
   ["killfeed", "#hud #kill-feed"],
   ["notice", "#hud #notice"],
@@ -93,10 +96,15 @@ function measure(page, viewport) {
       const el = document.querySelector(sel);
       if (visible(el)) { boxes[name] = { sel, r: rect(el) }; result.chrome[name] = boxes[name].r; }
     }
+    const contains = (outer, inner) =>
+      outer.left <= inner.left && outer.right >= inner.right && outer.top <= inner.top && outer.bottom >= inner.bottom;
     const keys = Object.keys(boxes);
     for (let i = 0; i < keys.length; i++)
       for (let j = i + 1; j < keys.length; j++) {
-        const area = rectOverlap(boxes[keys[i]].r, boxes[keys[j]].r);
+        const a = boxes[keys[i]].r, b = boxes[keys[j]].r;
+        // Parent/child containment is expected; only true collisions count.
+        if (contains(a, b) || contains(b, a)) continue;
+        const area = rectOverlap(a, b);
         if (area > 4) result.overlaps.push({ a: keys[i], b: keys[j], area });
       }
     for (const [name, b] of Object.entries(boxes)) if (offscreen(b.r)) result.offscreen.push({ name, r: b.r });

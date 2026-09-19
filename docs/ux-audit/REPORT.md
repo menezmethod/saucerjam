@@ -189,3 +189,38 @@ auto next-round, the audio bus, accessible live-region plumbing, tap-to-fire.
   hardware — read battery/P0-perf items as hypotheses needing device traces.
 - The audits judge a synthetic practice session; live multiplayer feel (latency,
   netcode under load) was out of scope.
+
+---
+
+## Implementation pass (this branch)
+
+Shipped after the audit, verified by the harness above and a functional suite:
+
+- **Information parity (P0):** `src/view/ThreatArrows.js` draws an edge arrow
+  for every off-camera enemy on all devices, so touch players get spatial
+  awareness without a minimap wallhack.
+- **Keyboard-only play (P0):** `I J K L` aim independently of `W A S D`
+  movement; `Space` fires. Help/README updated.
+- **Tab restored to focus (P0):** in-game scoreboard moved to `T`; `Tab` now
+  traverses HUD controls. Modal focus trap now includes `textarea` and links.
+- **Screen-reader narration (P0):** a throttled `role="status"` region narrates
+  nearest-threat bearing/distance, low hull, destruction/respawn and round end.
+- **Vitals (P1):** a hull + energy readout with numbers and condition colouring
+  in the top bar on every device.
+- **Death attribution (P1):** the death panel now reads "Eliminated by
+  <name> · <weapon>".
+- **Practice contact (P1):** practice spawns ~14 units from the nearest bot
+  instead of alone in the far corner of the 120×120 world.
+- **Legibility:** HUD text floored at 11 px (round label, energy cost, radar
+  legend, key hints, hull marker).
+- **Reduced motion:** `prefers-reduced-motion` now snaps the camera and freezes
+  idle bob/spin, not just CSS transitions.
+- **Placement:** kill feed dropped below the touch weapon rail.
+- **Identity:** saucer logo mark (favicon + wordmark) and recognisable,
+  weapon-coloured weapon icons.
+- **Motion budget:** hit-marker pop, modal rise, button press.
+
+Deliberately deferred (larger, asset- or product-dependent): landing hero
+rework/gameplay proof, map thumbnails as real renders, Comms relocation out of
+the touch fire zone, pre-match population/ping signal, analytics counters,
+skeleton loading states, and a native `<dialog>`/`inert` migration.

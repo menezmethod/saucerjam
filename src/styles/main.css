@@ -362,7 +362,7 @@ body.hud-idle .flight-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   padding: 0 10px 10px;
   color: #acbfd2;
 }
@@ -374,7 +374,7 @@ body.hud-idle .flight-hint {
 }
 .radar kbd {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 11px;
 }
 .radar.collapsed {
   display: none;
@@ -485,7 +485,7 @@ body.hud-idle .flight-hint {
   display: block;
   color: #9dafc2;
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 4px;
 }
 .weapon.selected {
@@ -773,6 +773,15 @@ th {
     gap: 6px;
     align-items: end;
   }
+  /* Stack vitals so the centred clock never runs into their bars. */
+  .vitals {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .vital-bar {
+    width: 58px;
+  }
   .match-brand {
     gap: 8px;
   }
@@ -838,13 +847,13 @@ th {
     font-size: 24px;
   }
   .match-clock span {
-    font-size: 9px;
+    font-size: 11px;
   }
   .top-bar {
     padding: 12px;
   }
   .session-tools {
-    font-size: 9px;
+    font-size: 10px;
   }
   .radar {
     top: 100px;
@@ -852,7 +861,7 @@ th {
     width: 115px;
   }
   .radar > span {
-    font-size: 8px;
+    font-size: 9px;
     padding: 0 5px 5px;
   }
   .chat-toggle {
@@ -883,7 +892,7 @@ th {
     font-size: 11px;
   }
   .weapon small {
-    font-size: 8px;
+    font-size: 9px;
   }
   .weapon kbd {
     font-size: 9px;
@@ -896,7 +905,7 @@ th {
     gap: 3px;
   }
   .flight-tools .small {
-    font-size: 9px;
+    font-size: 10px;
     padding: 5px;
   }
   .flight-tools kbd {
@@ -919,7 +928,7 @@ th {
   #kill-feed {
     top: 87px;
     right: 12px;
-    font-size: 9px;
+    font-size: 10px;
     max-width: 220px;
   }
   #notice {
@@ -981,6 +990,10 @@ th {
   }
   .combat-bar {
     bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  /* Weapons sit top-right on touch; drop the feed below them. */
+  #kill-feed {
+    top: calc(var(--top-bar-height, 90px) + 74px);
   }
   .desktop-key,
   .match-brand > span {
@@ -1252,4 +1265,121 @@ body.touch-active .combat-bar {
   justify-content: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* ---- Vitals (hull + energy) ---------------------------------------- */
+.vitals {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.vital {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #b4c9de;
+}
+.vital-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+.vital-bar {
+  position: relative;
+  width: 72px;
+  height: 6px;
+  border-radius: 3px;
+  background: #223247;
+  overflow: hidden;
+}
+.vital-bar i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transition: transform 0.15s ease;
+  background: #91edbb;
+}
+.vital-num {
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #e8f3fc;
+}
+#vital-hull[data-condition="damaged"] .vital-bar i { background: #ffcc76; }
+#vital-hull[data-condition="critical"] .vital-bar i { background: #ff8792; }
+#vital-energy .vital-bar i { background: #5eeaff; }
+body.hud-idle .vitals { opacity: 1; }
+
+/* ---- Off-screen threat arrows -------------------------------------- */
+#threat-arrows {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+#threat-arrows i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 15px solid currentColor;
+  color: #ff8792;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px #000a);
+  transition: transform 0.1s linear, opacity 0.2s ease;
+}
+
+/* ---- Screen-reader only -------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Motion budget -------------------------------------------------- */
+@keyframes qd-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes qd-rise { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#hit-marker:not([hidden]) { animation: qd-pop 0.12s ease-out; }
+.modal:not([hidden]) > .dialog { animation: qd-rise 0.18s ease-out; }
+button:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal:not([hidden]) > .dialog,
+  #hit-marker:not([hidden]) { animation: none; }
+  button:active { transform: none; }
+  #threat-arrows i { transition: none; }
+}
+
+/* ---- Weapon identity (icon + key colour) --------------------------- */
+[data-weapon="LASER"] .weapon-icon,
+[data-weapon="LASER"] kbd { color: #5eeaff; }
+[data-weapon="GRENADE"] .weapon-icon,
+[data-weapon="GRENADE"] kbd { color: #bc91ff; }
+[data-weapon="BOUNCE"] .weapon-icon,
+[data-weapon="BOUNCE"] kbd { color: #ff91d5; }
+.weapon.selected .weapon-icon { filter: drop-shadow(0 0 4px currentColor); }
+
+.wordmark-mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  color: var(--cyan);
+}
+.wordmark { letter-spacing: -0.03em; }
+
+/* Small phones: drop the vitals labels so the bars clear the centred clock. */
+@media (max-width: 430px) {
+  .vital-label { display: none; }
+  .vital-bar { width: 48px; }
 }

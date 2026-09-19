@@ -170,7 +170,7 @@ async function main() {
     await a.keyboard.up("Space");
     await b.waitForSelector("#death-panel:not([hidden])");
     assert.equal(pa.kills, 1);
-    await a.keyboard.press("Tab");
+    await a.keyboard.press("KeyT");
     await a.waitForSelector("#scoreboard:not([hidden])");
     await a.waitForFunction(() => /Alpha \(you\)1/.test(document.querySelector('#scores').textContent));
     assert.match(await a.textContent("#scores"), /Alpha \(you\)1/);

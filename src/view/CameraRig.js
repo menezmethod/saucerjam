@@ -74,7 +74,7 @@ export class CameraRig {
     const p = options.player;
     const teleport = p && this.previousPlayer && Math.hypot(p.x - this.previousPlayer.x, p.z - this.previousPlayer.z) > 12;
     const snap = !this.ready || teleport || pose.view !== this.previousView || Boolean(options.lobby) !== this.previousLobby;
-    const blend = snap ? 1 : 1 - Math.exp(-7 * clamp(finite(options.dt, 1 / 60), 0, 0.1));
+    const blend = snap || options.reducedMotion ? 1 : 1 - Math.exp(-7 * clamp(finite(options.dt, 1 / 60), 0, 0.1));
     for (const axis of ['x', 'y', 'z']) {
       this.camera.position[axis] += (pose.position[axis] - this.camera.position[axis]) * blend;
       this.target[axis] += (pose.target[axis] - this.target[axis]) * blend;

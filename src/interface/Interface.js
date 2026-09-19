@@ -108,8 +108,10 @@ export class Interface {
   mountLobby() {
     const lobby = $('lobby');
     const panel = lobby?.querySelector('.lobby-panel');
-    this.attach(panel, node('p', 'qd-identity', 'Guest flights stay on this browser. Sign in above to carry your pilot between devices.'));
-    this.attach(panel, this.button('Pilot records ↗', () => this.loadLeaderboard('overall'), 'qd-records-link'));
+    // The landing surface keeps one compact link row; guest play never shares
+    // its row with account or room chrome.
+    const links = panel?.querySelector('.lobby-footer') || panel;
+    this.attach(links, this.button('Pilot records ↗', () => this.loadLeaderboard('overall'), 'qd-records-link'));
     this.picker = this.attach(lobby, node('section', 'qd-map-picker'));
     this.picker.setAttribute('aria-label', 'Choose an arena');
     const heading = node('div', 'qd-picker-heading');
@@ -172,7 +174,10 @@ export class Interface {
       card.append(meta, art, title, subtitle, selection);
       this.cards.append(card);
     }
-    this.picker.hidden = !this.maps.length;
+    // A destination picker is only a decision when there is more than one live
+    // world. With a single world the arena is chosen for the player; the world
+    // registry and map state stay authoritative for gameplay and records.
+    this.picker.hidden = this.maps.length < 2;
     this.syncSelection();
     this.renderTabs();
   }

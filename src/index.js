@@ -72,6 +72,7 @@ class Game {
     const invite = new URLSearchParams(location.search).get("room");
     if (invite) {
       $("room-code").value = invite.toUpperCase();
+      this.openFriendsDisclosure();
       $("lobby-status").textContent =
         "Room invite ready. Enter your callsign and choose Join.";
     }
@@ -241,6 +242,15 @@ class Game {
     };
     $("auth-sign-out").onclick = () => this.authAction(() => this.auth.signOut());
   }
+  // Secondary landing choices live in native disclosures; open the one that
+  // owns the message so nothing important is ever written into a collapsed
+  // region the pilot cannot see.
+  openFriendsDisclosure() {
+    $("lobby-friends")?.setAttribute("open", "");
+  }
+  openAuthDisclosure() {
+    $("lobby-account")?.setAttribute("open", "");
+  }
   async authAction(action, success = "signed-in") {
     const status = $("auth-status");
     status.textContent = "Working…";
@@ -248,6 +258,7 @@ class Game {
       const result = await action();
       status.textContent = success === "registered" && !result?.session ? "Check your email to verify the account." : "Ready to fly.";
     } catch (error) {
+      this.openAuthDisclosure();
       status.textContent = error?.message || "Account action failed. Try again.";
     }
   }
@@ -346,7 +357,7 @@ class Game {
     this.toggleEmailAuth(false);
     $("account-status").textContent = user ? (user.email || "Signed-in pilot") : "Guest pilot";
     $("account-copy").textContent = user ? "Your pilot identity and online records are linked to this account." : "Sign in to carry your callsign and records between devices.";
-    if (error) $("auth-status").textContent = "Account session could not be restored. You can continue as a guest.";
+    if (error) { this.openAuthDisclosure(); $("auth-status").textContent = "Account session could not be restored. You can continue as a guest."; }
     else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
     if (user) this.loadCareer();
   }
@@ -576,6 +587,11 @@ class Game {
       "Digit3",
     ];
     if (!recognized.includes(e.code)) return;
+    // Only the arena consumes flight keys. Leaving everything but Escape alone
+    // in the lobby keeps Tab and arrow traversal of the landing controls
+    // native -- a swallowed Tab made every landing control unreachable by
+    // keyboard, which is the one thing a play-first page cannot afford.
+    if (!["practice", "online"].includes(this.mode) && e.code !== "Escape") return;
     e.preventDefault();
     if (!down) {
       this.keys.delete(e.code);
@@ -1104,11 +1120,6 @@ class Game {
       `${Math.floor(remain / 60)}:${String(remain % 60).padStart(2, "0")}`;
     $("round-label").textContent =
       `Round ${state.round} · ${this.map.districts?.find(d=>Math.abs(p.x-d.x)<30&&Math.abs(p.z-d.z)<30)?.label || "Confluence"} · ${(this.map.stage??3)+1}/4 open`;
-    $("health-value").textContent = Math.ceil(p.health);
-    $("energy-value").textContent = Math.floor(p.energy);
-    $("health-bar").style.width = `${p.health}%`;
-    $("energy-bar").style.width = `${p.energy}%`;
-    document.querySelector(".vitals").classList.toggle("low", p.health < 30);
     for (const button of document.querySelectorAll("[data-weapon]"))
       button.classList.toggle(
         "depleted",

@@ -12,9 +12,9 @@ const {createGameServer}=require('../../server/server');
   const pages=[];for(let i=0;i<2;i++){const c=await browser.newContext({viewport:{width:1440,height:900}});const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(url);await p.waitForFunction(()=>window.__qd);pages.push(p);}
   const [a,b]=pages;
   assert.equal(await a.locator('[data-map-id]').count(),1);
-  await a.uncheck('#fill-bots');await a.click('#create-room');await a.waitForFunction(()=>window.__qd.getSnapshot().mode==='online');
+  await a.evaluate(()=>{document.getElementById('lobby-friends').open=true;});await a.uncheck('#fill-bots');await a.click('#create-room');await a.waitForFunction(()=>window.__qd.getSnapshot().mode==='online');
   const room=(await a.evaluate(()=>window.__qd.getSnapshot())).room;
-  await b.fill('#room-code',room);await b.click('#join-room');await b.waitForFunction(()=>window.__qd.getSnapshot().mode==='online');
+  await b.evaluate(()=>{document.getElementById('lobby-friends').open=true;});await b.fill('#room-code',room);await b.click('#join-room');await b.waitForFunction(()=>window.__qd.getSnapshot().mode==='online');
   const sim=game.rooms.get(room).sim;
   const pilot=[...sim.players.values()][0];pilot.x=-52;pilot.z=-52;pilot.angle=0;
   await a.waitForTimeout(300);const before=pilot.z;await a.keyboard.down('w');await a.waitForTimeout(400);await a.keyboard.up('w');assert.ok(Math.abs(pilot.z-before)>2,'keyboard movement');

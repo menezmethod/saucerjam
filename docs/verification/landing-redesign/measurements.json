@@ -1,0 +1,1043 @@
+{
+  "generatedAt": "2026-09-19T02:29:19.373Z",
+  "base": "http://127.0.0.1:8080",
+  "authBase": "http://127.0.0.1:8081",
+  "viewports": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "documentScrollWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "horizontalOverflow": false,
+      "panel": {
+        "x": 40,
+        "y": 40,
+        "width": 420,
+        "height": 555,
+        "bottom": 595,
+        "right": 460
+      },
+      "panelWidth": 420,
+      "quickPlay": {
+        "x": 40,
+        "y": 326,
+        "width": 237,
+        "height": 50,
+        "bottom": 376,
+        "right": 277
+      },
+      "quickPlayInViewport": true,
+      "practice": {
+        "x": 285,
+        "y": 326,
+        "width": 175,
+        "height": 50,
+        "bottom": 376,
+        "right": 460
+      },
+      "picker": {
+        "hidden": true,
+        "display": "none",
+        "height": 0,
+        "cards": 1
+      },
+      "arena": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 900,
+        "bottom": 900,
+        "right": 1440
+      },
+      "landingControls": [
+        {
+          "selector": "#quick-play",
+          "text": "Play online ↗",
+          "height": 50,
+          "visible": true
+        },
+        {
+          "selector": "#practice",
+          "text": "Practice with bots",
+          "height": 50,
+          "visible": true
+        },
+        {
+          "selector": "#pilot-name",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-friends > summary",
+          "text": "Play with friends",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-account > summary",
+          "text": "Sign in / save your pilot",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-help",
+          "text": "How to fly",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".qd-records-link",
+          "text": "Pilot records ↗",
+          "height": 44,
+          "visible": true
+        }
+      ],
+      "disclosureControls": [
+        {
+          "selector": "#create-room",
+          "text": "Create room",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#room-code",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#join-room",
+          "text": "Join",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".lobby-disclosure .check",
+          "text": "Private rooms: fill empty se",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#fill-bots",
+          "text": "",
+          "height": 13,
+          "visible": true
+        },
+        {
+          "selector": "#email-toggle",
+          "text": "or email+",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-google",
+          "text": "Continue with Google",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-apple",
+          "text": "Continue with Apple",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-email",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-password",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-in",
+          "text": "Sign in",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-up",
+          "text": "Register",
+          "height": 0,
+          "visible": false
+        }
+      ]
+    },
+    "short": {
+      "viewport": {
+        "width": 1024,
+        "height": 600
+      },
+      "innerWidth": 1024,
+      "innerHeight": 600,
+      "documentScrollWidth": 1024,
+      "bodyScrollWidth": 1024,
+      "horizontalOverflow": false,
+      "panel": {
+        "x": 31,
+        "y": 31,
+        "width": 420,
+        "height": 545,
+        "bottom": 576,
+        "right": 451
+      },
+      "panelWidth": 420,
+      "quickPlay": {
+        "x": 31,
+        "y": 307,
+        "width": 237,
+        "height": 50,
+        "bottom": 357,
+        "right": 267
+      },
+      "quickPlayInViewport": true,
+      "practice": {
+        "x": 275,
+        "y": 307,
+        "width": 175,
+        "height": 50,
+        "bottom": 357,
+        "right": 451
+      },
+      "picker": {
+        "hidden": true,
+        "display": "none",
+        "height": 0,
+        "cards": 1
+      },
+      "arena": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 600,
+        "bottom": 600,
+        "right": 1024
+      },
+      "landingControls": [
+        {
+          "selector": "#quick-play",
+          "text": "Play online ↗",
+          "height": 50,
+          "visible": true
+        },
+        {
+          "selector": "#practice",
+          "text": "Practice with bots",
+          "height": 50,
+          "visible": true
+        },
+        {
+          "selector": "#pilot-name",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-friends > summary",
+          "text": "Play with friends",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-account > summary",
+          "text": "Sign in / save your pilot",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-help",
+          "text": "How to fly",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".qd-records-link",
+          "text": "Pilot records ↗",
+          "height": 44,
+          "visible": true
+        }
+      ],
+      "disclosureControls": [
+        {
+          "selector": "#create-room",
+          "text": "Create room",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#room-code",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#join-room",
+          "text": "Join",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".lobby-disclosure .check",
+          "text": "Private rooms: fill empty se",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#fill-bots",
+          "text": "",
+          "height": 13,
+          "visible": true
+        },
+        {
+          "selector": "#email-toggle",
+          "text": "or email+",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-google",
+          "text": "Continue with Google",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-apple",
+          "text": "Continue with Apple",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-email",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-password",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-in",
+          "text": "Sign in",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-up",
+          "text": "Register",
+          "height": 0,
+          "visible": false
+        }
+      ]
+    },
+    "mobile": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "horizontalOverflow": false,
+      "panel": {
+        "x": 22,
+        "y": 22,
+        "width": 346,
+        "height": 533,
+        "bottom": 555,
+        "right": 368
+      },
+      "panelWidth": 346,
+      "quickPlay": {
+        "x": 22,
+        "y": 289,
+        "width": 169,
+        "height": 48,
+        "bottom": 337,
+        "right": 191
+      },
+      "quickPlayInViewport": true,
+      "practice": {
+        "x": 199,
+        "y": 289,
+        "width": 169,
+        "height": 48,
+        "bottom": 337,
+        "right": 368
+      },
+      "picker": {
+        "hidden": true,
+        "display": "none",
+        "height": 0,
+        "cards": 1
+      },
+      "arena": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844,
+        "bottom": 844,
+        "right": 390
+      },
+      "landingControls": [
+        {
+          "selector": "#quick-play",
+          "text": "Play online ↗",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#practice",
+          "text": "Practice with bots",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#pilot-name",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-friends > summary",
+          "text": "Play with friends",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-account > summary",
+          "text": "Sign in / save your pilot",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-help",
+          "text": "How to fly",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".qd-records-link",
+          "text": "Pilot records ↗",
+          "height": 44,
+          "visible": true
+        }
+      ],
+      "disclosureControls": [
+        {
+          "selector": "#create-room",
+          "text": "Create room",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#room-code",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#join-room",
+          "text": "Join",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".lobby-disclosure .check",
+          "text": "Private rooms: fill empty se",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#fill-bots",
+          "text": "",
+          "height": 13,
+          "visible": true
+        },
+        {
+          "selector": "#email-toggle",
+          "text": "or email+",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-google",
+          "text": "Continue with Google",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-apple",
+          "text": "Continue with Apple",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-email",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-password",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-in",
+          "text": "Sign in",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-up",
+          "text": "Register",
+          "height": 0,
+          "visible": false
+        }
+      ]
+    },
+    "narrow": {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "innerWidth": 320,
+      "innerHeight": 568,
+      "documentScrollWidth": 320,
+      "bodyScrollWidth": 320,
+      "horizontalOverflow": false,
+      "panel": {
+        "x": 22,
+        "y": 22,
+        "width": 276,
+        "height": 533,
+        "bottom": 555,
+        "right": 298
+      },
+      "panelWidth": 276,
+      "quickPlay": {
+        "x": 22,
+        "y": 289,
+        "width": 134,
+        "height": 48,
+        "bottom": 337,
+        "right": 156
+      },
+      "quickPlayInViewport": true,
+      "practice": {
+        "x": 164,
+        "y": 289,
+        "width": 134,
+        "height": 48,
+        "bottom": 337,
+        "right": 298
+      },
+      "picker": {
+        "hidden": true,
+        "display": "none",
+        "height": 0,
+        "cards": 1
+      },
+      "arena": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 568,
+        "bottom": 568,
+        "right": 320
+      },
+      "landingControls": [
+        {
+          "selector": "#quick-play",
+          "text": "Play online ↗",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#practice",
+          "text": "Practice with bots",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#pilot-name",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-friends > summary",
+          "text": "Play with friends",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-account > summary",
+          "text": "Sign in / save your pilot",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-help",
+          "text": "How to fly",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".qd-records-link",
+          "text": "Pilot records ↗",
+          "height": 44,
+          "visible": true
+        }
+      ],
+      "disclosureControls": [
+        {
+          "selector": "#create-room",
+          "text": "Create room",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#room-code",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#join-room",
+          "text": "Join",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".lobby-disclosure .check",
+          "text": "Private rooms: fill empty se",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#fill-bots",
+          "text": "",
+          "height": 13,
+          "visible": true
+        },
+        {
+          "selector": "#email-toggle",
+          "text": "or email+",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-google",
+          "text": "Continue with Google",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-apple",
+          "text": "Continue with Apple",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-email",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-password",
+          "text": "",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-in",
+          "text": "Sign in",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-sign-up",
+          "text": "Register",
+          "height": 0,
+          "visible": false
+        }
+      ]
+    },
+    "mobileDisclosuresOpen": {
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "documentScrollWidth": 390,
+      "bodyScrollWidth": 390,
+      "horizontalOverflow": false,
+      "panel": {
+        "x": 22,
+        "y": 22,
+        "width": 346,
+        "height": 1006,
+        "bottom": 1028,
+        "right": 368
+      },
+      "panelWidth": 346,
+      "quickPlay": {
+        "x": 22,
+        "y": 289,
+        "width": 169,
+        "height": 48,
+        "bottom": 337,
+        "right": 191
+      },
+      "quickPlayInViewport": true,
+      "practice": {
+        "x": 199,
+        "y": 289,
+        "width": 169,
+        "height": 48,
+        "bottom": 337,
+        "right": 368
+      },
+      "picker": {
+        "hidden": true,
+        "display": "none",
+        "height": 0,
+        "cards": 1
+      },
+      "arena": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844,
+        "bottom": 844,
+        "right": 390
+      },
+      "landingControls": [
+        {
+          "selector": "#quick-play",
+          "text": "Play online ↗",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#practice",
+          "text": "Practice with bots",
+          "height": 48,
+          "visible": true
+        },
+        {
+          "selector": "#pilot-name",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-friends > summary",
+          "text": "Play with friends",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-account > summary",
+          "text": "Sign in / save your pilot",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#lobby-help",
+          "text": "How to fly",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".qd-records-link",
+          "text": "Pilot records ↗",
+          "height": 44,
+          "visible": true
+        }
+      ],
+      "disclosureControls": [
+        {
+          "selector": "#create-room",
+          "text": "Create room",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#room-code",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#join-room",
+          "text": "Join",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": ".lobby-disclosure .check",
+          "text": "Private rooms: fill empty se",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#fill-bots",
+          "text": "",
+          "height": 13,
+          "visible": true
+        },
+        {
+          "selector": "#email-toggle",
+          "text": "or email+",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-google",
+          "text": "Continue with Google",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-apple",
+          "text": "Continue with Apple",
+          "height": 0,
+          "visible": false
+        },
+        {
+          "selector": "#auth-email",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-password",
+          "text": "",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-sign-in",
+          "text": "Sign in",
+          "height": 44,
+          "visible": true
+        },
+        {
+          "selector": "#auth-sign-up",
+          "text": "Register",
+          "height": 44,
+          "visible": true
+        }
+      ]
+    },
+    "mobileWithDisclosuresOpenQuickPlay": {
+      "x": 22,
+      "y": 289,
+      "width": 169,
+      "height": 48,
+      "bottom": 337,
+      "right": 191,
+      "inViewport": true
+    }
+  },
+  "checks": {
+    "initialFocus": "BODY.qd-interface",
+    "disclosures": {
+      "lobby-friends": {
+        "tag": "DETAILS",
+        "openedUntoTrue": true,
+        "bodyVisible": true,
+        "closedAgain": true,
+        "semantics": true
+      },
+      "lobby-account": {
+        "tag": "DETAILS",
+        "openedUntoTrue": true,
+        "bodyVisible": true,
+        "closedAgain": true,
+        "semantics": true
+      }
+    },
+    "emailToggleOpen": {
+      "formHidden": false,
+      "expanded": "true",
+      "focused": "auth-email"
+    },
+    "emailToggleClosed": {
+      "formHidden": true,
+      "expanded": "false"
+    },
+    "nativeValidationValid": [
+      {
+        "id": "auth-email",
+        "valid": false
+      },
+      {
+        "id": "auth-password",
+        "valid": true
+      }
+    ],
+    "config8080": {
+      "authEnabled": false,
+      "authProviders": [
+        "google"
+      ],
+      "supabaseUrl": "",
+      "supabasePublishableKey": ""
+    },
+    "providersUnconfigured": [
+      {
+        "id": "auth-google",
+        "hidden": false,
+        "disabled": true,
+        "rendered": true
+      },
+      {
+        "id": "auth-apple",
+        "hidden": true,
+        "disabled": true,
+        "rendered": false
+      }
+    ],
+    "providersMatchConfig": true,
+    "tabOrder": [
+      "input#pilot-name",
+      "button#quick-play",
+      "button#practice",
+      "summary#",
+      "summary#",
+      "button#lobby-help",
+      "button#qd-records-link",
+      "body#qd-interface",
+      "input#pilot-name",
+      "button#quick-play"
+    ],
+    "quickPlayKeyboardReachable": true,
+    "focusVisible": {
+      "element": "pilot-name",
+      "matchesFocusVisible": true,
+      "outline": "solid 2px"
+    },
+    "records": {
+      "open": true,
+      "tabs": [
+        "Overall",
+        "Confluence"
+      ],
+      "status": "All arenas · Completed online rounds · Ordered by score",
+      "career": "Your browser pilot",
+      "careerBody": "Career totals are not available for this browser yet.",
+      "rows": 1,
+      "hadError": false
+    },
+    "createRoom": {
+      "mode": "online",
+      "room": "DCD064",
+      "connected": true
+    },
+    "roomInvite": {
+      "friendsOpen": true,
+      "roomCodeValue": "DCD064",
+      "status": "Room invite ready. Enter your callsign and choose Join.",
+      "quickPlayInViewport": true
+    },
+    "joinRoom": {
+      "mode": "online",
+      "room": "DCD064",
+      "connected": true
+    },
+    "reportFlow": {
+      "reportVisible": true,
+      "status": "Sign in with a verified account before sending feedback."
+    },
+    "returnToLobby": {
+      "mode": "lobby",
+      "lobbyVisible": true,
+      "helpVisible": false
+    },
+    "helpPanel": {
+      "open": true,
+      "headings": [
+        "Flight",
+        "Loadout"
+      ]
+    },
+    "practice": {
+      "mode": "practice",
+      "mapId": "confluence"
+    },
+    "onlineLaunch": {
+      "mode": "online",
+      "connected": true
+    },
+    "reducedMotion": {
+      "markerTransitionDuration": "0s",
+      "cardTransition": "0s"
+    },
+    "config8081": {
+      "authEnabled": true,
+      "authProviders": [
+        "google"
+      ],
+      "supabaseUrl": "https://example.invalid",
+      "supabasePublishableKey": "dummy-publishable-key"
+    },
+    "providersConfigured": [
+      {
+        "id": "auth-google",
+        "hidden": false,
+        "disabled": false,
+        "rendered": true
+      },
+      {
+        "id": "auth-apple",
+        "hidden": true,
+        "disabled": true,
+        "rendered": false
+      }
+    ],
+    "errorWhileCollapsed": {
+      "collapsedAtError": true
+    },
+    "authErrorWhileCollapsed": {
+      "open": true,
+      "status": "Invalid login credentials",
+      "statusHeight": 15,
+      "statusInViewport": true
+    },
+    "setMapsThreshold": {
+      "oneMap": {
+        "hidden": true,
+        "display": "none",
+        "cards": 1
+      },
+      "twoMaps": {
+        "hidden": false,
+        "display": "block",
+        "cards": 2
+      },
+      "backToOne": {
+        "hidden": true,
+        "cards": 1
+      },
+      "pickerRemovedAfterDispose": true
+    }
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": []
+}

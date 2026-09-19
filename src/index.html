@@ -4,25 +4,9 @@
     <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#080f20" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="SaucerJam" />
-    <link rel="manifest" href="manifest.webmanifest" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="SaucerJam" />
-    <meta property="og:title" content="SaucerJam — Free Browser Arena Combat" />
-    <meta property="og:description" content="Drop into neon saucer combat. Practice against bots or battle friends online." />
-    <meta property="og:url" content="https://qd.menezmethod.com/" />
-    <meta property="og:image" content="https://qd.menezmethod.com/assets/social/saucerjam-share.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SaucerJam — Free Browser Arena Combat" />
-    <meta name="twitter:description" content="Drop into neon saucer combat. Practice against bots or battle friends online." />
-    <meta name="twitter:image" content="https://qd.menezmethod.com/assets/social/saucerjam-share.png" />
     <meta
       name="description"
       content="SaucerJam: neon spaceship arena combat. Practice against bots or battle friends online."
@@ -40,34 +24,10 @@
     <section id="lobby" class="overlay">
       <div class="lobby-panel">
         <div class="wordmark">SJ<span>Orbital combat</span></div>
-        <h1>Saucer<br />Jam<span class="title-dot">.</span></h1>
+        <h1>Fast browser arena combat<span class="title-dot">.</span></h1>
         <p class="intro">
-          Keep moving. Read the angles.<br />Make every shot count.
+          Fly, dodge and out-gun everyone in five-minute arena rounds.
         </p>
-        <section id="account" class="account-panel" aria-labelledby="account-heading">
-          <div class="account-kicker"><span>Optional account</span><strong id="account-status">Guest pilot</strong></div>
-          <h2 id="account-heading">Save your flight</h2>
-          <p id="account-copy">Sign in to carry your callsign and records between devices.</p>
-          <div class="account-providers">
-            <button id="auth-google" type="button">Continue with Google</button>
-            <button id="auth-apple" type="button">Continue with Apple</button>
-          </div>
-          <button id="email-toggle" class="account-divider" type="button" aria-expanded="false" aria-controls="email-auth">
-            <span>or email</span><span class="account-divider-mark" aria-hidden="true">+</span>
-          </button>
-          <form id="email-auth" hidden>
-            <div class="account-fields">
-              <input id="auth-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required />
-              <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" minlength="8" required />
-            </div>
-            <div class="account-actions">
-              <button id="auth-sign-in" type="submit">Sign in</button>
-              <button id="auth-sign-up" type="submit" class="primary">Register</button>
-            </div>
-          </form>
-          <div class="account-actions account-session-actions"><button id="auth-sign-out" type="button" hidden>Sign out</button></div>
-          <p id="auth-status" role="status" aria-live="polite"></p>
-        </section>
         <div class="lobby-form">
           <label for="pilot-name">Your callsign</label
           ><input
@@ -81,27 +41,60 @@
               Play online <span>↗</span></button
             ><button id="practice">Practice with bots</button>
           </div>
-          <div class="room-divider">Fly with friends</div>
-          <div class="room-actions">
-            <button id="create-room">Create room</button
-            ><input
-              id="room-code"
-              maxlength="20"
-              placeholder="Room code"
-              aria-label="Room code"
-            /><button id="join-room">Join</button>
-          </div>
-          <label class="check"
-            ><input id="fill-bots" type="checkbox" checked /> Fill empty seats
-            in private rooms with bots</label
-          >
+          <p class="lobby-reassurance">No download. No account. Fly in one click.</p>
           <p id="lobby-status" role="status" aria-live="polite">
             Free-for-all · 20 eliminations · 5 minutes
           </p>
         </div>
+        <details id="lobby-friends" class="lobby-disclosure">
+          <summary>Play with friends</summary>
+          <div class="lobby-disclosure-body">
+            <div class="room-actions">
+              <button id="create-room">Create room</button
+              ><input
+                id="room-code"
+                maxlength="20"
+                placeholder="Room code"
+                aria-label="Room code"
+              /><button id="join-room">Join</button>
+            </div>
+            <label class="check"
+            ><input id="fill-bots" type="checkbox" checked /> Private rooms:
+              fill empty seats with bots</label
+            >
+          </div>
+        </details>
+        <details id="lobby-account" class="lobby-disclosure">
+          <summary>Sign in / save your pilot</summary>
+          <div class="lobby-disclosure-body">
+            <section id="account" class="account-panel" aria-labelledby="account-heading">
+              <div class="account-kicker"><span>Optional account</span><strong id="account-status">Guest pilot</strong></div>
+              <h2 id="account-heading">Save your flight</h2>
+              <p id="account-copy">Sign in to carry your callsign and records between devices.</p>
+              <div class="account-providers">
+                <button id="auth-google" type="button">Continue with Google</button>
+                <button id="auth-apple" type="button">Continue with Apple</button>
+              </div>
+              <button id="email-toggle" class="account-divider" type="button" aria-expanded="false" aria-controls="email-auth">
+                <span>or email</span><span class="account-divider-mark" aria-hidden="true">+</span>
+              </button>
+              <form id="email-auth" hidden>
+                <div class="account-fields">
+                  <input id="auth-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required />
+                  <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" minlength="8" required />
+                </div>
+                <div class="account-actions">
+                  <button id="auth-sign-in" type="submit">Sign in</button>
+                  <button id="auth-sign-up" type="submit" class="primary">Register</button>
+                </div>
+              </form>
+              <div class="account-actions account-session-actions"><button id="auth-sign-out" type="button" hidden>Sign out</button></div>
+              <p id="auth-status" role="status" aria-live="polite"></p>
+            </section>
+          </div>
+        </details>
         <div class="lobby-footer">
-          <span>Plasma Beam / Nova Charge / Ricochet Disc</span
-          ><button id="lobby-help" class="text-button">How to fly</button>
+          <button id="lobby-help" class="text-button">How to fly</button>
         </div>
       </div>
       <div class="arena-caption">
@@ -120,7 +113,7 @@
         </div>
         <div class="session-tools">
           <span id="connection">Offline practice</span
-          ><button id="menu-button" class="small">Menu <kbd class="desktop-key">Esc</kbd></button>
+          ><button id="menu-button" class="small">Menu <kbd>Esc</kbd></button>
         </div>
       </header>
       <div id="kill-feed" aria-live="polite"></div>
@@ -161,15 +154,15 @@
       </div>
       <footer class="combat-bar">
         <div class="weapons">
-          <button data-weapon="LASER" class="weapon selected" aria-label="Plasma Beam — 25 energy" title="Fast plasma bursts · hold fire">
+          <button data-weapon="LASER" class="weapon selected">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h13M12 5l7 7-7 7"/></svg
-            ><kbd>1</kbd><span>Plasma Beam<small>25 energy</small></span></button
-          ><button data-weapon="GRENADE" class="weapon" aria-label="Nova Charge — 100 energy" title="Arc to your cursor · area burst">
+            ><kbd>1</kbd><span>Laser<small>25 energy</small></span></button
+          ><button data-weapon="GRENADE" class="weapon">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="7"/><path d="M12 7V4m0 0l2.5-2M9.5 2L12 4"/></svg
-            ><kbd>2</kbd><span>Nova Charge<small>100 energy</small></span></button
-          ><button data-weapon="BOUNCE" class="weapon" aria-label="Ricochet Disc — 50 energy" title="Banks off walls · three rebounds">
+            ><kbd>2</kbd><span>Grenade<small>100 energy</small></span></button
+          ><button data-weapon="BOUNCE" class="weapon">
             <svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-10 4 7 3-5 6 8"/></svg
-            ><kbd>3</kbd><span>Ricochet Disc<small>50 energy</small></span>
+            ><kbd>3</kbd><span>Ricochet<small>50 energy</small></span>
           </button>
         </div>
         <div class="flight-tools">
@@ -181,31 +174,17 @@
         </div>
       </footer>
       <div class="flight-hint">
-        <span id="weapon-hint" role="status">Fast plasma bursts · hold fire</span><br />
         <span class="flight-hint-desktop"
           >WASD / arrows move <span>·</span> Mouse aim <span>·</span> Hold
           click or Space to fire</span
         ><span class="flight-hint-touch" hidden
-          >Left thumb moves <span>·</span> Right thumb aims &amp; fires</span
+          >Left thumb moves <span>·</span> Tap anywhere to fire</span
         >
       </div>
       <div id="touch-controls">
         <div id="touch-joystick" aria-hidden="true">
           <div class="stick-knob"></div>
         </div>
-      </div>
-    </section>
-    <section id="touch-onboarding" class="modal" hidden>
-      <div class="dialog touch-guide">
-        <span class="guide-kicker">QUICK BRIEFING</span>
-        <h2>Fly by feel.</h2>
-        <div class="guide-steps">
-          <p><b>1</b><span><strong>Left thumb</strong><br />Steer and drift.</span></p>
-          <p><b>2</b><span><strong>Right side</strong><br />Tap or hold to aim and fire.</span></p>
-          <p><b>3</b><span><strong>Weapon icons</strong><br />Tap to switch your shot.</span></p>
-        </div>
-        <p class="guide-tip">Keep moving. Your hull repairs after a few seconds without damage.</p>
-        <button id="dismiss-touch-onboarding" class="primary">Start flying</button>
       </div>
     </section>
     <section id="menu" class="modal" hidden>
@@ -215,7 +194,6 @@
         <button id="resume" class="primary">Resume flight</button
         ><button id="help-button">Controls & weapons</button
         ><button id="report-button">Report feedback</button
-        ><button id="fullscreen-button">Enter full screen</button
         ><button id="leave-game">Leave arena</button>
         <p id="menu-status" role="status"></p>
         <!-- .flight-tools (Arena/Scores/Sound) is moved in here on touch -->
@@ -237,18 +215,19 @@
           </div>
           <div>
             <h3>Loadout</h3>
-            <p><kbd>1</kbd> <b>Plasma Beam</b> — fast, precise bursts. 25 energy.</p>
+            <p><kbd>1</kbd> <b>Laser</b> — fast, precise bursts. 25 energy.</p>
             <p>
-              <kbd>2</kbd> <b>Nova Charge</b> — arcs to your cursor, up to 20m. 100 energy.
-              Cover blocks blast damage; nearby blasts can hurt you.
+              <kbd>2</kbd> <b>Grenade</b> — arcs to your cursor, up to 20m. 100
+              energy. Cover blocks blast damage; nearby blasts can hurt you.
             </p>
             <p>
-              <kbd>3</kbd> <b>Ricochet Disc</b> — banks off walls three times. 50 energy.
+              <kbd>3</kbd> <b>Ricochet</b> — banks off walls three times. 50
+              energy.
             </p>
             <p><kbd>X</kbd> Cycle weapons</p>
             <p>
-              Energy is a weapon capacitor — it fuels shots and recharges; it does not block damage.
-              Hull repairs after 5 seconds without damage. Spawn protection lasts 1.5 seconds or until you fire.
+              Energy recharges. Hull repairs after 5 seconds without damage.
+              Spawn protection lasts 1.5 seconds or until you fire.
             </p>
           </div>
         </div>

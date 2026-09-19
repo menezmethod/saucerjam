@@ -16,9 +16,9 @@ Open **http://localhost:8080**. `npm start` builds the client and starts the ser
 - **Practice with bots** starts immediately and runs locally in your browser. Once loaded, practice does not need a network connection. Menu pauses practice.
 - **Play online** joins a public arena. Bots fill vacant seats up to four pilots and leave as humans join.
 - **Create room** gives you a private room code. Turn off bot fill for human-only matches.
-- **Copy invite** copies a link for friends. They enter a callsign and press Join. Up to eight humans fit in a room.
+- **Copy invite** copies a link for friends. They enter a callsign and press Join. Rooms admit up to 32 pilots by default (`MAX_ROOM_PLAYERS`).
 - Rounds end after 20 eliminations or five minutes. The next round starts automatically after ten seconds.
-- A generated soundtrack and SFX play by default; toggle with **Sound on/off**. See [docs/AUDIO.md](docs/AUDIO.md) for the cue map and how to rebuild the assets.
+- A generated soundtrack and SFX play by default; toggle **Sound on/off** (effects) and **Music on/off** (beds and stings) independently. See [docs/AUDIO.md](docs/AUDIO.md) for the cue map and how to rebuild the assets.
 
 For another computer on your LAN, open the **LAN play** address printed by the server (for example `http://192.168.0.9:8080`). Create/copy the invite from that address so friends get a reachable link; `localhost` always means their own computer. Allow incoming connections to the chosen port if your firewall prompts.
 
@@ -47,7 +47,7 @@ See [release notes](CHANGELOG.md), [hosting](docs/HOSTING.md), [next milestones]
 | C | Controls and weapon guide |
 | Escape | Flight menu |
 
-Touch screens get a floating drag joystick (appears wherever you first touch the lower-left) for movement and a dedicated Fire button; aim independently by touching the arena, or fire follows the last movement direction without a target. Keyboard and mouse give the most precise control.
+Touch screens get a floating drag joystick in the lower-left for movement; tap anywhere else on the arena to aim and fire at that point (there is no separate Fire button). A one-time touch guide explains the two-thumb scheme on first play. Keyboard and mouse give the most precise control.
 
 ## Combat
 

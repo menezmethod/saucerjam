@@ -7,6 +7,11 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#080f20" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SaucerJam" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <meta
       name="description"
       content="SaucerJam: neon spaceship arena combat. Practice against bots or battle friends online."
@@ -98,7 +103,7 @@
         </div>
       </div>
       <div class="arena-caption">
-        <span class="live-dot"></span> Quantum arena <span>01</span>
+        <span class="live-dot"></span> Confluence arena <span>01</span>
       </div>
     </section>
     <section id="hud" hidden>
@@ -170,6 +175,9 @@
           ><button id="score-button" class="small">Scores <kbd>Tab</kbd></button
           ><button id="sound-button" class="small" aria-pressed="true">
             Sound on
+          </button
+          ><button id="music-button" class="small" aria-pressed="true">
+            Music on
           </button>
         </div>
       </footer>
@@ -186,6 +194,23 @@
           <div class="stick-knob"></div>
         </div>
       </div>
+      <section
+        id="touch-onboarding"
+        class="modal"
+        hidden
+        aria-label="Touch controls"
+      >
+        <div class="dialog touch-guide">
+          <span class="guide-kicker">Touch flight</span>
+          <h2>Two thumbs, one arena.</h2>
+          <div class="guide-steps">
+            <p><b>1</b><span><strong>Left thumb</strong> moves your saucer.</span></p>
+            <p><b>2</b><span><strong>Tap anywhere else</strong> to aim and fire.</span></p>
+            <p><b>3</b><span>Swap weapons <strong>top-right</strong>. Menu holds view, scores, chat and audio.</span></p>
+          </div>
+          <button id="dismiss-touch-onboarding" class="primary" type="button">Got it</button>
+        </div>
+      </section>
     </section>
     <section id="menu" class="modal" hidden>
       <div class="dialog">

@@ -52,7 +52,8 @@ class Game {
     this.idleTimer = null;
     this.ping = 0;
     this.connected = false;
-    this.soundOn = storage.get("qd-sound", "on") === "on";
+    this.sfxOn = storage.get("qd-sfx", storage.get("qd-sound", "on")) === "on";
+    this.musicOn = storage.get("qd-music", "on") === "on";
     this.music = null;
     this._audioState = { bed: null, dead: false, roundOver: false };
     this.auth = new SupabaseAuth(runtimeConfig);
@@ -179,9 +180,18 @@ class Game {
     $("close-scores").onclick = () => this.scores(true);
     $("view-button").onclick = () => this.cycleView();
     $("sound-button").onclick = () => {
-      this.soundOn = !this.soundOn;
+      this.sfxOn = !this.sfxOn;
       this.updateSound();
       this.unlockAudio();
+    };
+    $("music-button").onclick = () => {
+      this.musicOn = !this.musicOn;
+      this.updateSound();
+      this.unlockAudio();
+    };
+    $("dismiss-touch-onboarding").onclick = () => {
+      $("touch-onboarding").hidden = true;
+      storage.set("qd-touch-guide", "seen");
     };
     $("chat-toggle").onclick = () => this.toggleChat();
     $("chat-close").onclick = () => this.toggleChat(false);
@@ -492,6 +502,24 @@ class Game {
     new ResizeObserver(syncTopBarHeight).observe($("hud").querySelector(".top-bar"));
     window.addEventListener("orientationchange", () => setTimeout(syncTopBarHeight, 200));
     syncTopBarHeight();
+    // The fixed Comms toggle sits above the flight-tools rail, whose height
+    // changes with the button set and breakpoint. Measure the rail while it
+    // lives in the combat bar; once touch relocates it into the Flight menu,
+    // drop the override so the CSS fallback (the desktop rail height) applies
+    // and mobile keeps its own bottom offset.
+    const flightTools = document.querySelector(".flight-tools");
+    const syncFlightToolsHeight = () => {
+      if (!flightTools.closest(".combat-bar")) {
+        document.documentElement.style.removeProperty("--flight-tools-height");
+        return;
+      }
+      document.documentElement.style.setProperty(
+        "--flight-tools-height",
+        `${flightTools.getBoundingClientRect().height}px`,
+      );
+    };
+    new ResizeObserver(syncFlightToolsHeight).observe(flightTools);
+    syncFlightToolsHeight();
   }
   // Aim and start firing toward a pointer's position -- shared by mouse
   // clicks and any touch assigned the "fire" role (see the arena pointer
@@ -709,6 +737,11 @@ class Game {
     $("lobby").hidden = true;
     $("hud").hidden = false;
     $("menu").hidden = $("help").hidden = $("scoreboard").hidden = true;
+    // First-run touch players never saw the desktop key legend; teach the
+    // two-thumb scheme once, before they have to guess it mid-firefight.
+    $("touch-onboarding").hidden =
+      !document.body.classList.contains("touch-active") ||
+      storage.get("qd-touch-guide") === "seen";
     $("kill-feed").replaceChildren();
     $("chat-log").replaceChildren();
     this.toggleChat(false);
@@ -964,7 +997,7 @@ class Game {
   event(e) {
     if(e.type==='mapChanged'&&e.announcement){
       this.notice(e.announcement,6);
-      this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4});
+      this.music?.oneShot('sting-district-unlock',{gain:0.9,duckDb:-6,duckSeconds:4,bus:'music'});
     }
     this.renderer.event(e);
     if (e.type === "fire")
@@ -996,7 +1029,7 @@ class Game {
     if (e.type === "explosion") this.playSound("EXPLOSION", 0.5);
   }
   unlockAudio() {
-    if (!this.soundOn) return;
+    if (!this.sfxOn && !this.musicOn) return;
     try {
       if (!this.audio)
         this.audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -1031,13 +1064,17 @@ class Game {
     return d && BED_FOR_DISTRICT[d.id];
   }
   updateSound() {
-    $("sound-button").textContent = this.soundOn ? "Sound on" : "Sound off";
-    $("sound-button").setAttribute("aria-pressed", String(this.soundOn));
-    storage.set("qd-sound", this.soundOn ? "on" : "off");
-    this.music?.setMuted(!this.soundOn);
+    $("sound-button").textContent = this.sfxOn ? "Sound on" : "Sound off";
+    $("sound-button").setAttribute("aria-pressed", String(this.sfxOn));
+    $("music-button").textContent = this.musicOn ? "Music on" : "Music off";
+    $("music-button").setAttribute("aria-pressed", String(this.musicOn));
+    storage.set("qd-sfx", this.sfxOn ? "on" : "off");
+    storage.set("qd-music", this.musicOn ? "on" : "off");
+    this.music?.setSfxMuted(!this.sfxOn);
+    this.music?.setMusicMuted(!this.musicOn);
   }
   playSound(weapon, volume) {
-    if (!this.soundOn) return;
+    if (!this.sfxOn) return;
     const now = this.audio?.currentTime ?? 0;
     if (this.lastSound && now - this.lastSound < 0.04) return;
     this.lastSound = now;
@@ -1190,7 +1227,7 @@ class Game {
     }
     if (over && !this._audioState.roundOver) {
       const mine = state.winner && state.winner === $("pilot-name").value;
-      this.music.oneShot(mine ? "sting-victory" : "sting-recap", { gain: 1, duckDb: -12, duckSeconds: 5 });
+      this.music.oneShot(mine ? "sting-victory" : "sting-recap", { gain: 1, duckDb: -12, duckSeconds: 5, bus: "music" });
     } else if (!over && this._audioState.roundOver) {
       this.music.unduck(0.6);
       this._audioState.bed = null; // force a fresh district resolve next tick

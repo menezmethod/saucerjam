@@ -50,3 +50,6 @@ logs
 
 # Suno raw WAV masters (source for scripts/audio/build-soundtrack.sh)
 /_raw/
+
+# UX audit screenshots (regenerate with scripts/verification/ux-audit.cjs)
+/docs/ux-audit/shots/

@@ -992,6 +992,17 @@ th {
   .session-tools > #connection {
     display: none;
   }
+  /* Fingers are less precise than a mouse: keep every HUD control at least
+     44px tall (Apple HIG) and clear of notches/Dynamic Island. */
+  .small,
+  .weapons > .weapon {
+    min-height: 44px;
+  }
+  .top-bar {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
 }
 @media (max-height: 730px) and (min-width: 701px) {
   .lobby-panel {

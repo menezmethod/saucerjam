@@ -1,5 +1,6 @@
 // One music + SFX layer over a shared AudioContext.
-// Owns looping-bed crossfades, one-shot stings/SFX, a duck bus, and a global mute.
+// Owns looping-bed crossfades, one-shot stings/SFX, a duck bus, and independent
+// music / effects mutes.
 // Cues and their game-state mapping are documented in docs/AUDIO.md (§2, §7).
 
 const MANIFEST = {
@@ -37,13 +38,17 @@ export class MusicBus {
   constructor(ctx) {
     this.ctx = ctx;
 
-    this.master = ctx.createGain();          // global mute (sound on/off)
+    this.master = ctx.createGain();          // global mute (everything off)
     this.master.gain.value = 1;
     this.master.connect(ctx.destination);
 
+    this.musicGain = ctx.createGain();       // music on/off (beds + stings)
+    this.musicGain.gain.value = 1;
+    this.musicGain.connect(this.master);
+
     this.bedBus = ctx.createGain();          // ducked on death / under stings
     this.bedBus.gain.value = BED_GAIN;
-    this.bedBus.connect(this.master);
+    this.bedBus.connect(this.musicGain);
 
     this.sfxBus = ctx.createGain();          // never ducked
     this.sfxBus.gain.value = 1;
@@ -122,14 +127,15 @@ export class MusicBus {
   }
 
   // ---- one-shots (stings + weapon SFX) --------------------------------
-  async oneShot(name, { gain = 1, duckDb = 0, duckSeconds = 0 } = {}) {
+  // `bus: "music"` routes stings through the music mute instead of SFX.
+  async oneShot(name, { gain = 1, duckDb = 0, duckSeconds = 0, bus = "sfx" } = {}) {
     const buf = await this._buffer(name);
     if (!buf) return;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
     g.gain.value = gain;
-    src.connect(g).connect(this.sfxBus);
+    src.connect(g).connect(bus === "music" ? this.musicGain : this.sfxBus);
     src.start();
     src.onended = () => { try { src.disconnect(); g.disconnect(); } catch {} };
     if (duckDb) this.duck(duckDb, duckSeconds || buf.duration);
@@ -158,14 +164,21 @@ export class MusicBus {
     } catch {}
   }
 
-  // ---- global mute (Sound on / off) ----------------------------------
-  setMuted(muted) {
+  // ---- mutes ----------------------------------------------------------
+  _ramp(node, value) {
     const t = this.ctx.currentTime;
     try {
-      this.master.gain.cancelScheduledValues(t);
-      this.master.gain.setTargetAtTime(muted ? 0 : 1, t, 0.05);
+      node.gain.cancelScheduledValues(t);
+      node.gain.setTargetAtTime(value, t, 0.05);
     } catch {}
   }
+
+  // Global mute (everything off).
+  setMuted(muted) { this._ramp(this.master, muted ? 0 : 1); }
+
+  // Independent music-only and effects-only mutes.
+  setMusicMuted(muted) { this._ramp(this.musicGain, muted ? 0 : 1); }
+  setSfxMuted(muted) { this._ramp(this.sfxBus, muted ? 0 : 1); }
 }
 
 // 64-point equal-power fade shape for setValueCurveAtTime

@@ -1,0 +1,3336 @@
+{
+  "generatedAt": "2026-09-19T05:10:19.776Z",
+  "devices": [
+    {
+      "name": "phone-se-375x667",
+      "viewport": {
+        "w": 375,
+        "h": 667,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 375,
+        "innerHeight": 667,
+        "dpr": 2,
+        "scrollWidth": 375,
+        "scrollHeight": 667,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 375,
+        "innerHeight": 667,
+        "dpr": 2,
+        "scrollWidth": 375,
+        "scrollHeight": 667,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 375,
+            "bottom": 68,
+            "w": 375,
+            "h": 68
+          },
+          "comms": {
+            "left": 299,
+            "top": 515,
+            "right": 363,
+            "bottom": 559,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 195,
+            "top": 76,
+            "right": 359,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-320x568",
+      "viewport": {
+        "w": 320,
+        "h": 568,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 320,
+        "innerHeight": 568,
+        "dpr": 2,
+        "scrollWidth": 320,
+        "scrollHeight": 568,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 320,
+        "innerHeight": 568,
+        "dpr": 2,
+        "scrollWidth": 320,
+        "scrollHeight": 568,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 320,
+            "bottom": 68,
+            "w": 320,
+            "h": 68
+          },
+          "comms": {
+            "left": 244,
+            "top": 416,
+            "right": 308,
+            "bottom": 460,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 140,
+            "top": 76,
+            "right": 304,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-12-390x844",
+      "viewport": {
+        "w": 390,
+        "h": 844,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "dpr": 3,
+        "scrollWidth": 390,
+        "scrollHeight": 844,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "dpr": 3,
+        "scrollWidth": 390,
+        "scrollHeight": 844,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 390,
+            "bottom": 68,
+            "w": 390,
+            "h": 68
+          },
+          "comms": {
+            "left": 314,
+            "top": 692,
+            "right": 378,
+            "bottom": 736,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 210,
+            "top": 76,
+            "right": 374,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-14pm-430x932",
+      "viewport": {
+        "w": 430,
+        "h": 932,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 430,
+        "innerHeight": 932,
+        "dpr": 3,
+        "scrollWidth": 430,
+        "scrollHeight": 932,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 430,
+        "innerHeight": 932,
+        "dpr": 3,
+        "scrollWidth": 430,
+        "scrollHeight": 932,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 430,
+            "bottom": 68,
+            "w": 430,
+            "h": 68
+          },
+          "comms": {
+            "left": 354,
+            "top": 780,
+            "right": 418,
+            "bottom": 824,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 250,
+            "top": 76,
+            "right": 414,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "pixel5-393x851",
+      "viewport": {
+        "w": 393,
+        "h": 851,
+        "dpr": 2.75,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 393,
+        "innerHeight": 851,
+        "dpr": 2.75,
+        "scrollWidth": 393,
+        "scrollHeight": 851,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 393,
+        "innerHeight": 851,
+        "dpr": 2.75,
+        "scrollWidth": 393,
+        "scrollHeight": 851,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 393,
+            "bottom": 68,
+            "w": 393,
+            "h": 68
+          },
+          "comms": {
+            "left": 317,
+            "top": 699,
+            "right": 381,
+            "bottom": 743,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 213,
+            "top": 76,
+            "right": 377,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "galaxy-s8-360x740",
+      "viewport": {
+        "w": 360,
+        "h": 740,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 360,
+        "innerHeight": 740,
+        "dpr": 3,
+        "scrollWidth": 360,
+        "scrollHeight": 740,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 360,
+        "innerHeight": 740,
+        "dpr": 3,
+        "scrollWidth": 360,
+        "scrollHeight": 740,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 360,
+            "bottom": 68,
+            "w": 360,
+            "h": 68
+          },
+          "comms": {
+            "left": 284,
+            "top": 588,
+            "right": 348,
+            "bottom": 632,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 180,
+            "top": 76,
+            "right": 344,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-12-land-844x390",
+      "viewport": {
+        "w": 844,
+        "h": 390,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 844,
+        "innerHeight": 390,
+        "dpr": 3,
+        "scrollWidth": 844,
+        "scrollHeight": 390,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 844,
+        "innerHeight": 390,
+        "dpr": 3,
+        "scrollWidth": 844,
+        "scrollHeight": 390,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 844,
+            "bottom": 72,
+            "w": 844,
+            "h": 72
+          },
+          "comms": {
+            "left": 756,
+            "top": 188,
+            "right": 820,
+            "bottom": 232,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 660,
+            "top": 80,
+            "right": 828,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-14pm-land-932x430",
+      "viewport": {
+        "w": 932,
+        "h": 430,
+        "dpr": 3,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 932,
+        "innerHeight": 430,
+        "dpr": 3,
+        "scrollWidth": 932,
+        "scrollHeight": 430,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 932,
+        "innerHeight": 430,
+        "dpr": 3,
+        "scrollWidth": 932,
+        "scrollHeight": 430,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 932,
+            "bottom": 72,
+            "w": 932,
+            "h": 72
+          },
+          "comms": {
+            "left": 844,
+            "top": 228,
+            "right": 908,
+            "bottom": 272,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 748,
+            "top": 80,
+            "right": 916,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "pixel5-land-851x393",
+      "viewport": {
+        "w": 851,
+        "h": 393,
+        "dpr": 2.75,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 851,
+        "innerHeight": 393,
+        "dpr": 2.75,
+        "scrollWidth": 851,
+        "scrollHeight": 393,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 851,
+        "innerHeight": 393,
+        "dpr": 2.75,
+        "scrollWidth": 851,
+        "scrollHeight": 393,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 851,
+            "bottom": 72,
+            "w": 851,
+            "h": 72
+          },
+          "comms": {
+            "left": 763,
+            "top": 191,
+            "right": 827,
+            "bottom": 235,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 667,
+            "top": 80,
+            "right": 835,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "phone-568x320",
+      "viewport": {
+        "w": 568,
+        "h": 320,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 568,
+        "innerHeight": 320,
+        "dpr": 2,
+        "scrollWidth": 568,
+        "scrollHeight": 320,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 568,
+        "innerHeight": 320,
+        "dpr": 2,
+        "scrollWidth": 568,
+        "scrollHeight": 320,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 568,
+            "bottom": 68,
+            "w": 568,
+            "h": 68
+          },
+          "comms": {
+            "left": 492,
+            "top": 168,
+            "right": 556,
+            "bottom": 212,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 388,
+            "top": 76,
+            "right": 552,
+            "bottom": 120,
+            "w": 164,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [
+          {
+            "id": "round-label",
+            "fs": 9,
+            "text": "Round 1 · FORGE · 4/4 "
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-mini-744x1133",
+      "viewport": {
+        "w": 744,
+        "h": 1133,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 744,
+        "innerHeight": 1133,
+        "dpr": 2,
+        "scrollWidth": 744,
+        "scrollHeight": 1133,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 744,
+        "innerHeight": 1133,
+        "dpr": 2,
+        "scrollWidth": 744,
+        "scrollHeight": 1133,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 744,
+            "bottom": 72,
+            "w": 744,
+            "h": 72
+          },
+          "comms": {
+            "left": 656,
+            "top": 931,
+            "right": 720,
+            "bottom": 975,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 560,
+            "top": 80,
+            "right": 728,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-10-810x1080",
+      "viewport": {
+        "w": 810,
+        "h": 1080,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 810,
+        "innerHeight": 1080,
+        "dpr": 2,
+        "scrollWidth": 810,
+        "scrollHeight": 1080,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 810,
+        "innerHeight": 1080,
+        "dpr": 2,
+        "scrollWidth": 810,
+        "scrollHeight": 1080,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 810,
+            "bottom": 72,
+            "w": 810,
+            "h": 72
+          },
+          "comms": {
+            "left": 722,
+            "top": 878,
+            "right": 786,
+            "bottom": 922,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 626,
+            "top": 80,
+            "right": 794,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-air-820x1180",
+      "viewport": {
+        "w": 820,
+        "h": 1180,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 820,
+        "innerHeight": 1180,
+        "dpr": 2,
+        "scrollWidth": 820,
+        "scrollHeight": 1180,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 820,
+        "innerHeight": 1180,
+        "dpr": 2,
+        "scrollWidth": 820,
+        "scrollHeight": 1180,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 820,
+            "bottom": 72,
+            "w": 820,
+            "h": 72
+          },
+          "comms": {
+            "left": 732,
+            "top": 978,
+            "right": 796,
+            "bottom": 1022,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 636,
+            "top": 80,
+            "right": 804,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-pro11-834x1194",
+      "viewport": {
+        "w": 834,
+        "h": 1194,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 834,
+        "innerHeight": 1194,
+        "dpr": 2,
+        "scrollWidth": 834,
+        "scrollHeight": 1194,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 834,
+        "innerHeight": 1194,
+        "dpr": 2,
+        "scrollWidth": 834,
+        "scrollHeight": 1194,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 834,
+            "bottom": 72,
+            "w": 834,
+            "h": 72
+          },
+          "comms": {
+            "left": 746,
+            "top": 992,
+            "right": 810,
+            "bottom": 1036,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 650,
+            "top": 80,
+            "right": 818,
+            "bottom": 124,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-land-1180x820",
+      "viewport": {
+        "w": 1180,
+        "h": 820,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 1180,
+        "innerHeight": 820,
+        "dpr": 2,
+        "scrollWidth": 1180,
+        "scrollHeight": 820,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1180,
+        "innerHeight": 820,
+        "dpr": 2,
+        "scrollWidth": 1180,
+        "scrollHeight": 820,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1180,
+            "bottom": 76,
+            "w": 1180,
+            "h": 76
+          },
+          "comms": {
+            "left": 1092,
+            "top": 618,
+            "right": 1156,
+            "bottom": 662,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 996,
+            "top": 84,
+            "right": 1164,
+            "bottom": 128,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ipad-land-1024x768",
+      "viewport": {
+        "w": 1024,
+        "h": 768,
+        "dpr": 2,
+        "mobile": true
+      },
+      "lobby": {
+        "innerWidth": 1024,
+        "innerHeight": 768,
+        "dpr": 2,
+        "scrollWidth": 1024,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1024,
+        "innerHeight": 768,
+        "dpr": 2,
+        "scrollWidth": 1024,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "touchActive": true,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1024,
+            "bottom": 76,
+            "w": 1024,
+            "h": 76
+          },
+          "comms": {
+            "left": 936,
+            "top": 566,
+            "right": 1000,
+            "bottom": 610,
+            "w": 64,
+            "h": 44
+          },
+          "weapons": {
+            "left": 840,
+            "top": 84,
+            "right": 1008,
+            "bottom": 128,
+            "w": 168,
+            "h": 44
+          }
+        },
+        "tapTargets": [],
+        "smallText": [],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "desktop-1280x720",
+      "viewport": {
+        "w": 1280,
+        "h": 720,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 1280,
+        "innerHeight": 720,
+        "dpr": 1,
+        "scrollWidth": 1280,
+        "scrollHeight": 720,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1280,
+        "innerHeight": 720,
+        "dpr": 1,
+        "scrollWidth": 1280,
+        "scrollHeight": 720,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1280,
+            "bottom": 74,
+            "w": 1280,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 1192,
+            "top": 493,
+            "right": 1256,
+            "bottom": 525,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 612,
+            "right": 420,
+            "bottom": 676,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 1160,
+            "top": 533,
+            "right": 1256,
+            "bottom": 676,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 463,
+            "top": 691,
+            "right": 817,
+            "bottom": 706,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "desktop-1366x768",
+      "viewport": {
+        "w": 1366,
+        "h": 768,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 1366,
+        "innerHeight": 768,
+        "dpr": 1,
+        "scrollWidth": 1366,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1366,
+        "innerHeight": 768,
+        "dpr": 1,
+        "scrollWidth": 1366,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1366,
+            "bottom": 74,
+            "w": 1366,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 1278,
+            "top": 541,
+            "right": 1342,
+            "bottom": 573,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 660,
+            "right": 420,
+            "bottom": 724,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 1246,
+            "top": 581,
+            "right": 1342,
+            "bottom": 724,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 506,
+            "top": 739,
+            "right": 860,
+            "bottom": 754,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "desktop-1440x900",
+      "viewport": {
+        "w": 1440,
+        "h": 900,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "dpr": 1,
+        "scrollWidth": 1440,
+        "scrollHeight": 900,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "dpr": 1,
+        "scrollWidth": 1440,
+        "scrollHeight": 900,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1440,
+            "bottom": 74,
+            "w": 1440,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 1352,
+            "top": 673,
+            "right": 1416,
+            "bottom": 705,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 792,
+            "right": 420,
+            "bottom": 856,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 1320,
+            "top": 713,
+            "right": 1416,
+            "bottom": 856,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 543,
+            "top": 871,
+            "right": 897,
+            "bottom": 886,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "desktop-1920x1080",
+      "viewport": {
+        "w": 1920,
+        "h": 1080,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "dpr": 1,
+        "scrollWidth": 1920,
+        "scrollHeight": 1080,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "dpr": 1,
+        "scrollWidth": 1920,
+        "scrollHeight": 1080,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 1920,
+            "bottom": 74,
+            "w": 1920,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 1832,
+            "top": 853,
+            "right": 1896,
+            "bottom": 885,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 972,
+            "right": 420,
+            "bottom": 1036,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 1800,
+            "top": 893,
+            "right": 1896,
+            "bottom": 1036,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 783,
+            "top": 1051,
+            "right": 1137,
+            "bottom": 1066,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "desktop-2560x1440",
+      "viewport": {
+        "w": 2560,
+        "h": 1440,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 2560,
+        "innerHeight": 1440,
+        "dpr": 1,
+        "scrollWidth": 2560,
+        "scrollHeight": 1440,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 2560,
+        "innerHeight": 1440,
+        "dpr": 1,
+        "scrollWidth": 2560,
+        "scrollHeight": 1440,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 2560,
+            "bottom": 74,
+            "w": 2560,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 2472,
+            "top": 1213,
+            "right": 2536,
+            "bottom": 1245,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 1332,
+            "right": 420,
+            "bottom": 1396,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 2440,
+            "top": 1253,
+            "right": 2536,
+            "bottom": 1396,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 1103,
+            "top": 1411,
+            "right": 1457,
+            "bottom": 1426,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "ultrawide-3440x1440",
+      "viewport": {
+        "w": 3440,
+        "h": 1440,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 3440,
+        "innerHeight": 1440,
+        "dpr": 1,
+        "scrollWidth": 3440,
+        "scrollHeight": 1440,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 3440,
+        "innerHeight": 1440,
+        "dpr": 1,
+        "scrollWidth": 3440,
+        "scrollHeight": 1440,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 3440,
+            "bottom": 74,
+            "w": 3440,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 3352,
+            "top": 1213,
+            "right": 3416,
+            "bottom": 1245,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 1332,
+            "right": 420,
+            "bottom": 1396,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 3320,
+            "top": 1253,
+            "right": 3416,
+            "bottom": 1396,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 1543,
+            "top": 1411,
+            "right": 1897,
+            "bottom": 1426,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "4k-3840x2160",
+      "viewport": {
+        "w": 3840,
+        "h": 2160,
+        "dpr": 1,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 3840,
+        "innerHeight": 2160,
+        "dpr": 1,
+        "scrollWidth": 3840,
+        "scrollHeight": 2160,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 3840,
+        "innerHeight": 2160,
+        "dpr": 1,
+        "scrollWidth": 3840,
+        "scrollHeight": 2160,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 3840,
+            "bottom": 74,
+            "w": 3840,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 3752,
+            "top": 1933,
+            "right": 3816,
+            "bottom": 1965,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 2052,
+            "right": 420,
+            "bottom": 2116,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 3720,
+            "top": 1973,
+            "right": 3816,
+            "bottom": 2116,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 1743,
+            "top": 2131,
+            "right": 2097,
+            "bottom": 2146,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    },
+    {
+      "name": "4k-3840x2160@2x",
+      "viewport": {
+        "w": 3840,
+        "h": 2160,
+        "dpr": 2,
+        "mobile": false
+      },
+      "lobby": {
+        "innerWidth": 3840,
+        "innerHeight": 2160,
+        "dpr": 2,
+        "scrollWidth": 3840,
+        "scrollHeight": 2160,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": false,
+        "overlaps": [],
+        "chrome": {},
+        "tapTargets": [
+          {
+            "id": "join-room",
+            "label": "Join",
+            "w": 42,
+            "h": 44
+          },
+          {
+            "id": "fill-bots",
+            "label": "on",
+            "w": 13,
+            "h": 13
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "Orbital combat"
+          },
+          {
+            "id": "SPAN",
+            "fs": 9,
+            "text": "Optional account"
+          },
+          {
+            "id": "account-status",
+            "fs": 9,
+            "text": "Guest pilot"
+          },
+          {
+            "id": "account-copy",
+            "fs": 10,
+            "text": "Sign in to carry your "
+          },
+          {
+            "id": "auth-status",
+            "fs": 10,
+            "text": "Accounts are not enabl"
+          }
+        ],
+        "offscreen": []
+      },
+      "hud": {
+        "innerWidth": 3840,
+        "innerHeight": 2160,
+        "dpr": 2,
+        "scrollWidth": 3840,
+        "scrollHeight": 2160,
+        "horizontalOverflow": false,
+        "touchActive": false,
+        "hudVisible": true,
+        "overlaps": [],
+        "chrome": {
+          "topbar": {
+            "left": 0,
+            "top": 0,
+            "right": 3840,
+            "bottom": 74,
+            "w": 3840,
+            "h": 74
+          },
+          "radar": {
+            "left": 22,
+            "top": 95,
+            "right": 200,
+            "bottom": 301,
+            "w": 178,
+            "h": 206
+          },
+          "comms": {
+            "left": 3752,
+            "top": 1933,
+            "right": 3816,
+            "bottom": 1965,
+            "w": 64,
+            "h": 32
+          },
+          "weapons": {
+            "left": 24,
+            "top": 2052,
+            "right": 420,
+            "bottom": 2116,
+            "w": 396,
+            "h": 64
+          },
+          "tools": {
+            "left": 3720,
+            "top": 1973,
+            "right": 3816,
+            "bottom": 2116,
+            "w": 96,
+            "h": 143
+          },
+          "hint": {
+            "left": 1743,
+            "top": 2131,
+            "right": 2097,
+            "bottom": 2146,
+            "w": 355,
+            "h": 15
+          }
+        },
+        "tapTargets": [
+          {
+            "id": "menu-button",
+            "label": "Menu Esc",
+            "w": 90,
+            "h": 32
+          },
+          {
+            "id": "chat-toggle",
+            "label": "Comms",
+            "w": 64,
+            "h": 32
+          },
+          {
+            "id": "view-button",
+            "label": "Arena V",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "score-button",
+            "label": "Scores Tab",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "sound-button",
+            "label": "Sound on",
+            "w": 96,
+            "h": 32
+          },
+          {
+            "id": "music-button",
+            "label": "Music on",
+            "w": 96,
+            "h": 32
+          }
+        ],
+        "smallText": [
+          {
+            "id": "SPAN",
+            "fs": 10,
+            "text": "You  1 human / 4 pilot"
+          },
+          {
+            "id": "pilot-count",
+            "fs": 10,
+            "text": "1 human / 4 pilots"
+          },
+          {
+            "id": "KBD",
+            "fs": 9,
+            "text": "M"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "25 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "100 energy"
+          },
+          {
+            "id": "SMALL",
+            "fs": 10,
+            "text": "50 energy"
+          },
+          {
+            "id": "qd-local-marker",
+            "fs": 8,
+            "text": "YOU"
+          },
+          {
+            "id": "qd-protection",
+            "fs": 10,
+            "text": "⬡"
+          }
+        ],
+        "offscreen": []
+      }
+    }
+  ],
+  "pageErrors": []
+}

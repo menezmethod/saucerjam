@@ -1,0 +1,21 @@
+# Grafana alerting provisioning: SaucerJam alerts -> Hermes relay.
+# Repo mirror of:
+#   /home/menez/docker/prometheus/grafana/provisioning/alerting/contact-points.yaml
+# On the Pi5, set authorization_credentials to the relay's GRAFANA_RELAY_TOKEN,
+# then hand the file to the Grafana user (uid 472) and keep it private:
+#   sudo chown 472:472 contact-points.yaml policies.yaml
+#   sudo chmod 600 contact-points.yaml policies.yaml
+# Never commit the real token.
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: grafana-hermes
+    receivers:
+      - uid: grafana-hermes
+        type: webhook
+        settings:
+          url: http://host.docker.internal:8787/
+          httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: __GRAFANA_RELAY_TOKEN__
+        disableResolveMessage: false

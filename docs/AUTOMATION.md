@@ -58,6 +58,10 @@ Hard rules enforced in code and process:
    constant time and never logged or echoed.
 5. **Rate/abuse limited.** `/api` is already rate-limited; new endpoints inherit
    it, and the queue is bounded to 500 items.
+6. **No automatic deploy.** The loop never calls a deploy endpoint; production
+   releases are human-triggered. The binding rules — lifecycle, invariant,
+   idempotency keys, retries, and forbidden actions — live in
+   `docs/COMMUNITY-LOOP-CONTRACT.md`, which this document defers to.
 
 ## Hermes agent contract
 

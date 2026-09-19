@@ -64,6 +64,23 @@ const DEFAULTS = {
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
 
+// Post text is untrusted input that ends up in a cron message delivered to a
+// human. A hostile title containing newlines or terminal escapes could forge
+// extra output lines or inject control sequences into that message, so it is
+// normalised and capped before it is ever printed.
+// Covers C0/C1 controls, soft hyphen, combining grapheme joiner, bidi controls,
+// Mongolian vowel separator, zero-width and other invisible formatting characters.
+const UNSAFE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u206F\u3164\uFEFF\uFFA0]/g;
+
+function safe(value, limit = 120) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(UNSAFE, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, limit);
+}
+
 const isTerminal = (status) => TERMINAL_STATUSES.has(String(status || "").toLowerCase());
 const isWorking = (status) => WORKING_STATUSES.has(String(status || "").toLowerCase());
 
@@ -110,15 +127,29 @@ function latestMs(comments) {
  * Pure planner. Given Fider state, decide what the collector should do.
  * No I/O, no clock access - so it is exhaustively testable.
  */
-function plan({ posts = [], commentsByNumber = {}, config = {}, now = Date.now() } = {}) {
+function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config = {}, now = Date.now() } = {}) {
   const cfg = { ...DEFAULTS, ...config };
   const actions = [];
   const findings = [];
-  const stats = { total: posts.length, open: 0, working: 0, terminal: 0, unacked: 0, oldestPendingHours: 0 };
+  const stats = { total: posts.length, open: 0, working: 0, terminal: 0, unacked: 0, unreadable: 0, oldestPendingHours: 0 };
+  const unreadable = new Set(unknownComments.map(String));
 
   for (const post of posts) {
     const number = String(post.number ?? post.id ?? "");
     if (!number) continue;
+
+    // If this post's comments could not be read, we do not know whether it has
+    // been acknowledged. Acting on that ignorance would re-ack the entire board
+    // on a transient Fider blip, so skip it and say so rather than guess.
+    if (unreadable.has(number)) {
+      findings.push({
+        kind: "unreadable", number, title: post.title,
+        reason: "comments could not be read; skipped so no duplicate action is taken",
+      });
+      stats.unreadable++;
+      continue;
+    }
+
     const status = String(post.status || "").toLowerCase();
     const comments = commentsByNumber[number] || [];
 
@@ -268,14 +299,20 @@ async function applyAction(action) {
   }
 
   const body = action.kind === "ack" ? ackBody(action.number) : expireBody(action.number, action.ageDays);
-  await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: body }) });
+
+  // For a closure, change state BEFORE telling the reporter. Comment-first means a
+  // failed status write leaves a public comment claiming the report was closed
+  // while it is still open - a lie to the reporter. A failed comment after a
+  // successful close is recoverable; a false closure notice is not.
   if (action.kind === "expire") await setStatus(action.number, "declined");
+  await api(`/api/v1/posts/${action.number}/comments`, { method: "POST", body: JSON.stringify({ content: body }) });
 }
 
 async function collect() {
   const listed = await api(`/api/v1/posts?limit=${DEFAULTS.pageLimit}`);
   const posts = Array.isArray(listed) ? listed : (listed && listed.posts) || [];
   const commentsByNumber = {};
+  const unknownComments = [];
   for (const post of posts) {
     const number = String(post.number ?? post.id ?? "");
     if (!number) continue;
@@ -283,10 +320,14 @@ async function collect() {
       const res = await api(`/api/v1/posts/${number}/comments`);
       commentsByNumber[number] = Array.isArray(res) ? res : (res && res.comments) || [];
     } catch {
-      commentsByNumber[number] = [];
+      // Deliberately do NOT record an empty list. "We could not read the
+      // comments" and "there are no comments" must never look alike: treating a
+      // transient fetch failure as no-comments would make every acknowledged
+      // report appear unacknowledged and re-ack the entire board.
+      unknownComments.push(number);
     }
   }
-  return { posts, commentsByNumber };
+  return { posts, commentsByNumber, unknownComments };
 }
 
 async function main() {
@@ -302,19 +343,25 @@ async function main() {
     return 1;
   }
 
-  const result = plan({ posts: state.posts, commentsByNumber: state.commentsByNumber });
+  const result = plan({
+    posts: state.posts,
+    commentsByNumber: state.commentsByNumber,
+    unknownComments: state.unknownComments,
+  });
 
   if (json) {
     process.stdout.write(JSON.stringify(result, null, 1) + "\n");
     return 0;
   }
 
+  // Every post-derived value printed here is untrusted input on its way into a
+  // message delivered to a human, so it goes through safe() first.
   const lines = [];
   for (const a of result.actions) {
-    lines.push(`${apply ? "DONE" : "PLAN"} ${a.kind} #${a.number} - ${a.reason} (${a.title})`);
+    lines.push(`${apply ? "DONE" : "PLAN"} ${a.kind} #${safe(a.number, 20)} - ${a.reason} (${safe(a.title)})`);
   }
   for (const f of result.findings) {
-    lines.push(`WARN ${f.kind}${f.number ? " #" + f.number : ""} - ${f.reason}`);
+    lines.push(`WARN ${f.kind}${f.number ? " #" + safe(f.number, 20) : ""} - ${f.reason}${f.title ? ` (${safe(f.title)})` : ""}`);
   }
 
   if (apply && result.actions.length) {
@@ -322,7 +369,7 @@ async function main() {
       try {
         await applyAction(action);
       } catch (err) {
-        lines.push(`FAIL ${action.kind} #${action.number} - ${err.message}`);
+        lines.push(`FAIL ${action.kind} #${safe(action.number, 20)} - ${safe(err.message, 200)}`);
       }
     }
   }
@@ -331,7 +378,7 @@ async function main() {
   return 0;
 }
 
-module.exports = { plan, DEFAULTS, BOT_NAME, BOT_ID, LEGACY_MARKER, TERMINAL_STATUSES, ackBody, expireBody, reopenBody, statusPath };
+module.exports = { plan, DEFAULTS, BOT_NAME, BOT_ID, LEGACY_MARKER, TERMINAL_STATUSES, ackBody, expireBody, reopenBody, statusPath, safe };
 
 if (require.main === module) {
   main().then((code) => process.exit(code)).catch((err) => {

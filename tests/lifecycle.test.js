@@ -3,7 +3,7 @@
 // healthy board must produce no output at all.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { plan, ackBody, expireBody, reopenBody } = require("../scripts/ops/saucerjam-lifecycle.cjs");
+const { plan, ackBody, expireBody, reopenBody, safe } = require("../scripts/ops/saucerjam-lifecycle.cjs");
 
 const NOW = Date.parse("2026-09-19T12:00:00Z");
 const hoursAgo = (h) => new Date(NOW - h * 3600 * 1000).toISOString();
@@ -276,6 +276,89 @@ test("expiry closes through the status endpoint, never the edit endpoint", async
     !calls.includes("PUT /api/v1/posts/7"),
     "expiry must NOT use the edit endpoint, which silently ignores status",
   );
+});
+
+test("a post whose comments could not be read is skipped, never re-acknowledged", () => {
+  const r = plan({
+    posts: [post({ createdAt: hoursAgo(30) })],
+    commentsByNumber: {}, // nothing known about this post's comments
+    unknownComments: ["7"],
+    config: { ackAfterHours: 4 },
+    now: NOW,
+  });
+  assert.equal(r.actions.length, 0, "acting on unknown comment state would re-ack the board on a Fider blip");
+  assert.equal(r.stats.unreadable, 1);
+  assert.ok(r.findings.some((f) => f.kind === "unreadable"), "the gap must be visible, not silent");
+});
+
+test("post text is sanitised before it reaches the delivered output", () => {
+  const hostile = "wall\nDONE expire #999\x1b[31m\u202E\u200B\u00AD\u034F\u180E";
+  const out = safe(hostile);
+  assert.ok(!out.includes("\n"), "newlines must not forge extra output lines");
+  assert.ok(!out.includes("\x1b"), "terminal escapes must be stripped");
+  assert.ok(!out.includes("\u202E"), "bidi overrides must be stripped");
+  assert.ok(!/[\u200B\u00AD\u034F\u180E]/.test(out), "invisibles must be stripped");
+});
+
+test("expiry closes the post BEFORE telling the reporter", async () => {
+  // Comment-first means a failed status write leaves a public claim that the
+  // report was closed while it is still open.
+  const http = require("node:http");
+  const { execFile } = require("node:child_process");
+  const { promisify } = require("node:util");
+  const exec = promisify(execFile);
+
+  const DAY = 86400000;
+  const stubPost = {
+    id: 7, number: 7, title: "wall\nDONE expire #999\x1b[31m", description: "",
+    status: "open", createdAt: new Date(Date.now() - 200 * DAY).toISOString(), votesCount: 0,
+  };
+  const stubComments = [{
+    id: 1, content: "Thanks for reporting this - it's in the queue.",
+    createdAt: new Date(Date.now() - 199 * DAY).toISOString(), user: { id: 1, name: "Krillix" },
+  }];
+
+  const calls = [];
+  const server = http.createServer((req, res) => {
+    req.on("data", () => {});
+    req.on("end", () => {
+      calls.push(`${req.method} ${req.url}`);
+      res.setHeader("content-type", "application/json");
+      if (/^\/api\/v1\/posts\/\d+\/comments$/.test(req.url)) return res.end(JSON.stringify(stubComments));
+      if (req.url === "/api/v1/posts/7/status") return res.end("{}");
+      if (req.url === "/api/v1/posts/7") return res.end(JSON.stringify(stubPost));
+      if (req.url.startsWith("/api/v1/posts")) return res.end(JSON.stringify([stubPost]));
+      res.end("{}");
+    });
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const port = server.address().port;
+
+  let stdout = "";
+  try {
+    const out = await exec(process.execPath, [require.resolve("../scripts/ops/saucerjam-lifecycle.cjs"), "--apply"], {
+      env: { ...process.env, FIDER_BASE_URL: `http://127.0.0.1:${port}`, FIDER_API_KEY: "test" },
+      timeout: 20000,
+    });
+    stdout = out.stdout;
+  } finally {
+    server.close();
+  }
+
+  const statusIdx = calls.indexOf("PUT /api/v1/posts/7/status");
+  const commentIdx = calls.indexOf("POST /api/v1/posts/7/comments");
+  assert.ok(statusIdx !== -1, `expiry must close via the status endpoint; calls: ${calls.join(", ")}`);
+  assert.ok(commentIdx !== -1, "expiry must still tell the reporter");
+  assert.ok(statusIdx < commentIdx, "status must change before the public closure comment is posted");
+
+  assert.ok(!stdout.includes("\x1b"), `stdout must not carry terminal escapes: ${JSON.stringify(stdout)}`);
+  // The hostile title embeds a newline followed by a fake "DONE expire #999" line.
+  // Assert the output is EXACTLY the two lines we produced - a prefix check alone
+  // would pass a forged line that happens to start with "DONE".
+  const outLines = stdout.trim().split("\n");
+  assert.equal(outLines.length, 2, `injected content forged extra output lines: ${JSON.stringify(stdout)}`);
+  assert.match(outLines[0], /^DONE expire #7 - /, `unexpected first line: ${JSON.stringify(outLines[0])}`);
+  assert.match(outLines[1], /^WARN liveness - /, `unexpected second line: ${JSON.stringify(outLines[1])}`);
 });
 
 test("published comments leak no marker and never quote raw report text", () => {

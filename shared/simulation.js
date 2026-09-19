@@ -86,6 +86,7 @@ const MAP = {
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const samePilot = (a, b) => a === b || String(a) === String(b);
 const portalAt = (player, map) => (map.portals || []).find((portal) =>
   Math.hypot(player.x - portal.x, player.z - portal.z) <= portal.radius,
 );
@@ -544,7 +545,12 @@ class Simulation {
     this.emit("fire", { player: p.id, weapon: p.weapon, x: p.x, z: p.z });
   }
   damage(target, amount, shot) {
-    if (!target.alive || target.protectedUntil > this.time || this.restartAt)
+    if (
+      !target.alive ||
+      target.protectedUntil > this.time ||
+      this.restartAt ||
+      (shot.weapon === "BOUNCE" && samePilot(target.id, shot.owner))
+    )
       return;
     const damage = Math.min(target.health, amount);
     target.health -= damage;
@@ -665,7 +671,7 @@ class Simulation {
         let hit = traceWalls(shot.x, shot.z, dx, dz, 0.15, this.map),
           victim = null;
         for (const p of this.players.values()) {
-          if (!p.alive || p.id === shot.owner || p.protectedUntil > this.time)
+          if (!p.alive || samePilot(p.id, shot.owner) || p.protectedUntil > this.time)
             continue;
           const candidate = hitCircle(
             shot.x,

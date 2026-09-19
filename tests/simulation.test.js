@@ -128,6 +128,12 @@ test("ricochet reflects from boundary and cover then expires after bounded bounc
   advance(sim, 3.2);
   assert.equal(sim.projectiles.size, 0);
 });
+test("ricochet cannot damage its owner after a rebound", () => {
+  const { sim, a } = duel();
+  sim.damage(a, 100, { owner: a.id, weapon: "BOUNCE" });
+  assert.equal(a.health, 100);
+  assert.equal(a.alive, true);
+});
 test("grenade arcs to the selected point and damages nearby ships with falloff", () => {
   const { sim, a, b } = duel();
   a.weapon = "GRENADE";

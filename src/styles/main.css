@@ -1008,6 +1008,37 @@ th {
     font-size: 22px;
   }
 }
+/* Landscape phones and embedded previews can be short enough that the normal
+   top-bar metadata collides with the clock. Keep the actionable controls and
+   timer; the room/status text is repeated in the menu and radar. */
+@media (max-height: 420px) and (max-width: 760px) and (pointer: fine) {
+  .top-bar {
+    padding: 8px 12px;
+  }
+
+  .match-brand {
+    font-size: 17px;
+  }
+
+  .match-brand > span,
+  #connection,
+  .match-clock span {
+    display: none;
+  }
+
+  .match-clock strong {
+    font-size: 20px;
+  }
+
+  .radar {
+    top: 54px;
+    width: 92px;
+  }
+
+  .radar > span {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -1070,6 +1101,11 @@ th {
 
   .flight-hint {
     display: none;
+  }
+
+  /* Keep Comms in the quiet lane immediately above the control rail. */
+  .chat-toggle {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px);
   }
 }
 

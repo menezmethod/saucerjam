@@ -1014,6 +1014,98 @@ th {
   }
 }
 
+/* Compact control rail: at tablet and short desktop widths the weapon strip,
+   flight tools, and hint used to occupy the same horizontal lane. Keep one
+   clear rail, then fall back to icon-first weapons only when labels no longer
+   fit. */
+@media (max-width: 760px) and (pointer: fine) {
+  .combat-bar {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+  }
+
+  .weapons {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .weapon {
+    min-width: 0;
+    flex: 1 1 0;
+    gap: 6px;
+    padding: 9px 8px;
+  }
+
+  .weapon kbd {
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+
+  .weapon span {
+    min-width: 0;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .weapon small {
+    font-size: 8px;
+    margin-top: 2px;
+  }
+
+  .combat-bar > .flight-tools {
+    position: static;
+    gap: 3px;
+  }
+
+  .flight-tools .small {
+    min-width: 58px;
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+
+  .flight-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) and (pointer: fine) {
+  .combat-bar {
+    gap: 6px;
+  }
+
+  .weapon {
+    justify-content: center;
+    padding: 9px 7px;
+  }
+
+  .weapon-icon {
+    display: block;
+  }
+
+  .weapon span,
+  .weapon small {
+    display: none;
+  }
+
+  .weapon kbd {
+    font-size: 8px;
+  }
+
+  .flight-tools .small {
+    min-width: 52px;
+    padding-inline: 4px;
+  }
+
+  .flight-tools kbd {
+    display: none;
+  }
+}
+
 /* Combat drags must not select HUD text, trigger pull-to-refresh, or show the
    iOS text-selection callout. */
 body { user-select: none; -webkit-user-select: none; overscroll-behavior: none; -webkit-touch-callout: none; }

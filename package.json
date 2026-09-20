@@ -17,7 +17,8 @@
     "ops:smoke": "node scripts/ops/smoke-e2e.cjs",
     "ops:lifecycle": "node scripts/ops/saucerjam-lifecycle.cjs",
     "ops:mutation": "node scripts/ops/mutation-check.cjs",
-    "agent:pilot": "node scripts/agents/pilot.cjs"
+    "agent:pilot": "node scripts/agents/pilot.cjs",
+    "agent:score": "node scripts/agents/score.cjs"
   },
   "engines": {
     "node": ">=20"

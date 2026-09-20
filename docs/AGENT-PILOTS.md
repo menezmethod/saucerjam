@@ -132,30 +132,67 @@ With `AGENT_PILOTS` unset, `agent: true` on a join request is ignored and the
 pilot is classed human. The flag is a prototype gate; the gateway replaces it
 with real credentials.
 
-## Tier 2: the Agent Gateway (designed, not built)
+## Tier 2: the Agent Gateway
 
-The supported interface for third-party agents. A thin HTTP/WS facade over the
-existing join/input path, with a decision-ready digest instead of the raw wire
-snapshot:
+The supported interface for third-party agents. A thin HTTP facade over the
+existing room and input path, with a decision-ready digest instead of the raw
+wire snapshot. This is what lets a slow model play: it makes a few coarse
+decisions per second and the server's reflex layer fills in the 60 Hz control.
 
 ```
-POST   /agent/v1/sessions             -> { agentId, playerId, roomCode, token }
-GET    /agent/v1/sessions/:id/observe -> { tick, time, self, enemies[], objective, recent }
-POST   /agent/v1/sessions/:id/act     -> { seq, action }
-DELETE /agent/v1/sessions/:id
+POST   /agent/v1/sessions             -> { playerId, sessionId, sessionToken, roomCode, observation }
+GET    /agent/v1/sessions/:id/observe -> { tick, time, self, enemies[], objective, recent, alive, intent_age_ms }
+POST   /agent/v1/sessions/:id/act     -> { accepted, applied, tick }
+DELETE /agent/v1/sessions/:id         -> { ok }
+GET    /agent/v1/status               -> { enabled, sessions, rooms }
 ```
+
+Every route requires `Authorization: Bearer <AGENT_GATEWAY_TOKEN>`. Each
+session additionally carries `x-agent-session: <sessionId>:<sessionToken>`, so
+one operator token can host several agents without them acting as each other.
 
 `action` accepts two modes:
 
-- `{ type: "input",  input: {...} }` — direct control for programmatic bots.
 - `{ type: "intent", intent: { targetId, stance, desiredRange, weapon, aggression } }`
-  — a slow LLM emits a few decisions per second; the server's reflex layer fills
-  in the 60 Hz control. This is what makes an ordinary LLM competitive.
+  — a slow LLM's decision. The server's reflex layer executes it every tick.
+- `{ type: "input", input: { seq, move, aim, fire, weapon } }` — direct control
+  for a programmatic bot. `seq` must increase; stale packets are rejected.
 
-Requirements: API-key auth mapped to a `profileId`, per-key quotas, a
-`MAX_AGENTS_PER_ROOM` cap, the same 120 inputs/second limit, out-of-order `seq`
-rejection, and heartbeat timeout. No new authority: agents observe the same AOI
-view and submit the same sanitized inputs as browsers.
+Enable it:
+
+```sh
+AGENT_PILOTS=true AGENT_GATEWAY_TOKEN=<operator-token> npm start
+# optional: MAX_AGENTS_PER_ROOM=4
+```
+
+An agent is **never** counted as a human: it lives in `room.agents`, not
+`room.humans`, so bot fill, room capacity, the public online count, and
+map-expansion population all stay human-only. It does receive the same
+authoritative snapshots a browser does.
+
+### Scoring harness
+
+`npm run agent:score` measures whether an agent is actually any good, instead of
+assuming it. It opens a room with heuristic bots, seats one agent, drives it,
+and reports the authoritative outcome.
+
+```sh
+AGENT_GATEWAY_TOKEN=... npm run agent:score -- --url http://localhost:8080 --driver intent --runs 4 --seconds 20
+```
+
+A reference result from the scripted intent driver (5 decisions/second) against
+three heuristic bots:
+
+| run | kills | deaths | damage | accuracy |
+| --- | --- | --- | --- | --- |
+| 1 | 2 | 1 | 190 | 60% |
+| 2 | 0 | 1 | 168 | 47% |
+| 3 | 0 | 2 | 120 | 50% |
+| 4 | 1 | 2 | 148 | 70% |
+
+The `policy` driver is the deterministic Tier-0 baseline; the `intent` driver is
+what a slow model's decisions look like. Comparing them on the same seed tells
+you whether a prompt or question change actually helped.
 
 Non-goals: agents as authoritative state writers, model calls on the tick loop,
 or secrets in the browser.

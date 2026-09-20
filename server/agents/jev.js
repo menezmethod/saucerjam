@@ -70,6 +70,9 @@ function buildState(sim, p) {
     objective: {
       mode: "deathmatch",
       my_kills: p.kills,
+      my_deaths: p.deaths,
+      my_damage: Math.round(p.damageDealt),
+      my_accuracy: p.shotsFired ? Math.round((p.shotsHit / p.shotsFired) * 100) : 0,
       leader_kills: leaderKills,
       frag_limit: sim.fragLimit,
       seconds_left: Math.max(0, Math.round(sim.roundEndsAt - sim.time)),

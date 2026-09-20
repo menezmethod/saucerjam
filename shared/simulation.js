@@ -597,7 +597,10 @@ class Simulation {
         if (this.time >= p.respawnAt) this.spawn(p);
         continue;
       }
-      if (p.bot) p.input = this.botInput(p);
+      // The reflex layer drives bots, and also any pilot whose brain wrote an
+      // intent (a Jev bot, or a gateway agent). A human or an agent without
+      // intent still uses its last submitted input.
+      if (p.bot || p.intent) p.input = this.botInput(p);
       else if (this.time - p.lastInput > 0.3)
         p.input = { ...sanitizeInput(), weapon: p.weapon };
       movePlayer(p, p.input, dt, this.map);

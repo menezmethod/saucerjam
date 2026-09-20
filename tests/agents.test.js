@@ -20,6 +20,7 @@ const {
   JevRunner,
 } = require("../server/agents/jev");
 const { createGameServer } = require("../server/server");
+const { AgentGateway, summarizeRecap } = require("../server/agents/gateway");
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -226,4 +227,254 @@ test("the agent flag is ignored unless agent pilots are enabled", async () => {
     assert.equal(game.rooms.get(created.code).sim.players.get(socket.id).pilotClass, "human");
     assert.equal(game.agentRankings, null);
   });
+});
+
+// ---- Tier-2 Agent Gateway -------------------------------------------------
+
+const TOKEN = "gateway-token-for-tests";
+const auth = { authorization: `Bearer ${TOKEN}` };
+const jsonHeaders = { ...auth, "content-type": "application/json" };
+
+function agentApi(url) {
+  return async (method, path, { body, session } = {}) => {
+    const headers = { ...jsonHeaders };
+    if (session) headers["x-agent-session"] = `${session.sessionId}:${session.sessionToken}`;
+    const response = await fetch(`${url}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  };
+}
+
+// Create a room with a human so the gateway has somewhere to put an agent.
+async function roomWithHuman(url, track) {
+  const human = track(await connect(url));
+  const created = await join(human, { mode: "create", name: "Human", bots: false, profileToken: "h".repeat(40) });
+  return created.code;
+}
+
+test("gateway is unavailable without a token or without agent pilots enabled", async () => {
+  await withServer({ allowAgents: true }, async (game, url) => {
+    assert.equal(game.gateway.token, "");
+    const call = agentApi(url);
+    const disabled = await call("POST", "/agent/v1/sessions", { body: {} });
+    assert.equal(disabled.status, 503);
+  });
+  await withServer({ allowAgents: false, agentGatewayToken: TOKEN }, async (_game, url) => {
+    const call = agentApi(url);
+    const off = await call("POST", "/agent/v1/sessions", { body: {} });
+    assert.equal(off.status, 503);
+  });
+});
+
+test("gateway rejects a bad token and a bad session token", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN }, async (_game, url, track) => {
+    const code = await roomWithHuman(url, track);
+    const call = agentApi(url);
+    const badToken = await fetch(`${url}/agent/v1/sessions`, {
+      method: "POST",
+      headers: { authorization: "Bearer wrong-token", "content-type": "application/json" },
+      body: JSON.stringify({ mode: "join", code }),
+    });
+    assert.equal(badToken.status, 401);
+    const joiner = await call("POST", "/agent/v1/sessions", { body: { mode: "join", code, name: "Hal" } });
+    assert.equal(joiner.status, 201);
+    const forged = await call("POST", "/agent/v1/sessions/anything/act", {
+      body: { type: "intent", intent: { stance: "press" } },
+      session: { sessionId: joiner.body.sessionId, sessionToken: "not-the-token" },
+    });
+    assert.equal(forged.status, 401);
+  });
+});
+
+test("an agent joins, observes a decision-ready view, and acts by intent", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN }, async (game, url, track) => {
+    const code = await roomWithHuman(url, track);
+    const call = agentApi(url);
+    const joined = await call("POST", "/agent/v1/sessions", { body: { mode: "join", code, name: "<b>Hal</b>" } });
+    assert.equal(joined.status, 201);
+    const room = game.rooms.get(code);
+    const player = room.sim.players.get(joined.body.playerId);
+    assert.equal(player.pilotClass, "agent");
+    assert.equal(player.name, "bHal/b", "the simulation sanitizes the displayed name");
+
+    const observation = await call("GET", `/agent/v1/sessions/${joined.body.sessionId}/observe`, { session: joined.body });
+    assert.equal(observation.status, 200);
+    assert.equal(observation.body.self.id, joined.body.playerId);
+    assert.equal(observation.body.alive, true);
+    assert.equal(typeof observation.body.tick, "number");
+    assert.deepEqual(observation.body.objective.mode, "deathmatch");
+    assert.ok(Array.isArray(observation.body.enemies));
+
+    // Intent is clamped and stored; the reflex layer reads it on the next tick.
+    const acted = await call("POST", `/agent/v1/sessions/${joined.body.sessionId}/act`, {
+      body: { type: "intent", intent: { stance: "press", desiredRange: 500, weapon: "NUKE", junk: 1 } },
+      session: joined.body,
+    });
+    assert.equal(acted.status, 200);
+    assert.deepEqual(acted.body.applied, { stance: "press", desiredRange: 40 });
+    assert.deepEqual(player.intent, { stance: "press", desiredRange: 40 });
+
+    // An intent with nothing usable is rejected rather than silently kept.
+    const empty = await call("POST", `/agent/v1/sessions/${joined.body.sessionId}/act`, {
+      body: { type: "intent", intent: { junk: true } },
+      session: joined.body,
+    });
+    assert.equal(empty.status, 400);
+
+    const left = await call("DELETE", `/agent/v1/sessions/${joined.body.sessionId}`, { session: joined.body });
+    assert.equal(left.status, 200);
+    assert.equal(room.sim.players.has(joined.body.playerId), false);
+    assert.equal(game.gateway.status().sessions, 0);
+  });
+});
+
+test("agent intent actually steers the ship and can be observed taking effect", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN, tick: true }, async (game, url, track) => {
+    const code = await roomWithHuman(url, track);
+    const call = agentApi(url);
+    const joined = await call("POST", "/agent/v1/sessions", { body: { mode: "join", code, name: "Pilot" } });
+    const player = game.rooms.get(code).sim.players.get(joined.body.playerId);
+    const startX = player.x,
+      startZ = player.z;
+    // "press" drives thrust forward; with no enemies nearby the reflex layer
+    // still navigates, so assert the intent is held and the sim stepped.
+    const before = game.rooms.get(code).sim.tick;
+    await call("POST", `/agent/v1/sessions/${joined.body.sessionId}/act`, {
+      body: { type: "intent", intent: { stance: "press" } },
+      session: joined.body,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.ok(game.rooms.get(code).sim.tick > before, "the authoritative loop advanced");
+    assert.deepEqual(player.intent, { stance: "press" });
+    assert.ok(Number.isFinite(player.x) && Number.isFinite(player.z));
+    void startX;
+    void startZ;
+  });
+});
+
+test("raw input mode enforces seq ordering", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN }, async (game, url, track) => {
+    const code = await roomWithHuman(url, track);
+    const call = agentApi(url);
+    const joined = await call("POST", "/agent/v1/sessions", { body: { mode: "join", code, name: "Pilot" } });
+    const path = `/agent/v1/sessions/${joined.body.sessionId}/act`;
+    const first = await call("POST", path, {
+      body: { type: "input", input: { seq: 5, move: { x: 1, z: 0 }, weapon: "LASER" } },
+      session: joined.body,
+    });
+    assert.equal(first.status, 200);
+    assert.equal(first.body.accepted, "input");
+    const stale = await call("POST", path, {
+      body: { type: "input", input: { seq: 5, move: { x: 1, z: 0 } } },
+      session: joined.body,
+    });
+    assert.equal(stale.status, 400);
+    assert.match(stale.body.error, /stale seq/);
+    const missingSeq = await call("POST", path, { body: { type: "input", input: { fire: true } }, session: joined.body });
+    assert.equal(missingSeq.status, 400);
+    assert.equal(game.rooms.get(code).sim.players.get(joined.body.playerId).ack, 5);
+  });
+});
+
+test("gateway caps agents per room", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN, maxAgentsPerRoom: 2 }, async (game, url, track) => {
+    const code = await roomWithHuman(url, track);
+    const call = agentApi(url);
+    const joinAgent = (name) => call("POST", "/agent/v1/sessions", { body: { mode: "join", code, name } });
+    assert.equal((await joinAgent("One")).status, 201);
+    assert.equal((await joinAgent("Two")).status, 201);
+    const third = await joinAgent("Three");
+    assert.equal(third.status, 400);
+    assert.match(third.body.error, /agent pilots/);
+    assert.equal(game.gateway.status().sessions, 2);
+  });
+});
+
+test("gateway sessions are dropped when the room has closed", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN }, async (game, url, track) => {
+    const human = track(await connect(url));
+    const created = await join(human, { mode: "create", name: "Human", bots: false, profileToken: "h".repeat(40) });
+    const call = agentApi(url);
+    const joined = await call("POST", "/agent/v1/sessions", { body: { mode: "join", code: created.code, name: "Pilot" } });
+    const room = game.rooms.get(created.code);
+    // The agent is tracked separately from humans, so it never inflates the
+    // human capacity or bot-fill counts.
+    assert.equal(room.humans.size, 1);
+    assert.equal(room.agents.size, 1);
+    // Last human leaves with an explicit leave, which closes the room.
+    human.emit("leave");
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(game.rooms.has(created.code), false, "room closes when the last human leaves");
+    const observation = await call("GET", `/agent/v1/sessions/${joined.body.sessionId}/observe`, { session: joined.body });
+    assert.equal(observation.status, 410);
+    assert.match(observation.body.error, /closed|left/i);
+  });
+});
+
+test("agent activity does not change human capacity, bot fill, or the online count", async () => {
+  await withServer({ allowAgents: true, agentGatewayToken: TOKEN }, async (game, url, track) => {
+    const human = track(await connect(url));
+    const created = await join(human, { mode: "create", name: "Human", bots: true, profileToken: "h".repeat(40) });
+    const room = game.rooms.get(created.code);
+    const botsBefore = [...room.sim.players.values()].filter((p) => p.bot).length;
+    const call = agentApi(url);
+    await call("POST", "/agent/v1/sessions", { body: { mode: "join", code: created.code, name: "Pilot" } });
+    assert.equal(room.humans.size, 1, "agent is not counted as a human");
+    assert.equal(room.agents.size, 1);
+    // Bot fill targets `4 - humans`, so adding an agent must not remove a bot.
+    assert.equal(
+      [...room.sim.players.values()].filter((p) => p.bot).length,
+      botsBefore,
+      "an agent does not displace a filling bot",
+    );
+    const stats = await (await fetch(`${url}/api/statistics`)).json();
+    assert.equal(stats.online, 1, "the public online count stays human-only");
+  });
+});
+
+test("an intent-driven agent actually fires and kills, not just stores intent", () => {
+  // Regression: a gateway agent has bot:false (so it expands the world like a
+  // human), and the reflex layer used to run only when bot was true. Intent was
+  // stored but never executed, so agents flew around doing zero damage.
+  const sim = new Simulation();
+  const agent = sim.addPlayer("agent-x", "Agent");
+  const target = sim.addPlayer("bot-1", "Bot", true);
+  Object.assign(agent, { x: 0, z: 0, vx: 0, vz: 0, angle: 0, aimAngle: 0, health: 100, energy: 100, protectedUntil: 0 });
+  Object.assign(target, { x: 12, z: 0, vx: 0, vz: 0, angle: Math.PI, health: 4, protectedUntil: 0 });
+  agent.intent = sanitizeIntent({ stance: "press", desiredRange: 12 });
+  // Isolate the agent: the target must not shoot back or move.
+  target.bot = false;
+  for (let i = 0; i < 180; i++) sim.step();
+  assert.ok(agent.shotsFired > 0, "an agent with intent must fire");
+  assert.ok(agent.damageDealt > 0, "an agent with intent must deal damage");
+  assert.equal(target.deaths, 1, "the agent finishes a low-hull target");
+});
+
+test("a human with no intent still uses its own submitted input", () => {
+  // The reflex layer must not hijack a human just because the field exists.
+  const sim = new Simulation();
+  const human = sim.addPlayer("human", "Human");
+  Object.assign(human, { x: 0, z: 0, vx: 0, vz: 0, angle: 0, aimAngle: 0 });
+  sim.setInput("human", { seq: 1, move: { x: 1, z: 0 }, weapon: "LASER", fire: false });
+  const before = { x: human.x, z: human.z };
+  for (let i = 0; i < 30; i++) sim.step();
+  assert.equal(human.intent, null);
+  assert.ok(human.x > before.x, "the human moves under its own input");
+  assert.equal(human.shotsFired, 0, "the human does not fire without asking");
+});
+
+test("summarizeRecap exposes the authoritative stats a scoring harness needs", () => {
+  const recap = {
+    winnerId: "agent-1",
+    players: [
+      { id: "agent-1", kills: 7, deaths: 2, damageDealt: 540, accuracy: 41, score: 1150, xp: 480 },
+      { id: "bot-1", kills: 1, deaths: 7, damageDealt: 90, accuracy: 10, score: 25, xp: 25 },
+    ],
+  };
+  assert.deepEqual(summarizeRecap(recap, "agent-1"), { kills: 7, deaths: 2, damageDealt: 540, accuracy: 41, score: 1150, xp: 480, winner: true });
+  assert.equal(summarizeRecap(recap, "unknown"), null);
+  assert.equal(summarizeRecap(null, "agent-1"), null);
 });

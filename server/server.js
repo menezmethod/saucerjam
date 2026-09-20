@@ -7,6 +7,7 @@ const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
 const { JevBrain, JevRunner, createJevClient } = require("./agents/jev");
+const { AgentGateway } = require("./agents/gateway");
 const { Metrics } = require("./metrics");
 const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
 const { Insights } = require("./insights");
@@ -47,6 +48,8 @@ function createGameServer({
   rankingsFile = null,
   agentRankingsFile = null,
   allowAgents = process.env.AGENT_PILOTS === "true",
+  agentGatewayToken = String(process.env.AGENT_GATEWAY_TOKEN || ""),
+  maxAgentsPerRoom = Math.max(1, Number(process.env.MAX_AGENTS_PER_ROOM) || 4),
   jevApiKey = String(process.env.TYPESAFE_API_KEY || ""),
   jevBots = process.env.JEV_BOTS === "true",
   jevBotIntervalMs = Math.max(250, Number(process.env.JEV_BOT_INTERVAL_MS) || 600),
@@ -175,12 +178,16 @@ function createGameServer({
   const gBots = metrics.gauge("saucerjam_bots", "Active bots");
   const gCapacity = metrics.gauge("saucerjam_capacity_ratio", "Human pilots / maxPlayersPerRoom saturation");
   const gTokenBytes = metrics.gauge("saucerjam_fider_last_error", "1 when the most recent Fider call failed");
+  // Humans and agents both receive snapshots. Keeping them in separate sets
+  // means capacity, bot-fill, and the map-expansion population count stay
+  // human-only, while an agent still gets the same authoritative view.
+  const viewers = (room) => [...room.humans, ...room.agents];
   const sendSnapshots = (room) => {
-    for (const id of room.humans)
+    for (const id of viewers(room))
       io.sockets.sockets.get(id)?.emit("state", room.sim.snapshotFor(id));
   };
   const sendEvents = (room, events) => {
-    for (const id of room.humans) {
+    for (const id of viewers(room)) {
       const visible = room.sim.eventsFor(id, events);
       if (visible.length) io.sockets.sockets.get(id)?.emit("events", visible);
     }
@@ -193,6 +200,9 @@ function createGameServer({
   const pendingSaves = new Set();
   let rankingError = null;
   const mJevErrors = metrics.counter("saucerjam_jev_errors_total", "Jev brain decisions that failed", "counter");
+  const mAgentJoins = metrics.counter("saucerjam_agent_joins_total", "Agent gateway sessions created", "counter");
+  const mAgentIntents = metrics.counter("saucerjam_agent_intents_total", "Agent intents accepted", "counter");
+  const mAgentInputs = metrics.counter("saucerjam_agent_inputs_total", "Agent raw inputs accepted", "counter");
   // The Jev runner is the only place model latency lives. It updates player
   // intent on a timer; the simulation never awaits it. Off unless a key and
   // JEV_BOTS=true are present.
@@ -313,6 +323,9 @@ function createGameServer({
     return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
   });
   app.use("/api", express.json({ limit: "12kb", strict: true }));
+  // The agent gateway lives outside /api, so it needs its own body parser.
+  // Actions are small; a tight limit keeps a hostile agent from pushing memory.
+  app.use("/agent", express.json({ limit: "4kb", strict: true }));
   // Public, non-PII population signal for the landing page: how many pilots are
   // online right now and how many rounds have been played. No auth required.
   app.get("/api/statistics", (_req, res) => {
@@ -336,6 +349,62 @@ function createGameServer({
     supabaseUrl: supabaseUrl || "",
     supabasePublishableKey: supabasePublishableKey || "",
   }));
+  // ---- Tier-2 Agent Gateway (see docs/AGENT-PILOTS.md) --------------------
+  // A supported HTTP surface so an LLM can join with a few calls per second and
+  // emit intent instead of 60 Hz control. Disabled unless AGENT_PILOTS is on.
+  const gateway = new AgentGateway({
+    io,
+    rooms,
+    allowAgents,
+    maxAgentsPerRoom,
+    token: agentGatewayToken,
+    profileKey,
+  });
+  const agentLimiter = limiter(600, 60_000);
+  // Every agent route needs the operator token. The per-session token returned
+  // by /join authorizes that one session only.
+  const requireGateway = (req, res, next) => {
+    if (!gateway.enabled()) return res.status(503).json({ error: "Agent pilots are not enabled on this server." });
+    if (!gateway.token) return res.status(503).json({ error: "Agent gateway token is not configured." });
+    if (!gateway.authorized(req.get("authorization"))) return res.status(401).json({ error: "A valid gateway token is required." });
+    if (!agentLimiter(clientAddress(req))) { mRateLimited.add({ route: "agent" }); return res.status(429).json({ error: "Too many agent requests. Slow down." }); }
+    next();
+  };
+  const sessionFrom = (req) => {
+    const header = req.get("x-agent-session") || "";
+    const [sessionId, sessionToken] = header.split(":");
+    return gateway.resolve(sessionId, sessionToken);
+  };
+  app.post("/agent/v1/sessions", requireGateway, (req, res) => {
+    const result = gateway.join(req.body || {});
+    if (result.error) return res.status(400).json(result);
+    mAgentJoins.add({});
+    return res.status(201).json(result);
+  });
+  app.get("/agent/v1/sessions/:id/observe", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    const observation = gateway.observe(session);
+    if (observation.error) return res.status(410).json(observation);
+    return res.json(observation);
+  });
+  app.post("/agent/v1/sessions/:id/act", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    const result = gateway.act(session, req.body || {});
+    if (result.error) return res.status(400).json(result);
+    if (result.accepted === "intent") mAgentIntents.add({});
+    else mAgentInputs.add({});
+    return res.json(result);
+  });
+  app.delete("/agent/v1/sessions/:id", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    gateway.destroy(session.id);
+    return res.json({ ok: true });
+  });
+  app.get("/agent/v1/status", requireGateway, (_req, res) => res.json(gateway.status()));
+
   app.get("/api/leaderboard", async (req,res) => {
     // ?class=agent reads the separate agent ledger; anything else is human.
     const store = req.query.class === "agent" && agentRankings ? agentRankings : rankings;
@@ -482,7 +551,7 @@ function createGameServer({
     });
   });
   const makeRoom = (code, bots, mapId = "classic", rotate = false) => {
-    const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(),matchId:randomBytes(12).toString("hex") };
+    const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(), agents: new Set(), matchId:randomBytes(12).toString("hex") };
     rooms.set(code, room);
     return room;
   };
@@ -508,6 +577,7 @@ function createGameServer({
     socket.data.room = null;
     mLeaves.add({ cause: transportLoss ? "transport" : "client" });
     if (!room.humans.size) {
+      // No humans left. Agents do not hold a room open on their own.
       if(transportLoss){
         clearTimeout(room.expiry);
         room.expiry=setTimeout(()=>{if(!room.humans.size)rooms.delete(room.code);},reconnectGraceMs);
@@ -651,7 +721,10 @@ function createGameServer({
     previous = now;
     while (accumulator >= STEP) {
       for (const room of rooms.values()) {
-        if(!room.humans.size)continue;
+        // Step while any viewer is present. A room whose humans left but whose
+        // agents are still connected keeps running so the agent's next
+        // observation is coherent, then closes with the room's own expiry.
+        if(!room.humans.size && !room.agents.size)continue;
         room.sim.step();
         const events = room.sim.drainEvents();
         for (const event of events) {
@@ -673,13 +746,14 @@ function createGameServer({
   async function close() {
     clearInterval(interval);
     jevRunner?.stop();
+    gateway.close();
     for(const room of rooms.values())clearTimeout(room.expiry);
     await new Promise((resolve) => io.close(resolve));
     await Promise.all([...pendingSaves]);
     await rankings.close();
     await agentRankings?.close();
   }
-  return { app, server, io, rooms, rankings, agentRankings, jevRunner, saveRound, close };
+  return { app, server, io, rooms, rankings, agentRankings, jevRunner, gateway, saveRound, close };
 }
 if (require.main === module) {
   const game = createGameServer({

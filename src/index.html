@@ -77,6 +77,15 @@
             ><input id="fill-bots" type="checkbox" checked /> Private rooms:
               fill empty seats with bots</label
             >
+            <div id="bot-mix-row" class="room-actions" hidden>
+              <label for="bot-mix" class="sr-only">Opponent brains</label>
+              <select id="bot-mix" aria-label="Opponent brains">
+                <option value="classic">Bots: classic</option>
+                <option value="mixed">Bots: classic + Jev (mixed)</option>
+                <option value="jev">Bots: all Jev</option>
+              </select>
+              <span id="bot-mix-hint" class="lobby-population" role="status">Jev opponents cost API credit per decision.</span>
+            </div>
           </div>
         </details>
         <details id="lobby-account" class="lobby-disclosure">

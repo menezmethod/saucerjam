@@ -57,6 +57,10 @@ class Game {
     this.idleTimer = null;
     this.ping = 0;
     this.connected = false;
+    // Admin state is learned from the server on join; the saved preference just
+    // restores the selector so an admin does not re-pick it every session.
+    this.admin = false;
+    this.botMixPreference = storage.get("saucerjam:botMix", "classic");
     this.sfxOn = storage.get("qd-sfx", storage.get("qd-sound", "on")) === "on";
     this.musicOn = storage.get("qd-music", "on") === "on";
     this.music = null;
@@ -233,6 +237,11 @@ class Game {
     $("quick-play").onclick = () => this.online("quick");
     $("create-room").onclick = () => this.online("create");
     $("join-room").onclick = () => this.online("join");
+    // Remember the admin's choice locally; the server still authorizes it.
+    $("bot-mix").addEventListener("change", () => {
+      this.botMixPreference = $("bot-mix").value;
+      try { localStorage.setItem("saucerjam:botMix", this.botMixPreference); } catch {}
+    });
     $("room-code").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.online("join");
     });
@@ -467,6 +476,17 @@ class Game {
     if (error) this.openAuthDisclosure("Account session could not be restored. You can continue as a guest.");
     else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
     if (user) this.loadCareer();
+  }
+  // The bot-mix selector is an admin control. It stays hidden until the server
+  // has confirmed this account is an admin, so a guest never sees a control
+  // whose requests the server would refuse.
+  setBotMixVisibility() {
+    const row = $("bot-mix-row");
+    if (!row) return;
+    row.hidden = this.admin !== true;
+    if (!row.hidden) {
+      $("bot-mix").value = this.botMixPreference || "classic";
+    }
   }
   pointerDown(e) {
       if (!this.active()) return;
@@ -892,6 +912,9 @@ class Game {
       name: $("pilot-name").value,
       code: $("room-code").value.trim().toUpperCase(),
       bots: $("fill-bots").checked,
+      // Only sent when the server has already told this client it is an admin;
+      // the server re-checks against the verified token regardless.
+      botMix: this.admin ? $("bot-mix").value : undefined,
       mapId:this.selectedMap,profileToken:this.profileToken,rotate:true,
     };
     if (!this.socket) this.setupSocket();
@@ -965,6 +988,10 @@ class Game {
       }
       this.connected = true;
       this.room = response.code;
+      // Admin is server-authoritative: it reflects a verified account email,
+      // not anything this client can choose.
+      this.admin = response.admin === true;
+      this.setBotMixVisibility();
       this.begin("online", response.playerId, response.state, response.map);
       this.receivedAt = performance.now();
       if (reconnect) this.notice("Reconnected. You’re back in the arena.", 3);

@@ -521,6 +521,91 @@ test("JevRunner never overlaps a request for the same pilot", async () => {
   runner.stop();
 });
 
+// ---- Admin bot-mix gate ---------------------------------------------------
+
+// `isAdmin` reads socket.data.authUser, which the connection middleware sets
+// from a Supabase token the server verified. Tests cannot mint that token, so
+// they stand in for the middleware the same way the real one would.
+function withAuthEmail(game, socket, email) {
+  const target = game.io.sockets.sockets.get(socket.id);
+  target.data.authUser = email ? { id: `user-${email}`, email } : undefined;
+  return target;
+}
+
+test("a non-admin asking for Jev bots silently gets classic bots", async () => {
+  await withServer({ allowAgents: true }, async (game, url, track) => {
+    const socket = track(await connect(url));
+    const created = await join(socket, { mode: "create", name: "Guest", bots: true, botMix: "jev", profileToken: "g".repeat(40) });
+    const room = game.rooms.get(created.code);
+    assert.equal(room.botMix, "classic", "a guest cannot request paid bots");
+    assert.equal(created.botMix, "classic");
+    assert.equal(created.admin, false);
+    // Every bot is a free heuristic one; none was marked for Jev.
+    const bots = [...room.sim.players.values()].filter((p) => p.bot);
+    assert.ok(bots.length > 0);
+    assert.equal(bots.filter((p) => p.brain === "jev").length, 0);
+  });
+});
+
+test("an admin can create a mixed room and the server picks which bots use Jev", async () => {
+  // A mix only becomes Jev brains when a runner exists, so stand one in: this
+  // tests the room policy, not the model.
+  const brain = { decide: async () => ({ stance: "press" }) };
+  const game = createGameServer({ tick: false, rankingsFile: null, allowAgents: true, jevApiKey: "test-key", jevBots: true });
+  await new Promise((resolve) => game.server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${game.server.address().port}`;
+  const socket = await connect(url);
+  try {
+    game.io.sockets.sockets.get(socket.id).data.authUser = { id: "u1", email: "luisgimenezdev@gmail.com" };
+    const created = await join(socket, { mode: "create", name: "Admin", bots: true, botMix: "mixed", profileToken: "a".repeat(40) });
+    assert.equal(created.admin, true, "the verified admin email is recognised");
+    const room = game.rooms.get(created.code);
+    assert.equal(room.botMix, "mixed");
+    const bots = [...room.sim.players.values()].filter((p) => p.bot);
+    const jev = bots.filter((p) => p.brain === "jev");
+    const classic = bots.filter((p) => p.brain !== "jev");
+    assert.ok(jev.length >= 1, "mixed seats at least one Jev bot");
+    assert.ok(classic.length >= 1, "mixed keeps at least one classic bot");
+    void brain;
+  } finally {
+    socket.disconnect();
+    await game.close();
+  }
+});
+
+test("admin identity is case-insensitive and other emails are rejected", async () => {
+  const game = createGameServer({ tick: false, rankingsFile: null, allowAgents: true, jevApiKey: "test-key", jevBots: true, adminEmails: ["LuisGimenezDev@Gmail.com"] });
+  await new Promise((resolve) => game.server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${game.server.address().port}`;
+  const admin = await connect(url);
+  const other = await connect(url);
+  try {
+    game.io.sockets.sockets.get(admin.id).data.authUser = { id: "u1", email: "luisgimenezdev@gmail.com" };
+    const made = await join(admin, { mode: "create", name: "Admin", bots: true, botMix: "jev", profileToken: "a".repeat(40) });
+    assert.equal(game.rooms.get(made.code).botMix, "jev");
+    game.io.sockets.sockets.get(other.id).data.authUser = { id: "u2", email: "someone@else.com" };
+    const guest = await join(other, { mode: "create", name: "Other", bots: true, botMix: "jev", profileToken: "b".repeat(40) });
+    assert.equal(game.rooms.get(guest.code).botMix, "classic");
+  } finally {
+    admin.disconnect();
+    other.disconnect();
+    await game.close();
+  }
+});
+
+test("with no Jev key configured, even an admin request stays classic", async () => {
+  // The runner is null without TYPESAFE_API_KEY, so no bot can be Jev-driven.
+  await withServer({ allowAgents: true, jevApiKey: "", jevBots: false }, async (game, url, track) => {
+    const socket = track(await connect(url));
+    withAuthEmail(game, socket, "luisgimenezdev@gmail.com");
+    const created = await join(socket, { mode: "create", name: "Admin", bots: true, botMix: "jev", profileToken: "a".repeat(40) });
+    const room = game.rooms.get(created.code);
+    assert.equal(room.botMix, "jev", "the room records the request");
+    const bots = [...room.sim.players.values()].filter((p) => p.bot);
+    assert.equal(bots.filter((p) => p.brain === "jev").length, 0, "no runner means no Jev bots");
+  });
+});
+
 test("summarizeRecap exposes the authoritative stats a scoring harness needs", () => {
   const recap = {
     winnerId: "agent-1",

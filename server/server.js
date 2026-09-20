@@ -56,6 +56,7 @@ function createGameServer({
   jevBotMinIntervalMs = Math.max(0, Number(process.env.JEV_BOT_MIN_INTERVAL_MS) || 1500),
   jevBotMaxInFlight = Math.max(1, Number(process.env.JEV_BOT_MAX_IN_FLIGHT) || 3),
   jevBotMaxPerMinute = Math.max(0, Number(process.env.JEV_BOT_MAX_PER_MINUTE) || 120),
+  adminEmails = String(process.env.ADMIN_EMAILS || "luisgimenezdev@gmail.com"),
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
@@ -207,6 +208,19 @@ function createGameServer({
   const mAgentJoins = metrics.counter("saucerjam_agent_joins_total", "Agent gateway sessions created", "counter");
   const mAgentIntents = metrics.counter("saucerjam_agent_intents_total", "Agent intents accepted", "counter");
   const mAgentInputs = metrics.counter("saucerjam_agent_inputs_total", "Agent raw inputs accepted", "counter");
+  // Admin identity comes only from a Supabase-verified email. A client cannot
+  // claim it: socket.data.authUser is set from the token the server validated.
+  const adminSet = new Set(
+    (Array.isArray(adminEmails) ? adminEmails : String(adminEmails).split(","))
+      .map((email) => String(email).trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const isAdmin = (socket) => {
+    const email = socket?.data?.authUser?.email;
+    return Boolean(email && adminSet.has(String(email).toLowerCase()));
+  };
+  const mAdminDenied = metrics.counter("saucerjam_admin_denied_total", "Admin-only requests from non-admins", "counter");
+  const mJevRooms = metrics.counter("saucerjam_jev_rooms_total", "Rooms created with a Jev bot mix", "counter");
   // The Jev runner is the only place model latency lives. It updates player
   // intent on a timer; the simulation never awaits it. Off unless a key and
   // JEV_BOTS=true are present.
@@ -562,22 +576,44 @@ function createGameServer({
       players: [...rooms.values()].reduce((n, r) => n + r.humans.size, 0),
     });
   });
-  const makeRoom = (code, bots, mapId = "classic", rotate = false) => {
-    const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(), agents: new Set(), matchId:randomBytes(12).toString("hex") };
+  // A room owns its bot-brain mix: "classic" (free heuristic), "jev" (every
+  // bot), or "mixed" (some Jev, the rest classic). Only an admin can request
+  // anything other than classic, because Jev costs money per decision.
+  const BOT_MIXES = new Set(["classic", "jev", "mixed"]);
+  const makeRoom = (code, bots, mapId = "classic", rotate = false, botMix = "classic") => {
+    const room = { code, bots, botMix: BOT_MIXES.has(botMix) ? botMix : "classic", sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(), agents: new Set(), matchId:randomBytes(12).toString("hex") };
     rooms.set(code, room);
     return room;
   };
+  // Which of the `desired` bots should think with Jev. Mixed keeps at least one
+  // classic bot so a human always has a free opponent, and never spends more
+  // than `jevBotsPerRoom`.
+  const jevBotsPerRoom = Math.max(0, Number(process.env.JEV_BOTS_PER_ROOM) || 2);
+  function jevBotIds(room, desired) {
+    if (!jevRunner) return new Set();
+    if (room.botMix === "jev") return new Set(Array.from({ length: desired }, (_, i) => `bot-${i}`));
+    if (room.botMix === "mixed") return new Set(Array.from({ length: Math.min(jevBotsPerRoom, Math.max(0, desired - 1)) }, (_, i) => `bot-${i}`));
+    return new Set();
+  }
   function fillBots(room) {
     const desired = room.bots ? Math.max(0, 4 - room.humans.size) : 0;
     const bots = [...room.sim.players.values()].filter((p) => p.bot);
     while (bots.length > desired) room.sim.removePlayer(bots.pop().id);
     const names = ["Vector", "Nova", "Echo", "Flux"];
+    const jevIds = jevBotIds(room, desired);
     for (let i = 0; bots.length < desired; i++) {
       const id = `bot-${i}`;
       if (room.sim.players.has(id)) continue;
       const bot = room.sim.addPlayer(id, names[i % names.length], true);
-      if (jevRunner) bot.brain = "jev";
+      // Assign the brain from the room's mix; a classic bot keeps no brain and
+      // falls back to the free heuristic reflex.
+      if (jevIds.has(id)) bot.brain = "jev";
       bots.push(bot);
+    }
+    // A bot that survived may need its brain reassigned if the mix changed.
+    for (const bot of bots) {
+      if (jevIds.has(bot.id)) bot.brain = "jev";
+      else if (bot.brain === "jev") { bot.brain = null; bot.intent = null; }
     }
   }
   function leave(socket, transportLoss = false) {
@@ -621,6 +657,14 @@ function createGameServer({
       if(socket.data.profileId && socket.data.profileId!==profileId)return ack({error:"Reconnect before changing pilot identity."});
       const mode = request.mode;
       const requestedMap = typeof request.mapId === "string" && allowLegacyMaps && LEGACY_MAPS.some(map=>map.id===request.mapId) ? request.mapId : allowLegacyMaps ? "classic" : "confluence";
+      // Bot mix is an admin capability because Jev spends money per decision.
+      // A non-admin asking for Jev is not refused outright: they silently get
+      // the free classic bots, so the room still works.
+      const requestedMix = typeof request.botMix === "string" ? request.botMix : "classic";
+      const wantsPaidBots = requestedMix === "jev" || requestedMix === "mixed";
+      const admin = isAdmin(socket);
+      if (wantsPaidBots && !admin) mAdminDenied.add({ route: "join" });
+      const botMix = admin && BOT_MIXES.has(requestedMix) ? requestedMix : "classic";
       let room;
       if (mode === "quick") {
         room = [...rooms.values()].find(
@@ -632,8 +676,9 @@ function createGameServer({
             }); }
           room = makeRoom(
             `PUBLIC-${randomBytes(3).toString("hex").toUpperCase()}`,
-            true, requestedMap, request.rotate === true,
+            true, requestedMap, request.rotate === true, botMix,
           );
+          if (room.botMix !== "classic") mJevRooms.add({ mix: room.botMix });
         }
       } else if (mode === "create") {
         if (rooms.size >= maxRooms) { mJoinFailures.add({ reason: "rooms_full" }); return ack({
@@ -643,7 +688,8 @@ function createGameServer({
         do {
           code = randomBytes(3).toString("hex").toUpperCase();
         } while (rooms.has(code));
-        room = makeRoom(code, request.bots !== false, requestedMap, request.rotate === true);
+        room = makeRoom(code, request.bots !== false, requestedMap, request.rotate === true, botMix);
+        if (room.botMix !== "classic") mJevRooms.add({ mix: room.botMix });
       } else if (mode === "join") {
         const code =
           typeof request.code === "string"
@@ -684,6 +730,8 @@ function createGameServer({
         code: room.code,
         map: room.sim.map,
         state: room.sim.snapshotFor(socket.id),
+        botMix: room.botMix,
+        admin: isAdmin(socket),
       });
     });
     socket.on("input", (input) => {

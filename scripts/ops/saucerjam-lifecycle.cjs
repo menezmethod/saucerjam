@@ -166,13 +166,22 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
       // Only the person who filed the report may reopen it. A maintainer adding a
       // closing note must not flip an aged-out report back to open, and the reason
       // we publish must not call a maintainer "the reporter".
-      const authorId = post.user?.id == null ? null : String(post.user.id);
-      const replies = comments.filter((c) => !isOurs(c) && (authorId === null || String(c.user?.id) === authorId));
-      const theirLatest = latestMs(replies);
-      if (Number.isFinite(closedAt) && theirLatest !== null && theirLatest > closedAt) {
+      // A reply is ANY comment created after we closed. Closure is written as a
+      // status response, not a comment, so the collector posts nothing at or after
+      // that moment - anything later is genuinely from a human.
+      // Do NOT filter on author identity here. On the live board the only account
+      // that has ever commented IS the post author (user id 1 == BOT_ID), so
+      // filtering "not us" deleted the reporter's own replies and silently
+      // disabled reopening for the whole board, while the closure text kept
+      // promising that replying reopens it.
+      const replies = comments.filter((c) => {
+        const t = Date.parse(c && c.createdAt);
+        return Number.isFinite(t) && t > closedAt;
+      });
+      if (Number.isFinite(closedAt) && replies.length > 0) {
         actions.push({
           kind: "reopen", number, title: post.title,
-          reason: authorId === null ? "someone replied after we closed it" : "reporter replied after we closed it",
+          reason: "a reply arrived after we closed it",
         });
       }
       stats.terminal++;
@@ -260,7 +269,12 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
   //
   // `unacked` fires only when acks are genuinely overdue AND this run is not
   // already about to ack them - otherwise it is the same wallpaper.
-  const plannedAcks = actions.filter((a) => a.kind === "ack").length;
+  // Bound the run BEFORE computing findings, so a finding can see that the cap
+  // suppressed work. Computing findings against the uncapped list made `unacked`
+  // unreachable: every overdue-unacked report always had an ack action planned for
+  // it, so the warning could not fire even when the cap meant no ack happened.
+  const planned = actions.slice(0, cfg.maxActionsPerRun);
+  const plannedAcks = planned.filter((a) => a.kind === "ack").length;
   if (stats.unackedOverdue > plannedAcks) {
     findings.push({
       kind: "unacked",
@@ -268,7 +282,7 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     });
   }
 
-  return { actions: actions.slice(0, cfg.maxActionsPerRun), suppressed: Math.max(0, actions.length - cfg.maxActionsPerRun), findings, stats, config: cfg };
+  return { actions: planned, suppressed: Math.max(0, actions.length - cfg.maxActionsPerRun), findings, stats, config: cfg };
 }
 
 // ---------------------------------------------------------------------------
@@ -398,27 +412,31 @@ async function main() {
 
   // Every post-derived value printed here is untrusted input on its way into a
   // message delivered to a human, so it goes through safe() first.
-  const lines = [];
+  // Each line is written AS IT HAPPENS, never buffered until the end. Buffering
+  // means a run killed by the deadline reports nothing at all: writes that already
+  // succeeded against the tracker would be invisible, and the operator would see a
+  // silent timeout instead of "these three closed, this one failed". Silence is
+  // still preserved - no lines produced means no output.
+  const emit = (line) => process.stdout.write(line + "\n");
   let failed = state.unknownComments.length > 0;
   for (const action of result.actions) {
     const detail = `${action.kind} #${safe(action.number, 20)} - ${action.reason} (${safe(action.title)})`;
     if (!apply) {
-      lines.push(`PLAN ${detail}`);
+      emit(`PLAN ${detail}`);
       continue;
     }
     try {
       await applyAction(action);
-      lines.push(`DONE ${detail}`);
+      emit(`DONE ${detail}`);
     } catch (err) {
       failed = true;
-      lines.push(`FAIL ${action.kind} #${safe(action.number, 20)} - ${safe(err.message, 200)}`);
+      emit(`FAIL ${action.kind} #${safe(action.number, 20)} - ${safe(err.message, 200)}`);
     }
   }
   for (const f of result.findings) {
-    lines.push(`WARN ${f.kind}${f.number ? " #" + safe(f.number, 20) : ""} - ${f.reason}${f.title ? ` (${safe(f.title)})` : ""}`);
+    emit(`WARN ${f.kind}${f.number ? " #" + safe(f.number, 20) : ""} - ${f.reason}${f.title ? ` (${safe(f.title)})` : ""}`);
   }
 
-  if (lines.length) process.stdout.write(lines.join("\n") + "\n");
   return failed ? 1 : 0;
 }
 

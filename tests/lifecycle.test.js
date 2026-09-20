@@ -127,6 +127,20 @@ test("a spoofed marker cannot inflate attempts into a spurious escalation", () =
   assert.equal(r.findings.filter((f) => f.kind === "escalate").length, 0, "player comments must not count as our attempts");
 });
 
+test("a reporter whose own account IS the bot account can still reopen", () => {
+  // The live-board case. Every post there is authored by user id 1, which is also
+  // BOT_ID, so any identity filter of "not us" deletes the reporter's own replies
+  // and silently disables reopening for the whole board - while the closure text
+  // keeps promising that replying reopens it. Closure is written as a status
+  // response, not a comment, so anything after it is a human reply.
+  const r = run(
+    [{ ...post({ status: "declined" }), user: BOT, response: closure(daysAgo(100)) }],
+    { 7: [{ content: "still broken for me", createdAt: daysAgo(2), user: BOT }] },
+  );
+  assert.equal(r.actions.length, 1, "the reporter's reply must reopen their report");
+  assert.equal(r.actions[0].kind, "reopen");
+});
+
 test("a closed report that a human replies to is reopened", () => {
   const r = run(
     [post({ status: "declined", createdAt: daysAgo(120), response: closure() })],

@@ -15,6 +15,8 @@
     "release:pack": "node scripts/package-release.cjs",
     "ops:selftest": "node scripts/ops/selftest.cjs",
     "ops:smoke": "node scripts/ops/smoke-e2e.cjs",
+    "ops:lifecycle": "node scripts/ops/saucerjam-lifecycle.cjs",
+    "ops:mutation": "node scripts/ops/mutation-check.cjs",
     "agent:pilot": "node scripts/agents/pilot.cjs"
   },
   "engines": {

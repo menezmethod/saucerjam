@@ -56,7 +56,8 @@ Metrics now exist for all of these, so decisions are evidence-based:
 ## Guardrails (non-negotiable)
 
 - No auto-merge, no force-push, no production env edits, no DNS/TLS changes.
-- Self-heal is restart-and-redeploy only; never `docker rm -f`, never delete volumes.
+- Self-heal is a bounded restart only — **never a deploy**; never `docker rm -f`,
+  never delete volumes.
 - Balance, monetization, and roadmap changes are **human decisions** — the AI
   drafts a proposal, not a shipped change.
 - Every automated action counts toward `saucerjam_community_actions_total` and is

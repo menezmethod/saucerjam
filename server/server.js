@@ -219,8 +219,16 @@ function createGameServer({
     const authorization = req.get("authorization") || "";
     const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
     const token = (bearer ? bearer[1].trim() : "") || req.get("x-fider-token") || "";
-    if (!verifySignature(fiderWebhookSecret, raw, signature) && !verifyToken(fiderWebhookToken, token)) {
-      mCommunityRejected.add({ reason: "bad_credential" });
+    // Evaluate both credentials independently: a throw or failure in one must
+    // never short-circuit the other. A valid credential of either type opens
+    // the gate; an internal error fails closed and is counted, never a 500.
+    let signatureOk = false;
+    let tokenOk = false;
+    let verificationError = false;
+    try { signatureOk = verifySignature(fiderWebhookSecret, raw, signature); } catch { verificationError = true; }
+    try { tokenOk = verifyToken(fiderWebhookToken, token); } catch { verificationError = true; }
+    if (!signatureOk && !tokenOk) {
+      mCommunityRejected.add({ reason: verificationError ? "verification_error" : "bad_credential" });
       return res.status(401).json({ error: "Invalid webhook credential." });
     }
     let payload;

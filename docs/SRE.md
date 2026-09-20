@@ -107,9 +107,11 @@ on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Herm
 
 **Hermes may do automatically, with no human approval:**
 
-- Restart the SaucerJam container via Coolify (`POST /api/v1/deploy?uuid=<app>`),
-  and restart `coolify-proxy` on Pi5 if ingress is down. Never `docker rm -f`,
-  never delete volumes, never edit DNS/TLS.
+- Restart the SaucerJam container via Coolify's application restart endpoint
+  (`POST /api/v1/applications/<uuid>/restart`) — a bounded restart, **never a
+  deploy** — and restart `coolify-proxy` on Pi5 if ingress is down. Never
+  `POST /api/v1/deploy`, never `docker rm -f`, never delete volumes, never edit
+  DNS/TLS.
 - Re-run the bounded smoke check (`node scripts/verification/live.cjs <url> 2`).
 - Open a **fix PR** or a **prototype branch + PR preview** in response to a
   community report (see §6).
@@ -122,9 +124,10 @@ on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Herm
 - Two automatic restart attempts fail, or the error is not reproducible.
 - A community proposal fails the gates in §6.
 
-**Hard invariants:** no automatic merge to `main`; no `git push --force`; no
-editing production env vars; deployments end active matches, so never deploy
-during a visibly busy window without noting it.
+**Hard invariants:** no automatic merge to `main`; **no automatic deploy** (the
+loop only ever issues a bounded restart); no `git push --force`; no editing
+production env vars; production deploys end active matches and are always a
+human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 
 ## 5. Runbooks
 

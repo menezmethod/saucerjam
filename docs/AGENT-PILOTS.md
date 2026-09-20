@@ -215,3 +215,17 @@ npm run agent:pilot -- --create       # run against a local server
 
 Local smoke: start the server, run the Tier-0 pilot with `--create`, and confirm
 it joins, moves, fires, and appears on the scoreboard.
+
+## Enabling the gateway on a preview
+
+The gateway needs two environment variables. Set them preview-scoped so
+production is unaffected:
+
+```sh
+AGENT_PILOTS=true
+AGENT_GATEWAY_TOKEN=<operator-token>
+```
+
+`MAX_AGENTS_PER_ROOM` (default 4) caps concurrent agents in one room. The
+operator token authorizes session creation; each session then uses its own
+`x-agent-session` token, so agents cannot act as one another.

@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
+const { JevBrain, JevRunner, createJevClient } = require("./agents/jev");
 const { Metrics } = require("./metrics");
 const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
 const { Insights } = require("./insights");
@@ -44,6 +45,11 @@ function createGameServer({
   staticDir = path.join(__dirname, "../dist"),
   tick = true,
   rankingsFile = null,
+  agentRankingsFile = null,
+  allowAgents = process.env.AGENT_PILOTS === "true",
+  jevApiKey = String(process.env.TYPESAFE_API_KEY || ""),
+  jevBots = process.env.JEV_BOTS === "true",
+  jevBotIntervalMs = Math.max(250, Number(process.env.JEV_BOT_INTERVAL_MS) || 600),
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
@@ -180,8 +186,59 @@ function createGameServer({
     }
   };
   const rankings = new RankingStore({filePath:rankingsFile});
+  // Agent pilots keep their own ledger so the human board stays human. Only
+  // created when agents are enabled; a null path means in-memory, like the
+  // human store in tests.
+  const agentRankings = allowAgents ? new RankingStore({ filePath: agentRankingsFile }) : null;
   const pendingSaves = new Set();
   let rankingError = null;
+  const mJevErrors = metrics.counter("saucerjam_jev_errors_total", "Jev brain decisions that failed", "counter");
+  // The Jev runner is the only place model latency lives. It updates player
+  // intent on a timer; the simulation never awaits it. Off unless a key and
+  // JEV_BOTS=true are present.
+  const jevRunner = jevApiKey && jevBots
+    ? new JevRunner({
+        brain: new JevBrain({ client: createJevClient({ apiKey: jevApiKey }) }),
+        intervalMs: jevBotIntervalMs,
+        onError: (error) => {
+          mJevErrors.add({});
+          console.error("Jev decision failed:", error.message);
+        },
+      })
+    : null;
+  jevRunner?.start(() => rooms.values());
+  // Split a finished round into the human and agent ledgers. The winner only
+  // scores in the ledger that actually contains them.
+  const roundRecordFor = (room, recap, keep) => {
+    const players = recap.players.filter(keep);
+    if (!players.length) return null;
+    const winnerId = players.some((p) => p.id === recap.winnerId) ? recap.winnerId : null;
+    return { id: room.matchId + ":" + room.sim.round, mapId: room.sim.map.id, players, winnerId };
+  };
+  function saveRound(room, recap) {
+    mRounds.add({ map: room.sim.map.id });
+    recap.recordId = room.matchId + ":" + room.sim.round;
+    const targets = [
+      [rankings, roundRecordFor(room, recap, (p) => !p.bot && p.pilotClass !== "agent")],
+    ];
+    if (agentRankings) targets.push([agentRankings, roundRecordFor(room, recap, (p) => p.pilotClass === "agent")]);
+    const saves = [];
+    for (const [store, record] of targets) {
+      if (!record) continue;
+      const save = store.recordRound(record).then(() => {
+        rankingError = null;
+        if (store === rankings) io.to(room.code).emit("careerUpdated");
+      }).catch((error) => {
+        rankingError = "Last round records could not be saved.";
+        mRankingErrors.add({});
+        console.error("Ranking save failed:", error.message);
+        io.to(room.code).emit("rankingsError", rankingError);
+      }).finally(() => pendingSaves.delete(save));
+      pendingSaves.add(save);
+      saves.push(save);
+    }
+    return Promise.all(saves);
+  }
   const profileKey = token => typeof token === "string" && /^[a-zA-Z0-9_-]{20,128}$/.test(token) ? createHash("sha256").update(token).digest("hex") : null;
   const cleanChatText = (value) => typeof value === "string"
     ? value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 160)
@@ -280,7 +337,9 @@ function createGameServer({
     supabasePublishableKey: supabasePublishableKey || "",
   }));
   app.get("/api/leaderboard", async (req,res) => {
-    try { res.json({rows:await rankings.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
+    // ?class=agent reads the separate agent ledger; anything else is human.
+    const store = req.query.class === "agent" && agentRankings ? agentRankings : rankings;
+    try { res.json({rows:await store.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",pilotClass:req.query.class === "agent" ? "agent" : "human",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
   });
   app.get("/api/profile", async (req,res) => {
     let id = profileKey(req.get("x-pilot-token"));
@@ -435,7 +494,9 @@ function createGameServer({
     for (let i = 0; bots.length < desired; i++) {
       const id = `bot-${i}`;
       if (room.sim.players.has(id)) continue;
-      bots.push(room.sim.addPlayer(id, names[i % names.length], true));
+      const bot = room.sim.addPlayer(id, names[i % names.length], true);
+      if (jevRunner) bot.brain = "jev";
+      bots.push(bot);
     }
   }
   function leave(socket, transportLoss = false) {
@@ -530,7 +591,8 @@ function createGameServer({
       // Remove a filling bot before choosing a color and a safe player spawn.
       fillBots(room);
       const prior=[...room.sim.departed.values()].find(p=>p.profileId===profileId);
-      const player = room.sim.addPlayer(socket.id, request.name, false, !room.sim.restartAt?prior:null);
+      const pilotClass = request.agent === true && allowAgents ? "agent" : "human";
+      const player = room.sim.addPlayer(socket.id, request.name, false, !room.sim.restartAt?prior:null, { pilotClass });
       player.profileId=profileId;
       if(prior && !room.sim.restartAt)room.sim.departed.delete(prior.id);
       fillBots(room);
@@ -596,11 +658,7 @@ function createGameServer({
           mEvents.add({ type: event.type });
           if (event.type === "mapChanged") io.to(room.code).emit("map", event.map);
           if (event.type === "roundEnd") {
-            mRounds.add({ map: room.sim.map.id });
-            event.recap.recordId=room.matchId+":"+room.sim.round;
-            const record={id:event.recap.recordId,mapId:room.sim.map.id,players:event.recap.players,winnerId:event.recap.winnerId};
-            const save=Promise.resolve().then(()=>rankings.recordRound(record)).then(()=>{rankingError=null;io.to(room.code).emit("careerUpdated");}).catch(error=>{rankingError="Last round records could not be saved.";mRankingErrors.add({});console.error("Ranking save failed:",error.message);io.to(room.code).emit("rankingsError",rankingError);}).finally(()=>pendingSaves.delete(save));
-            pendingSaves.add(save);
+            saveRound(room, event.recap);
           }
         }
         if (events.length) sendEvents(room, events);
@@ -614,15 +672,20 @@ function createGameServer({
   const interval = tick ? setInterval(advance, 1000 / 60) : null;
   async function close() {
     clearInterval(interval);
+    jevRunner?.stop();
     for(const room of rooms.values())clearTimeout(room.expiry);
     await new Promise((resolve) => io.close(resolve));
     await Promise.all([...pendingSaves]);
     await rankings.close();
+    await agentRankings?.close();
   }
-  return { app, server, io, rooms, rankings, close };
+  return { app, server, io, rooms, rankings, agentRankings, jevRunner, saveRound, close };
 }
 if (require.main === module) {
-  const game = createGameServer({rankingsFile:process.env.RANKINGS_FILE || path.join(__dirname,"data/rankings.json")}),
+  const game = createGameServer({
+    rankingsFile: process.env.RANKINGS_FILE || path.join(__dirname, "data/rankings.json"),
+    agentRankingsFile: process.env.AGENT_RANKINGS_FILE || path.join(__dirname, "data/agent-rankings.json"),
+  }),
     port = Number(process.env.PORT || 8080);
   game.server.listen(port, "0.0.0.0", () => {
     console.log(`SaucerJam is ready: http://localhost:${port}`);

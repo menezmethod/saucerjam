@@ -14,7 +14,8 @@
     "capture": "node scripts/verification/capture.cjs",
     "release:pack": "node scripts/package-release.cjs",
     "ops:selftest": "node scripts/ops/selftest.cjs",
-    "ops:smoke": "node scripts/ops/smoke-e2e.cjs"
+    "ops:smoke": "node scripts/ops/smoke-e2e.cjs",
+    "agent:pilot": "node scripts/agents/pilot.cjs"
   },
   "engines": {
     "node": ">=20"

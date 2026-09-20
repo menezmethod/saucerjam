@@ -1,0 +1,229 @@
+// Agent pilots: the intent/reflex split, the Tier-0 policy, the Jev brain,
+// and the server's hybrid policy (agents expand the world, records stay
+// separate). The Jev network client is exercised with a mock fetch so the whole
+// suite stays offline.
+"use strict";
+
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const { io } = require("socket.io-client");
+const { Simulation } = require("../shared/simulation");
+const { sanitizeIntent, chooseTarget } = require("../shared/brains");
+const { decide, chooseWeapon, aimAt } = require("../scripts/agents/policy.cjs");
+const {
+  buildState,
+  buildQuestions,
+  composeIntent,
+  interpolateRange,
+  createJevClient,
+  JevBrain,
+  JevRunner,
+} = require("../server/agents/jev");
+const { createGameServer } = require("../server/server");
+
+const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+function scenario() {
+  const sim = new Simulation();
+  const self = sim.addPlayer("self", "Self");
+  const near = sim.addPlayer("near", "Near");
+  const far = sim.addPlayer("far", "Far");
+  Object.assign(self, { x: 0, z: 0, vx: 0, vz: 0, angle: 0, aimAngle: 0 });
+  Object.assign(near, { x: 6, z: 0, vx: 0, vz: 0 });
+  Object.assign(far, { x: 20, z: 0, vx: 0, vz: 0 });
+  return { sim, self, near, far };
+}
+
+test("sanitizeIntent drops unknown fields and clamps ranges", () => {
+  assert.equal(sanitizeIntent(null), null);
+  assert.equal(sanitizeIntent({}), null);
+  assert.deepEqual(
+    sanitizeIntent({ targetId: "x", stance: "press", desiredRange: 999, weapon: "NUKE", aggression: 5, junk: 1 }),
+    { targetId: "x", stance: "press", desiredRange: 40, aggression: 1 },
+  );
+});
+
+test("chooseTarget honors a living intent target and falls back to nearest", () => {
+  const { sim, self, far } = scenario();
+  assert.equal(chooseTarget(self, sim, null, distance).id, "near");
+  assert.equal(chooseTarget(self, sim, { targetId: "far" }, distance).id, "far");
+  far.alive = false;
+  assert.equal(chooseTarget(self, sim, { targetId: "far" }, distance).id, "near");
+});
+
+test("the default reflex is unchanged; intent redirects target, stance, and weapon", () => {
+  const { sim, self } = scenario();
+  const base = sim.botInput(self);
+  assert.equal(base.weapon, "LASER");
+  assert.ok(base.aim.x > 0, "aims toward the nearest enemy");
+  self.intent = sanitizeIntent({ targetId: "far", stance: "disengage", weapon: "BOUNCE" });
+  const redirected = sim.botInput(self);
+  assert.equal(redirected.weapon, "BOUNCE");
+  assert.ok(redirected.thrust < 0, "disengage backs off");
+  assert.ok(redirected.aim.x > base.aim.x, "aim follows the chosen target");
+});
+
+test("Tier-0 policy: engages, retreats when hurt, and idles without an enemy", () => {
+  const me = { id: "me", x: 0, z: 0, vx: 0, vz: 0, health: 100, energy: 100, alive: true, protectedUntil: 0 };
+  const enemy = { id: "e", x: 10, z: 0, vx: 0, vz: 0, health: 100, energy: 0, alive: true, protectedUntil: 0 };
+  const base = { time: 10, restartAt: 0, pickups: [], players: [me, enemy] };
+  const engaged = decide(base, "me");
+  assert.equal(engaged.weapon, "GRENADE"); // full energy and a mid-range target
+  assert.equal(engaged.fire, true);
+  assert.equal(engaged.seq, 0, "the transport assigns seq");
+  const hurt = decide({ ...base, players: [{ ...me, health: 20 }, enemy] }, "me");
+  assert.ok(hurt.move.x < 0, "low hull retreats");
+  assert.deepEqual(decide({ ...base, players: [me] }, "me").move, { x: 0, z: 0 });
+  const shielded = decide({ ...base, players: [me, { ...enemy, protectedUntil: 99 }] }, "me");
+  assert.equal(shielded.fire, false);
+  const pickup = { id: "p1", x: 5, z: 0, available: true };
+  assert.deepEqual(decide({ ...base, players: [me], pickups: [pickup] }, "me").move, { x: 1, z: 0 });
+});
+
+test("policy helpers choose weapons by cost and lead moving targets", () => {
+  assert.equal(chooseWeapon({ energy: 100, health: 100 }, 10), "GRENADE");
+  assert.equal(chooseWeapon({ energy: 60, health: 100 }, 20), "BOUNCE");
+  assert.equal(chooseWeapon({ energy: 25, health: 100 }, 5), "LASER");
+  assert.deepEqual(aimAt({ x: 0, z: 0 }, { x: 10, z: 0, vx: 58, vz: 0 }), { x: 20, z: 0 });
+});
+
+test("buildState summarizes the tactical picture and buildQuestions ranks each enemy", () => {
+  const { sim, self } = scenario();
+  const state = buildState(sim, self);
+  assert.equal(state.self.hull, 100);
+  assert.deepEqual(state.enemies.map((e) => e.id), ["near", "far"]);
+  assert.equal(state.enemies[0].range_band, "close");
+  assert.equal(state.enemies[1].range_band, "far");
+  assert.equal(state.objective.frag_limit, sim.fragLimit);
+  const questions = buildQuestions(sim, self);
+  assert.equal(questions.stance.type, "choice");
+  assert.equal(questions.desired_range.type, "score");
+  assert.ok(questions.focus_near && questions.focus_far);
+});
+
+test("composeIntent maps answers to intent, gates on confidence, and honors trapped", () => {
+  const intent = composeIntent({
+    stance: { type: "choice", choice: "press", confidence: 0.9 },
+    desired_range: { type: "score", score: 2, confidence: 0.8 },
+    weapon: { type: "choice", choice: "BOUNCE", confidence: 0.7 },
+    focus_near: { type: "score", score: 0.4, confidence: 0.9 },
+    focus_far: { type: "score", score: 2.6, confidence: 0.9 },
+    trapped: { type: "noul", noul: 0.1 },
+  });
+  assert.deepEqual(intent, { stance: "press", aggression: 1, desiredRange: 19, weapon: "BOUNCE", targetId: "far" });
+  // Every field below the confidence floor is dropped, leaving the heuristic.
+  const gated = composeIntent({
+    stance: { type: "choice", choice: "press", confidence: 0.1 },
+    desired_range: { type: "score", score: 2, confidence: 0.1 },
+    weapon: { type: "choice", choice: "BOUNCE", confidence: 0.1 },
+    focus_far: { type: "score", score: 2, confidence: 0.1 },
+  });
+  assert.equal(gated, null);
+  // A high-confidence "trapped" overrides an aggressive stance.
+  const trapped = composeIntent({
+    stance: { type: "choice", choice: "press", confidence: 0.9 },
+    trapped: { type: "noul", noul: 0.8 },
+  });
+  assert.equal(trapped.stance, "reposition");
+  assert.equal(trapped.aggression, 0.4);
+  assert.equal(interpolateRange(0), 5);
+  assert.equal(interpolateRange(3), 27);
+});
+
+test("createJevClient retries overload, returns answers, and fails fast on 4xx", async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    if (calls === 1) return { status: 429, ok: false, json: async () => ({}) };
+    return { status: 200, ok: true, json: async () => ({ answers: { is_urgent: { type: "noul", noul: 0.9 } } }) };
+  };
+  const client = createJevClient({ apiKey: "test", fetchImpl, sleep: async () => {} });
+  const answers = await client.ask("state", { is_urgent: { type: "noul", instructions: "?" } });
+  assert.equal(calls, 2);
+  assert.equal(answers.is_urgent.noul, 0.9);
+  let attempts = 0;
+  const rejecting = createJevClient({
+    apiKey: "test",
+    sleep: async () => {},
+    fetchImpl: async () => { attempts++; return { status: 401, ok: false, json: async () => ({}) }; },
+  });
+  await assert.rejects(rejecting.ask("s", {}), /401/);
+  assert.equal(attempts, 1, "auth errors are not retried");
+});
+
+test("JevBrain composes a client answer into sanitized intent", async () => {
+  const brain = new JevBrain({ client: { ask: async () => ({ stance: { type: "choice", choice: "heal", confidence: 0.9 } }) } });
+  const { sim, self } = scenario();
+  const intent = await brain.decide(sim, self);
+  assert.equal(intent.stance, "heal");
+  assert.equal(intent.aggression, 0.2);
+});
+
+test("JevRunner never overlaps a decision for the same pilot", async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let calls = 0;
+  const brain = { decide: async () => { calls++; await gate; return { stance: "press" }; } };
+  const runner = new JevRunner({ brain, intervalMs: 1 });
+  const p = { id: "b1", brain: "jev", alive: true, intent: null };
+  const room = { sim: { players: new Map([["b1", p]]) } };
+  runner.sweep([room]);
+  runner.sweep([room]);
+  assert.equal(calls, 1);
+  release();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(p.intent.stance, "press");
+  runner.stop();
+});
+
+const connect = (url) => new Promise((resolve, reject) => {
+  const socket = io(url, { transports: ["websocket"], forceNew: true, reconnection: false, timeout: 8000 });
+  socket.once("connect", () => resolve(socket));
+  socket.once("connect_error", reject);
+});
+const join = (socket, request) => new Promise((resolve, reject) =>
+  socket.timeout(8000).emit("join", request, (error, response) => (error ? reject(error) : resolve(response))));
+
+async function withServer(options, fn) {
+  const game = createGameServer({ tick: false, rankingsFile: null, ...options });
+  await new Promise((resolve) => game.server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${game.server.address().port}`;
+  const clients = [];
+  try {
+    return await fn(game, url, (socket) => { clients.push(socket); return socket; });
+  } finally {
+    clients.forEach((socket) => socket.disconnect());
+    await game.close();
+  }
+}
+
+test("agents expand the world but record in a separate ledger", async () => {
+  await withServer({ allowAgents: true }, async (game, url, track) => {
+    const human = track(await connect(url));
+    const created = await join(human, { mode: "create", name: "Human", bots: false, profileToken: "a".repeat(40) });
+    const agent = track(await connect(url));
+    await join(agent, { mode: "join", code: created.code, name: "Agent", agent: true, profileToken: "b".repeat(40) });
+    const room = game.rooms.get(created.code);
+    assert.equal(room.sim.players.get(human.id).pilotClass, "human");
+    assert.equal(room.sim.players.get(agent.id).pilotClass, "agent");
+    assert.ok(game.agentRankings, "an agent ledger exists when agents are enabled");
+    // The human wins the round; results must split by class.
+    room.sim.players.get(human.id).kills = room.sim.fragLimit;
+    room.sim.endRound();
+    await game.saveRound(room, room.sim.recap);
+    assert.deepEqual(game.rankings.getLeaderboard().map((row) => row.name), ["Human"]);
+    assert.equal(game.rankings.getLeaderboard()[0].wins, 1);
+    assert.deepEqual(game.agentRankings.getLeaderboard().map((row) => row.name), ["Agent"]);
+    assert.equal(game.agentRankings.getLeaderboard()[0].wins, 0, "a human winner does not score in the agent ledger");
+  });
+});
+
+test("the agent flag is ignored unless agent pilots are enabled", async () => {
+  await withServer({ allowAgents: false }, async (game, url, track) => {
+    const socket = track(await connect(url));
+    const created = await join(socket, { mode: "create", name: "Pilot", bots: false, agent: true, profileToken: "c".repeat(40) });
+    assert.equal(game.rooms.get(created.code).sim.players.get(socket.id).pilotClass, "human");
+    assert.equal(game.agentRankings, null);
+  });
+});

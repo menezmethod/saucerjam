@@ -1,6 +1,7 @@
 // This module is used unchanged by Node and the browser. Distances are world units;
 // time is seconds. Only inputs cross the trust boundary, never positions or damage.
 const {getWorld,stageForHumans}=require('./maps/world');
+const {reflexInput}=require('./brains');
 const STEP = 1 / 60;
 const RULES = Object.freeze({
   radius: 0.8,
@@ -286,6 +287,9 @@ function findPath(from, to, map) {
     path.unshift({ x: center(id % n), z: center(Math.floor(id / n)) });
   return path;
 }
+// Geometry/sanitizers the reflex layer needs, injected so brains.js stays
+// dependency-free and unit-testable.
+const SENSES = Object.freeze({ clamp, angleDiff, distance, traceWalls, findPath, sanitizeInput });
 class Simulation {
   constructor({
     map = MAP,
@@ -326,7 +330,7 @@ class Simulation {
       return [pickup.id, {...pickup, available:old?.available ?? true, respawnAt:old?.respawnAt ?? 0}];
     }));
   }
-  addPlayer(id, name, bot = false, restore = null) {
+  addPlayer(id, name, bot = false, restore = null, options = {}) {
     if (this.players.has(id)) return this.players.get(id);
     const used = new Set([...this.players.values()].map((p) => p.color));
     const p = {
@@ -337,6 +341,11 @@ class Simulation {
           .trim()
           .slice(0, 18) || "Pilot",
       bot,
+      // Bots are NPC filler. Agents are external pilots that play through a
+      // supported interface; they expand territory like humans but keep a
+      // separate record class. Humans are the default.
+      pilotClass: options.pilotClass || (bot ? "bot" : "human"),
+      intent: null,
       color: COLORS.find((c) => !used.has(c)) || COLORS[0],
       x: 0,
       z: 0,
@@ -364,7 +373,7 @@ class Simulation {
     };
     this.players.set(id, p);
     if(restore){
-      for(const key of ['name','x','z','angle','aimAngle','health','energy','alive','kills','deaths','damageDealt','shotsFired','shotsHit','weapon','nextFire','respawnAt','protectedUntil','lastDamage','portalLockUntil'])p[key]=restore[key];
+      for(const key of ['name','pilotClass','x','z','angle','aimAngle','health','energy','alive','kills','deaths','damageDealt','shotsFired','shotsHit','weapon','nextFire','respawnAt','protectedUntil','lastDamage','portalLockUntil'])if(restore[key]!==undefined)p[key]=restore[key];
     }else this.spawn(p);
     return p;
   }
@@ -454,54 +463,11 @@ class Simulation {
       this.emit("pickupSpawn", {pickup:pickup.id, x:pickup.x, z:pickup.z});
     }
   }
+  // The reflex half of a bot: navigation, aim lead, fire gating. The slow
+  // tactical intent (if any) was written by a brain; with none, defaults
+  // reproduce the original heuristic exactly.
   botInput(p) {
-    const targets = [...this.players.values()].filter(
-      (q) => q.id !== p.id && q.alive,
-    );
-    targets.sort((a, b) => distance(p, a) - distance(p, b));
-    const target = targets[0];
-    if (!target) return sanitizeInput();
-    const d = distance(p, target),
-      los = !traceWalls(
-        p.x,
-        p.z,
-        target.x - p.x,
-        target.z - p.z,
-        0.2,
-        this.map,
-      );
-    let waypoint = target;
-    if (!los) {
-      if (this.time >= p.navigateAt) {
-        p.path = findPath(p, target, this.map);
-        p.navigateAt = this.time + 0.6;
-      }
-      while (p.path.length && distance(p, p.path[0]) < 1.2) p.path.shift();
-      waypoint = p.path[0] || target;
-    }
-    const heading = Math.atan2(waypoint.x - p.x, waypoint.z - p.z),
-      turn = clamp(angleDiff(heading, p.angle) * 3, -1, 1);
-    const aimNoise = Math.sin(this.time * 1.8 + p.color.charCodeAt(2)) * 1.7;
-    const weapon =
-      Math.floor(this.time / 7 + p.color.charCodeAt(1)) % 5 === 0 && d < 23
-        ? "GRENADE"
-        : "LASER";
-    return {
-      seq: 0,
-      thrust: los && d < 10 ? -0.4 : Math.abs(turn) < 0.8 ? 0.7 : 0.2,
-      strafe: los && d < 17 ? Math.sin(this.time + p.x) * 0.45 : 0,
-      turn,
-      fire:
-        los &&
-        d < 30 &&
-        target.protectedUntil < this.time &&
-        Math.sin(this.time * 2) > -0.5,
-      weapon,
-      aim: {
-        x: target.x + (target.vx * d) / 65 + aimNoise,
-        z: target.z + (target.vz * d) / 65 + aimNoise,
-      },
-    };
+    return reflexInput(p, this, p.intent, SENSES);
   }
   fire(p) {
     const w = WEAPONS[p.weapon];
@@ -721,7 +687,7 @@ class Simulation {
     this.winnerId = sorted[0]?.id || null;
     const participants = [...this.departed.values(), ...this.players.values()];
     this.recap = {round:this.round,mapId:this.map.id,winnerId:this.winnerId,winner:this.winner,players:participants.map(p=>({
-      id:p.id,profileId:p.profileId,name:p.name,bot:p.bot,kills:p.kills,deaths:p.deaths,damageDealt:Math.round(p.damageDealt),shotsFired:p.shotsFired,shotsHit:p.shotsHit,
+      id:p.id,profileId:p.profileId,name:p.name,bot:p.bot,pilotClass:p.pilotClass,kills:p.kills,deaths:p.deaths,damageDealt:Math.round(p.damageDealt),shotsFired:p.shotsFired,shotsHit:p.shotsHit,
       accuracy:p.shotsFired?Math.round(p.shotsHit/p.shotsFired*100):0,
       score:Math.max(0,p.kills*100+Math.floor(p.damageDealt*.2)-p.deaths*25+(this.winnerId===p.id?250:0)),
       xp:Math.max(25,25+p.kills*40+Math.floor(p.damageDealt/10)+(this.winnerId===p.id?150:0))
@@ -794,8 +760,8 @@ class Simulation {
       delete player.portalLockUntil;
       if (player.id !== playerId) delete player.profileId;
     }
-    snapshot.standings = [...this.players.values()].map(({ id, name, bot, kills, deaths }) => ({
-      id, name, bot, kills, deaths,
+    snapshot.standings = [...this.players.values()].map(({ id, name, bot, pilotClass, kills, deaths }) => ({
+      id, name, bot, pilotClass, kills, deaths,
     }));
     snapshot.recap = this.recapFor(playerId);
     return snapshot;
@@ -816,7 +782,7 @@ class Simulation {
       pilotCount: this.players.size,
       pickups: [...this.pickups.values()].map(({respawnAt, ...pickup}) => ({...pickup})),
       players: [...this.players.values()].filter(includePlayer).map(
-        ({ input, path, navigateAt, lastInput, ...p }) => ({ ...p }),
+        ({ input, path, navigateAt, lastInput, intent, brain, ...p }) => ({ ...p }),
       ),
       projectiles: [...this.projectiles.values()].filter(includeProjectile).map((p) => ({ ...p })),
     };

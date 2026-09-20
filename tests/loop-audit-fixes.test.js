@@ -244,17 +244,14 @@ test("an anonymous insights payload cannot emit an invalid exposition line", asy
   });
 });
 
-test("the anonymous insights endpoint cannot mint unbounded series", async () => {
-  await withServer(async (url) => {
-    for (let i = 0; i < 260; i += 1) {
-      await fetch(`${url}/api/insights`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ events: ["landing_view"], device: `d${i}`, platform: `p${i}` }),
-      });
-    }
-    const metrics = await (await fetch(`${url}/metrics`)).text();
-    const series = metrics.split("\n").filter((l) => l.startsWith("insight_events_total")).length;
-    assert.ok(series <= 210, `expected the series count to be capped, got ${series}`);
-  });
+test("the insight series cap bounds the map regardless of the rate limiter", () => {
+  // Deliberately a unit test, not an HTTP one. /api/insights sits behind the
+  // shared /api limiter at 120/min, so an HTTP test can never create enough
+  // series to reach the cap — it passed with and without the fix, which makes it
+  // decoration. The cap still matters in production because the limiter window
+  // resets every minute and this map lives for the life of the process.
+  const { Insights } = require("../server/insights");
+  const insights = new Insights();
+  for (let i = 0; i < 2000; i += 1) insights.track({ event: "landing_view", device: `d${i}`, platform: `p${i}` });
+  assert.ok(insights.counts.size <= 205, `series cap not enforced: ${insights.counts.size} series`);
 });

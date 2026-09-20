@@ -3,6 +3,11 @@
 // event names + coarse buckets. This is what lets the loop *detect* a problem
 // (e.g. players stuck in the lobby, dying without firing, opening the menu
 // repeatedly) before it is ever reported on Fider.
+const { ESCAPE } = require("./metrics");
+
+// Bound the number of distinct series this anonymous endpoint can create.
+const MAX_SERIES = 200;
+
 const EVENT_ALLOW = new Set([
   "landing_view",
   "practice_start",
@@ -38,7 +43,11 @@ class Insights {
   }
   track({ event, device, platform } = {}) {
     if (!EVENT_ALLOW.has(event)) return false;
-    const key = `${event}|${clean(device, 16) || "unknown"}|${clean(platform, 16) || "unknown"}`;
+    let key = `${event}|${clean(device, 16) || "unknown"}|${clean(platform, 16) || "unknown"}`;
+    // device and platform are caller-supplied and this endpoint is anonymous, so
+    // without a cap an attacker mints a new series per request indefinitely.
+    // Past the cap every new combination folds into one bucket.
+    if (!this.counts.has(key) && this.counts.size >= MAX_SERIES) key = `${event}|other|other`;
     this.counts.set(key, (this.counts.get(key) || 0) + 1);
     return true;
   }
@@ -48,7 +57,11 @@ class Insights {
     const rows = new Map();
     for (const [key, value] of this.counts) {
       const [event, device, platform] = key.split("|");
-      lines.push(`insight_events_total{event="${event}",device="${device}",platform="${platform}"} ${value}`);
+      // Label values MUST be escaped. An unescaped `"` here emits a line that is
+      // not valid exposition, and Prometheus rejects the whole scrape on one bad
+      // line — so a single anonymous request could blind every dashboard, alert
+      // and health signal for the lifetime of this process.
+      lines.push(`insight_events_total{event="${ESCAPE(event)}",device="${ESCAPE(device)}",platform="${ESCAPE(platform)}"} ${value}`);
       rows.set(event, (rows.get(event) || 0) + value);
     }
     // Denominator: sessions when known, else total game starts, so the rate is

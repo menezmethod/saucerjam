@@ -89,9 +89,12 @@ class CommunityQueue {
     this.maxItems = maxItems;
   }
   ingest(post = {}) {
-    const id = String(post.id ?? post.number ?? "");
+    // The id becomes a Map key, is echoed in the 202 body, and is pasted into
+    // PRs and comments by the worker, so it is guarded and capped like any
+    // other post-derived string rather than trusted to be a small number.
+    const id = guardPublicText(String(post.id ?? post.number ?? ""), { limit: 40 });
     if (!id) return null;
-    const title = clean(post.title, 200);
+    const title = guardPublicText(post.title, { limit: 200 });
     if (!title) return null;
     const kind =
       (typeof post.kind === "string" && ["bug", "feature", "balance", "question"].includes(post.kind) && post.kind) ||
@@ -99,15 +102,59 @@ class CommunityQueue {
         const match = title.match(/^\[(bug|feature|balance|question)\]/i);
         return match ? match[1].toLowerCase() : "question";
       })();
+    const description = guardPublicText(post.description, { limit: 4000 });
+    // Guarding neutralises the text; it does not make the link safe to use. The
+    // worker pastes this into PRs and comments as the canonical link to a
+    // report, so only http(s) survives — a `javascript:` or `data:` URL must
+    // never be handed downstream.
+    const rawUrl = guardPublicText(post.url, { limit: 400 });
+    const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : null;
+    const reference = guardPublicText(post.reference, { limit: 120 }) || null;
+    const votes = Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0;
+    // Only a real post number is meaningful. `[1,2]` or an object would be
+    // stored and echoed straight back out to the worker.
+    const number = Number.isInteger(post.number) ? post.number : null;
+    // A repeat delivery is a retry or a status-change webhook, not new work.
+    // Replacing the entry would erase the action record and hand an already
+    // triaged post back to the worker as though nobody had seen it, so merge
+    // into what we already hold and keep status, action and first receipt.
+    const prev = this.items.get(id);
+    if (prev) {
+      // Overwrite only with what this delivery actually carried. A second,
+      // leaner webhook template (docs/AUTOMATION.md tells the operator to add
+      // one) must not blank out fields the richer template populated.
+      prev.title = title;
+      if (description) prev.description = description;
+      if (url) prev.url = url;
+      if (reference) prev.reference = reference;
+      // Only a genuinely supplied count overwrites. `Number("")`, `Number(null)`
+      // and `Number([])` are all 0 and all finite, so the old single guard let an
+      // explicit empty value pass and zero out a real count — the exact thing the
+      // comment above forbids. Reachable when an operator quotes this numeric field
+      // (`"post_votes": {{ quote .post_votes }}`) even though docs/AUTOMATION.md
+      // specifies quoting for the FREE-TEXT fields and leaves numbers unquoted.
+      const votesSupplied =
+        typeof post.votes === "number"
+          ? Number.isFinite(post.votes)
+          : typeof post.votes === "string" && post.votes.trim() !== "" && Number.isFinite(Number(post.votes));
+      if (votesSupplied) prev.votes = votes;
+      if (number !== null) prev.number = number;
+      // Re-derive routing only while nothing has been decided for this item.
+      if (prev.status === "new") {
+        prev.kind = kind;
+        prev.proposal = propose({ kind, title });
+      }
+      return prev;
+    }
     const item = {
       id,
-      number: post.number ?? null,
+      number,
       title,
       kind,
-      description: clean(post.description, 4000),
-      url: clean(post.url, 400) || null,
-      reference: clean(post.reference, 120) || null,
-      votes: Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0,
+      description,
+      url,
+      reference,
+      votes,
       status: "new",
       proposal: propose({ kind, title }),
       receivedAt: new Date().toISOString(),

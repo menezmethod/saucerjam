@@ -7,7 +7,7 @@ const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
 const { Metrics } = require("./metrics");
-const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
+const { CommunityQueue, verifySignature, verifyToken, clean, guardPublicText } = require("./community");
 const { Insights } = require("./insights");
 
 // Fider's webhook content is a Go template edited by hand in its admin UI, so it
@@ -190,7 +190,16 @@ function createGameServer({
   app.use((req, res, next) => {
     const started = process.hrtime.bigint();
     res.on("finish", () => {
-      const route = (req.route?.path || req.path || "unknown").replace(/[0-9a-f]{16,}/gi, ":id");
+      // Only a matched route TEMPLATE is safe as a metric label. For an
+      // unmatched request req.route is undefined, and falling back to req.path
+      // let any anonymous client mint a permanent counter/histogram series per
+      // unique URL it invented. That is unbounded cardinality on a shared
+      // process, reachable without a credential and before the rate limiter,
+      // and a scrape re-expands every series. Collapse them into one label.
+      // Middleware that rejects before routing (the /api limiter) sets
+      // res.locals.route so a 429 still names a route instead of "unmatched",
+      // which is what the alert annotation tells the operator to read.
+      const route = req.route?.path || res.locals.route || "unmatched";
       const labels = { method: req.method, route, status: String(res.statusCode) };
       mHttp.add(labels);
       metrics.httpDuration.observe(labels, Number(process.hrtime.bigint() - started) / 1e9);
@@ -198,10 +207,12 @@ function createGameServer({
     });
     next();
   });
-  app.use("/api", (req, res, next) => {
-    if (!httpLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
-    next();
-  });
+  // The /api limiter is deliberately registered AFTER the webhook route below.
+  // Fider permanently disables a webhook on the first non-2xx it sees and never
+  // retries, so a 429 on that one path would silently drop every future report.
+  // Ordering by registration beats matching on the URL string: Express routes
+  // "/api/community/webhook/" and case variants to the same handler, while a
+  // string compare misses them and quietly restores the 429 and the 413.
   // The Fider webhook needs the exact raw bytes for HMAC, so it must be
   // declared BEFORE the JSON body parser (or the signature never validates).
   const community = new CommunityQueue();
@@ -209,7 +220,52 @@ function createGameServer({
   const mCommunityIngest = metrics.counter("saucerjam_community_ingest_total", "Fider webhook items ingested by kind", "counter");
   const mCommunityRejected = metrics.counter("saucerjam_community_webhook_rejected_total", "Fider webhooks rejected by reason", "counter");
   const mCommunityActions = metrics.counter("saucerjam_community_actions_total", "AI actions recorded by type", "counter");
-  app.post("/api/community/webhook", express.raw({ type: "*/*", limit: "64kb" }), (req, res) => {
+  // A dedicated meter for the webhook. It must never answer 429 — that is the
+  // non-2xx that permanently kills the webhook — so an over-limit request is
+  // accepted and dropped with 202 plus a counter. Its real job is to bound how
+  // much body an anonymous client can make this process buffer.
+  const webhookLimiter = limiter(600);
+  app.post(
+    "/api/community/webhook",
+    (req, res, next) => {
+      if (!webhookLimiter(clientAddress(req))) {
+        mCommunityRejected.add({ reason: "rate_limited" });
+        return res.status(202).json({ ok: false });
+      }
+      return next();
+    },
+    // A credential carried in a header can be rejected before the body is read,
+    // so an honest sender with a stale token is rejected cheaply. This is NOT a
+    // bound on a hostile caller: hasSignature only tests header PRESENCE, so
+    // adding any junk x-signature header skips this check and still buys the
+    // full body read. The real ingress bound is the meter above times the body
+    // cap. It short-circuits only when no HMAC is offered at all, because a
+    // valid signature must still open the gate on its own — the two credentials
+    // are evaluated independently, never either/or.
+    (req, res, next) => {
+      const authorization = req.get("authorization") || "";
+      const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+      const presented = (bearer ? bearer[1].trim() : "") || req.get("x-fider-token") || "";
+      const hasSignature = Boolean(req.get("x-fider-signature") || req.get("x-signature"));
+      // Only short-circuit when a token is actually configured: with no
+      // credential set at all the handler must still answer 503, and a wrong
+      // bearer must never mask that misconfiguration.
+      if (fiderWebhookToken && presented && !hasSignature) {
+        let ok = false;
+        try { ok = verifyToken(fiderWebhookToken, presented); } catch { ok = false; }
+        if (!ok) {
+          mCommunityRejected.add({ reason: "bad_credential" });
+          return res.status(401).json({ error: "Invalid webhook credential." });
+        }
+      }
+      return next();
+    },
+    // 128kb covers any realistic post (Fider caps the title at 100 chars; the
+    // description is what can be long) while keeping the worst-case buffered
+    // bytes small on a path an unauthenticated caller can reach. Anything
+    // larger is dropped with a counted 202 rather than a parser 413.
+    express.raw({ type: "*/*", limit: "128kb" }),
+    (req, res) => {
     if (!fiderWebhookSecret && !fiderWebhookToken) return res.status(503).json({ error: "Community webhooks are not configured." });
     const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
     const signature = req.get("x-fider-signature") || req.get("x-signature") || "";
@@ -244,6 +300,13 @@ function createGameServer({
     // Fider templates emit flat keys (post_number, post_title, ...) via the
     // Go-template webhook content; accept both flat and nested shapes.
     const post = payload?.post || payload?.data?.post || payload || {};
+    // Distinguish a first delivery from a replay so the counter reports items
+    // accepted rather than webhook calls received.
+    // ingest() stores under the GUARDED id, so the lookup has to apply the same
+    // guard: an id carrying bidi, zero-width characters, or more than 40 chars
+    // would otherwise never match and every replay would count as a new item.
+    const incomingId = guardPublicText(String(post.post_id ?? post.id ?? post.post_number ?? post.number ?? ""), { limit: 40 });
+    const existed = incomingId !== "" && community.get(incomingId) != null;
     const item = community.ingest({
       id: post.post_id ?? post.id ?? post.post_number ?? post.number,
       number: post.post_number ?? post.number,
@@ -260,8 +323,31 @@ function createGameServer({
       return res.status(202).json({ ok: false });
     }
     if (degraded) mCommunityRejected.add({ reason: "degraded_parse" });
-    mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
+    if (!existed) mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
     return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
+    },
+    // Route-scoped, so the router matches it rather than a URL string compare.
+    // express.raw rejects an oversized or malformed body BEFORE the handler
+    // runs, and Fider disables a webhook permanently on the first non-2xx, so
+    // those rejections must surface as a counted 202 instead of a parser 413.
+    (err, req, res, next) => {
+      // Branch on the actual error. A client that drops mid-upload raises
+      // `request aborted`, not a size error, and labelling both body_rejected
+      // sends the operator hunting for an oversized post that never existed.
+      // Anything unexpected still answers 202 — a non-2xx here permanently
+      // disables the webhook — but is counted separately so it stays visible
+      // rather than being silently filed as a size problem.
+      mCommunityRejected.add({ reason: err?.type === "entity.too.large" ? "body_rejected" : "body_error" });
+      return res.status(202).json({ ok: false });
+    },
+  );
+  app.use("/api", (req, res, next) => {
+    // Registered after the webhook route on purpose: a 429 on that path would
+    // permanently disable the Fider webhook. res.locals.route keeps limiter
+    // rejections labelled for the alert annotation that reads it.
+    res.locals.route = "/api";
+    if (!httpLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+    next();
   });
   app.use("/api", express.json({ limit: "12kb", strict: true }));
   // Public, non-PII population signal for the landing page: how many pilots are

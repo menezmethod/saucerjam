@@ -16,6 +16,13 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const STATE_DIR = process.env.SAUCERJAM_OPS_STATE_DIR || path.join(ROOT, "logs", "ops");
 const FIXTURE = process.env.SAUCERJAM_FIXTURE || "";
 const COOLDOWN_MS = 30 * 60_000;
+// A standing queue is a constant condition: the ids do not change while items sit
+// untriaged, so the tick interval repeats the same alert indefinitely. With
+// COOLDOWN_MS == the 30m tick, the guard at the bottom of runCheck never trips and
+// the whole queue is re-announced every tick forever. A standing condition is
+// therefore re-announced on a much longer floor — enough to keep reminding an
+// operator, not enough to become wallpaper. A *changed* key still notifies at once.
+const STANDING_REMINDER_MS = 24 * 60 * 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 // Telegram caps messages at 4096 chars. MAX_REPORTED_ITEMS bounds the count and
 // MAX_MESSAGE_CHARS bounds the whole rendered body, so a queue of long items
@@ -119,7 +126,7 @@ async function communityCondition(fx) {
   // The ids are post-derived too, so they are guarded for display; the dedupe
   // key stays on the raw values so a standing queue still reports once.
   const ids = items.map((item) => guardPublicText(String(item.id ?? ""), { limit: 40 })).join(",");
-  return { key: `queue:${items.map((item) => item.id).join(",")}`, alert: false, message: formatQueueMessage(items) };
+  return { key: `queue:${items.map((item) => item.id).join(",")}`, alert: false, standing: true, message: formatQueueMessage(items) };
 }
 
 function stateFile(name) {
@@ -171,7 +178,13 @@ async function runCheck(name, fx, opts) {
     process.exit(0);
   }
   const now = Date.now();
-  if (state.condition === condition.key && now - (state.notifiedAt || 0) < COOLDOWN_MS) process.exit(0);
+  // A standing condition (an untriaged queue) is unchanged by definition, so it
+  // uses the long floor; anything that changes notifies immediately. Without this
+  // the guard is unreachable whenever the cooldown equals the tick interval.
+  const sameCondition = state.condition === condition.key;
+  const quietFor = now - (state.notifiedAt || 0);
+  const floor = sameCondition && condition.standing ? STANDING_REMINDER_MS : COOLDOWN_MS;
+  if (sameCondition && quietFor < floor) process.exit(0);
   writeState(file, {
     condition: condition.key,
     since: state.condition === condition.key ? state.since || new Date().toISOString() : new Date().toISOString(),

@@ -89,7 +89,10 @@ class CommunityQueue {
     this.maxItems = maxItems;
   }
   ingest(post = {}) {
-    const id = String(post.id ?? post.number ?? "");
+    // The id becomes a Map key, is echoed in the 202 body, and is pasted into
+    // PRs and comments by the worker, so it is guarded and capped like any
+    // other post-derived string rather than trusted to be a small number.
+    const id = guardPublicText(String(post.id ?? post.number ?? ""), { limit: 40 });
     if (!id) return null;
     const title = guardPublicText(post.title, { limit: 200 });
     if (!title) return null;
@@ -100,21 +103,27 @@ class CommunityQueue {
         return match ? match[1].toLowerCase() : "question";
       })();
     const description = guardPublicText(post.description, { limit: 4000 });
-    const url = clean(post.url, 400) || null;
-    const reference = clean(post.reference, 120) || null;
+    const url = guardPublicText(post.url, { limit: 400 }) || null;
+    const reference = guardPublicText(post.reference, { limit: 120 }) || null;
     const votes = Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0;
+    // Only a real post number is meaningful. `[1,2]` or an object would be
+    // stored and echoed straight back out to the worker.
+    const number = Number.isInteger(post.number) ? post.number : null;
     // A repeat delivery is a retry or a status-change webhook, not new work.
     // Replacing the entry would erase the action record and hand an already
     // triaged post back to the worker as though nobody had seen it, so merge
     // into what we already hold and keep status, action and first receipt.
     const prev = this.items.get(id);
     if (prev) {
+      // Overwrite only with what this delivery actually carried. A second,
+      // leaner webhook template (docs/AUTOMATION.md tells the operator to add
+      // one) must not blank out fields the richer template populated.
       prev.title = title;
-      prev.description = description;
-      prev.url = url;
-      prev.reference = reference;
-      prev.votes = votes;
-      if (post.number != null) prev.number = post.number;
+      if (description) prev.description = description;
+      if (url) prev.url = url;
+      if (reference) prev.reference = reference;
+      if (Number.isFinite(Number(post.votes))) prev.votes = votes;
+      if (number !== null) prev.number = number;
       // Re-derive routing only while nothing has been decided for this item.
       if (prev.status === "new") {
         prev.kind = kind;
@@ -124,7 +133,7 @@ class CommunityQueue {
     }
     const item = {
       id,
-      number: post.number ?? null,
+      number,
       title,
       kind,
       description,

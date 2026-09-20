@@ -112,3 +112,25 @@ groups:
           summary: "New pilots are joining but not playing"
           description: "Share of sessions stuck in the lobby without input above 0.15 for 30m; onboarding or control-binding problem, not automatically fixable."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE-INSIGHTS.md"
+
+  # The community loop is silent when healthy, so a silent failure looks exactly
+  # like a healthy one. This is the one counter that distinguishes them.
+  # NOTE: a webhook that Fider has disabled cannot be seen from here — no
+  # delivery means no metric. Fider disables a webhook permanently on the first
+  # non-2xx and never retries, so detecting that needs an active comparison of
+  # Fider's post list against the queue (the collector already fetches every
+  # post hourly), not a counter. That reconciliation is still open.
+  - name: saucerjam-community
+    interval: 60s
+    rules:
+      - alert: SaucerJamWebhookRejecting
+        expr: increase(saucerjam_community_webhook_rejected_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "Fider webhook deliveries are being rejected or dropped"
+          description: "Check the reason label. bad_credential = token rotated or wrong; unusable_item = the body template drifted so the title is empty; body_rejected = a post larger than the body cap; rate_limited = over the webhook meter; verification_error = an internal fault in credential checking. Each one means a report did not reach the queue."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#6-community--ai-pipeline"
+

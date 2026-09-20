@@ -23,8 +23,8 @@ aggregate, non-PII counts). Implementation: `server/metrics.js`, wired in
 | `saucerjam_rounds_completed_total{map}` | counter | Finished rounds |
 | `saucerjam_game_events_total{type}` | counter | Authoritative events (kill, hit, fire, portal*, mapChanged, roundEnd…) |
 | `saucerjam_chat_messages_total` | counter | Accepted chat lines |
-| `saucerjam_rate_limited_total{route}` | counter | Limiter rejections |
-| `saucerjam_http_requests_total{method,route,status}` | counter | HTTP requests |
+| `saucerjam_rate_limited_total{route}` | counter | Limiter rejections (`/api` for the shared bucket) |
+| `saucerjam_http_requests_total{method,route,status}` | counter | HTTP requests. `route` is a matched route TEMPLATE, or `unmatched` for anything that did not match one — never the raw path, which would let an anonymous caller mint a series per invented URL. |
 | `saucerjam_http_request_duration_seconds` | histogram | HTTP latency |
 | `saucerjam_ws_round_trip_seconds` | histogram | Client ping (from `pingCheck`) |
 | `saucerjam_ranking_save_errors_total` | counter | Round persistence failures |
@@ -161,7 +161,11 @@ human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 2. Capture heap before restart. Escalate if it recurs after a restart.
 
 ### Runbook: RateLimit
-1. Inspect `route` label; `chat` and `/api/*` are the usual suspects.
+1. Inspect the `route` label; `/api` is the shared bucket and `chat` is the usual
+   suspect. A `429` on `/api` is labelled `/api` (not `unmatched`) precisely so
+   this step keeps working. The Fider webhook is never rate limited with a 429 —
+   an over-limit delivery returns `202`, so a `saucerjam_community_webhook_rejected_total{reason="rate_limited"}`
+   increase is the signal there, not this counter.
 2. Distinguish abuse (single IP) from a stuck client; only the latter is a bug.
 
 ## 6. Community → AI pipeline

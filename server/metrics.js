@@ -107,4 +107,4 @@ class Metrics {
     return lines.join("\n") + "\n";
   }
 }
-module.exports = { Metrics };
+module.exports = { Metrics, ESCAPE };

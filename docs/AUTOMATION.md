@@ -56,8 +56,12 @@ Hard rules enforced in code and process:
    an HMAC signature (`FIDER_WEBHOOK_SECRET`) or the shared bearer token
    (`FIDER_WEBHOOK_TOKEN`). Either one alone opens the gate; both are compared in
    constant time and never logged or echoed.
-5. **Rate/abuse limited.** `/api` is already rate-limited; new endpoints inherit
-   it, and the queue is bounded to 500 items.
+5. **Rate/abuse limited.** `/api` is rate-limited and the queue is bounded to 500
+   items. The webhook route is the one deliberate exception: Fider permanently
+   disables a webhook on the first non-2xx it sees and never retries, so a 429
+   there would silently drop every future report. It is registered ahead of the
+   `/api` limiter and metered separately, and an over-limit delivery is dropped
+   with a counted `202` rather than a `429`.
 6. **No automatic deploy.** The loop never calls a deploy endpoint; production
    releases are human-triggered. The binding rules — lifecycle, invariant,
    idempotency keys, retries, and forbidden actions — live in

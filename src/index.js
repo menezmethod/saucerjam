@@ -86,13 +86,19 @@ class Game {
     this.damageUntil = 0;
     this.noticeUntil = 0;
     $("pilot-name").value = storage.get("qd-name", "Pilot");
-    const invite = new URLSearchParams(location.search).get("room");
+    const params = new URLSearchParams(location.search);
+    const invite = params.get("room");
     if (invite) {
       $("room-code").value = invite.toUpperCase();
       this.openFriendsDisclosure();
       $("lobby-status").textContent =
         "Room invite ready. Enter your callsign and choose Join.";
     }
+    // Escape hatch: force the paid-opponent selector open on this device. The
+    // server still authorizes every join, so this only reveals a control; it
+    // never grants Jev by itself. Useful when account plumbing misbehaves and
+    // an operator still needs to reach the option.
+    this.forceBotMixUi = params.has("botmix");
     this.bind();
     this.interface=new Interface({maps:MAPS,onMap:id=>this.chooseMap(id),onLeaderboard:scope=>this.loadLeaderboard(scope),onPractice:()=>this.practice(),onOnline:scope=>{if(scope&&scope!=='overall')this.chooseMap(scope);this.online('quick');},onCamera:view=>this.setView(view),onZoom:zoom=>{this.renderer.zoom=Number(zoom);}});
     this.interface.setMaps(MAPS,this.selectedMap);
@@ -488,7 +494,9 @@ class Game {
   setBotMixVisibility() {
     const row = $("bot-mix-row");
     if (!row) return;
-    row.hidden = this.admin !== true;
+    // An explicit ?botmix on the URL reveals the control regardless of the
+    // account handshake. Authorization is still decided server-side per join.
+    row.hidden = !(this.admin === true || this.forceBotMixUi);
     if (!row.hidden) {
       $("bot-mix").value = this.botMixPreference || "classic";
     }
@@ -917,9 +925,9 @@ class Game {
       name: $("pilot-name").value,
       code: $("room-code").value.trim().toUpperCase(),
       bots: $("fill-bots").checked,
-      // Sent whenever the selector is visible. Admin was confirmed by a previous
-      // join in this session; the server re-checks against the verified token
-      // on every join, so this is a request, never an authorization.
+      // Sent whenever the selector is visible (admin, or an explicit ?botmix).
+      // The server re-checks against the verified token on every join, so this
+      // is a request, never an authorization.
       botMix: $("bot-mix-row")?.hidden === false ? $("bot-mix").value : undefined,
       mapId:this.selectedMap,profileToken:this.profileToken,rotate:true,
     };
@@ -936,22 +944,21 @@ class Game {
   // never see admin controls.
   refreshIdentity() {
     const token = this.auth?.accessToken() || "";
-    if (this.socket) {
-      this.socket.auth = (callback) => callback({ accessToken: token });
-      // A different token means the current connection is stale; reconnect so
-      // the server re-verifies. An empty token on a live connection still needs
-      // a fresh identity report, which onIdentityNeeded handles.
-      if (this.socket.connected && token) {
-        this.socket.disconnect();
-        this.socket.connect();
-        return;
-      }
+    if (!this.socket) return;
+    this.socket.auth = (callback) => callback({ accessToken: token });
+    if (token) {
+      // A token means the connection must be re-established so the server
+      // verifies it, whether or not the old connection is still up.
+      if (this.socket.connected) this.socket.disconnect();
+      this.socket.connect();
+      return;
     }
-    if (this.socket?.connected) this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+    if (this.socket.connected) this.socket.emit("identity", (identity) => this.applyIdentity(identity));
   }
   applyIdentity(identity) {
     this.admin = identity?.admin === true;
     this.identityReason = identity?.reason || "";
+    this.identityTokenPresented = identity?.tokenPresented;
     this.setBotMixVisibility();
     this.showIdentityStatus();
   }
@@ -973,7 +980,7 @@ class Game {
     }
     el.hidden = false;
     el.textContent = this.authSession?.user
-      ? `Not an admin — ${this.identityReason}.`
+      ? `Not an admin — ${this.identityReason}.${this.identityTokenPresented === false ? " No token reached the server." : ""}`
       : "Guest pilot: paid (Jev) opponents need an admin account.";
   }
   setupSocket() {

@@ -793,7 +793,17 @@ function createGameServer({
         mAdminDenied.add({ route: "identity" });
         console.log("Admin identity rejected:", reason);
       }
-      ack({ admin: isAdmin(socket), signedIn: Boolean(socket.data.authUser), reason, botMixes: [...BOT_MIXES] });
+      // Whether a token arrived at all is the fact that matters when a signed-in
+      // pilot is still treated as anonymous; the client cannot see it otherwise.
+      const presented = socket.handshake?.auth?.accessToken;
+      ack({
+        admin: isAdmin(socket),
+        signedIn: Boolean(socket.data.authUser),
+        reason,
+        tokenPresented: typeof presented === "string" && presented.length > 0,
+        tokenLength: typeof presented === "string" ? presented.length : 0,
+        botMixes: [...BOT_MIXES],
+      });
     });
     socket.on("leave", () => leave(socket));
     socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });

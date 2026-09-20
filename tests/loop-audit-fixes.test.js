@@ -79,9 +79,11 @@ test("a delivery that omits fields does not blank what a richer template set", (
 });
 
 test("an explicitly empty votes value does not overwrite a real count", () => {
-  // The operator quotes the numeric field the way the docs tell them to quote every
-  // other one — `"post_votes": {{ quote .post_votes }}` — which yields "". Number("")
-  // is 0 and finite, so a single Number.isFinite guard let it zero a real count.
+  // The operator quotes this numeric field the way the docs quote every other one
+  // — `"post_votes": {{ quote .post_votes }}` — which yields "". (AUTOMATION.md
+  // actually specifies quoting for free-text fields and leaves numbers bare, so
+  // this is operator error, not documented practice.) Number("") is 0 and finite,
+  // so a single Number.isFinite guard let it zero a real count.
   const q = new CommunityQueue();
   q.ingest({ id: 8, title: "[bug] x", votes: 41 });
   for (const empty of ["", null, [], "   "]) {

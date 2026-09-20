@@ -130,9 +130,9 @@ class CommunityQueue {
       // Only a genuinely supplied count overwrites. `Number("")`, `Number(null)`
       // and `Number([])` are all 0 and all finite, so the old single guard let an
       // explicit empty value pass and zero out a real count — the exact thing the
-      // comment above forbids. Reachable when an operator quotes the numeric field
-      // (`"post_votes": {{ quote .post_votes }}`) as the docs tell them to quote
-      // every other field.
+      // comment above forbids. Reachable when an operator quotes this numeric field
+      // (`"post_votes": {{ quote .post_votes }}`) even though docs/AUTOMATION.md
+      // specifies quoting for the FREE-TEXT fields and leaves numbers unquoted.
       const votesSupplied =
         typeof post.votes === "number"
           ? Number.isFinite(post.votes)

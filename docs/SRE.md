@@ -24,7 +24,7 @@ aggregate, non-PII counts). Implementation: `server/metrics.js`, wired in
 | `saucerjam_game_events_total{type}` | counter | Authoritative events (kill, hit, fire, portal*, mapChanged, roundEnd…) |
 | `saucerjam_chat_messages_total` | counter | Accepted chat lines |
 | `saucerjam_rate_limited_total{route}` | counter | Limiter rejections (`/api` for the shared bucket) |
-| `saucerjam_http_requests_total{method,route,status}` | counter | HTTP requests. `route` is a matched route TEMPLATE, or the bucket label for a fixed prefix that legitimately shares one (`/api` — every `/api/*` request that reached the limiter, including a 404 on an `/api` path), or `unmatched` for anything that matched no route and no bucket. Never the raw path, which would let an anonymous caller mint a series per invented URL. |
+| `saucerjam_http_requests_total{method,route,status}` | counter | HTTP requests. `route` is a matched route TEMPLATE (`/api/statistics` reports as `/api/statistics`); otherwise `/api` if the request reached the shared limiter but matched no route (an `/api` path that 404s); otherwise `unmatched`. Never the raw path, which would let an anonymous caller mint a series per invented URL. |
 | `saucerjam_http_request_duration_seconds` | histogram | HTTP latency |
 | `saucerjam_ws_round_trip_seconds` | histogram | Client ping (from `pingCheck`) |
 | `saucerjam_ranking_save_errors_total` | counter | Round persistence failures |

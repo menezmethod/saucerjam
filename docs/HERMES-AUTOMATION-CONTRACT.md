@@ -15,14 +15,19 @@ Written by Hermes (CEO Mac) on 2026-09-19 after auditing the live fleet. Treat t
    never touch DNS/TLS, never `docker rm -f`.
 3. Work on branch `chore/hermes-automation-contract`, push it, open a PR against
    `release/1.4.0`. PR only — no merge.
-4. Do not create or use a `qd7.menezmethod.com` preview. It does not exist.
+4. Preview deployments **are** enabled on the SaucerJam app. Open, reopen, or
+   synchronize a pull request and Coolify builds a preview automatically at
+   `qd{{pr_id}}.menezmethod.com` (PR 14 → `https://qd14.menezmethod.com`).
+   Treat any preview domain as unknown until that PR's preview deployment has
+   finished; never guess a production domain or reuse a preview host that never
+   deployed.
 
 ## State as measured (2026-09-19 ~12:10 EDT)
 
 | Fact | Value |
 | --- | --- |
 | Production | `https://qd.menezmethod.com` — `/health` 200, `/metrics` **404**, `/api/community/queue` **404** → prod is pre-1.4 |
-| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://qd.menezmethod.com`, branch `main`. **No preview app exists.** |
+| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://qd.menezmethod.com`, branch `main`. Preview deployments **are enabled** (app setting `is_preview_deployments_enabled`); each open PR builds at `qd{{pr_id}}.menezmethod.com`. |
 | Coolify creds | `~/.config/menez/coolify.env` (vars: `COOLIFY_URL`, `COOLIFY_TOKEN`, `COOLIFY_APP_SAUCERJAM`) |
 | Prometheus on Pi5 | `prometheus-prometheus-1`, rules **now load** — 8 alerts / 3 groups verified via `promtool`. Fixed by bind-mounting the rules file. |
 | Prometheus scrape | target `saucerjam` = `down`, `server returned HTTP status 404` (because `/metrics` is not deployed) |
@@ -146,3 +151,26 @@ beats a long final essay. Write files **before** printing a summary.
 - No new secrets committed; no values printed.
 - No refactor of game code — this is ops/automation surface only.
 - No "everything is green" summaries that contradict the raw output above.
+
+## Correction log
+
+**2026-09-20 — preview deployments.** The original line 25 ("No preview app
+exists") and anti-goal "no preview-domain guessing" were a snapshot of a real
+absence, not a permanent fact. The audit ran before any PR preview had been
+built, saw no preview rows, and generalized that into "previews do not exist."
+
+Measured state: preview deployments are enabled and working.
+
+- Enable flag lives on the application **settings** relation
+  (`is_preview_deployments_enabled`), not on the application row, so
+  `GET /api/v1/applications/{uuid}` shows `null` while previews are on.
+  Verified by deploys `941 pr=14`, `944 pr=14`, and `936`–`940 pr=13`.
+- API surface in Coolify 4.3.23 has **no enable endpoint**; previews are
+  configured through the app settings and triggered by GitHub PR events
+  (opened / reopened / synchronize). Manage an existing preview with
+  `PATCH|DELETE /api/v1/applications/{uuid}/previews/{pr_id}`.
+- Coolify does not deploy a PR that was open before previews were enabled.
+  Close and reopen the PR to create its preview.
+- A preview's container can crash-loop while `/health` still returns a routing
+  404 through Traefik. Check the container on the deployment server
+  (`docker ps`, `docker logs <app-uuid>-pr-<id>`) before blaming DNS or TLS.

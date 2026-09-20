@@ -763,8 +763,8 @@ class Simulation {
       delete player.portalLockUntil;
       if (player.id !== playerId) delete player.profileId;
     }
-    snapshot.standings = [...this.players.values()].map(({ id, name, bot, pilotClass, kills, deaths }) => ({
-      id, name, bot, pilotClass, kills, deaths,
+    snapshot.standings = [...this.players.values()].map(({ id, name, bot, pilotClass, brain, kills, deaths }) => ({
+      id, name, bot, pilotClass, brain, kills, deaths,
     }));
     snapshot.recap = this.recapFor(playerId);
     return snapshot;
@@ -785,7 +785,7 @@ class Simulation {
       pilotCount: this.players.size,
       pickups: [...this.pickups.values()].map(({respawnAt, ...pickup}) => ({...pickup})),
       players: [...this.players.values()].filter(includePlayer).map(
-        ({ input, path, navigateAt, lastInput, intent, brain, ...p }) => ({ ...p }),
+        ({ input, path, navigateAt, lastInput, intent, ...p }) => ({ ...p }),
       ),
       projectiles: [...this.projectiles.values()].filter(includeProjectile).map((p) => ({ ...p })),
     };

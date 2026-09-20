@@ -715,6 +715,21 @@ th {
 .self td {
   color: var(--cyan);
 }
+/* Jev-driven opponents are a live model, not a free script. Make them
+   identifiable at a glance without competing with the local-pilot highlight. */
+tr.jev td:first-child {
+  color: var(--orange);
+}
+tr.jev td:first-child::after {
+  content: " ◆";
+  font-size: 9px;
+  vertical-align: middle;
+}
+.scoreboard-legend {
+  color: #9dafc2;
+  font-size: 11px;
+  margin: 0 0 10px;
+}
 #touch-controls {
   display: none;
 }

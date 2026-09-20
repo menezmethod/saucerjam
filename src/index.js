@@ -1534,16 +1534,22 @@ class Game {
     }
   }
   renderScores() {
+    const label = (p) => {
+      if (p.id === this.playerId) return p.name + " (you)";
+      if (p.brain === "jev") return p.name + " (Jev)";
+      if (p.pilotClass === "agent") return p.name + " (agent)";
+      if (p.bot) return p.name + " (bot)";
+      return p.name;
+    };
     const rows = [...this.state.players]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
       .map((p) => {
         const row = document.createElement("tr");
         if (p.id === this.playerId) row.className = "self";
-        for (const text of [
-          p.name + (p.bot ? " (bot)" : p.id === this.playerId ? " (you)" : ""),
-          p.kills,
-          p.deaths,
-        ]) {
+        // Marking the Jev-driven pilots is what makes the difference between a
+        // free bot and a live model visible during play.
+        if (p.brain === "jev") row.classList.add("jev");
+        for (const text of [label(p), p.kills, p.deaths]) {
           const td = document.createElement("td");
           td.textContent = text;
           row.append(td);
@@ -1551,6 +1557,18 @@ class Game {
         return row;
       });
     $("scores").replaceChildren(...rows);
+    // Summarise the opponent mix once, so the individual (Jev) tags are
+    // understandable at a glance.
+    const legend = $("scoreboard-legend");
+    if (legend) {
+      const jev = this.state.players.filter((p) => p.brain === "jev").length;
+      const classic = this.state.players.filter((p) => p.bot && p.brain !== "jev").length;
+      const parts = [];
+      if (jev) parts.push(`${jev} Jev`);
+      if (classic) parts.push(`${classic} classic`);
+      legend.hidden = parts.length === 0;
+      if (parts.length) legend.textContent = `Opponents: ${parts.join(" · ")}`;
+    }
   }
   radar(local) {
     const canvas = $("radar"),

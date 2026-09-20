@@ -107,6 +107,10 @@ class Game {
     this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
     this.loadCareer();
+    // The selector is always visible, so its state and the account line must be
+    // correct before any socket round-trip.
+    this.setBotMixVisibility();
+    this.showIdentityStatus();
     this.loadPopulation();
     // Read-only diagnostics for support and end-to-end verification.
     window.__qd = Object.freeze({
@@ -491,15 +495,16 @@ class Game {
   // The bot-mix selector is an admin control. It stays hidden until the server
   // has confirmed this account is an admin, so a guest never sees a control
   // whose requests the server would refuse.
+  // Opponent selection is always available. It is a *request*, never an
+  // authorization: the server decides per join whether this account may seat
+  // paid (Jev) bots, and silently seats classic bots otherwise. Gating the
+  // control on the client only ever hid a working feature when the account
+  // handshake misbehaved.
   setBotMixVisibility() {
     const row = $("bot-mix-row");
     if (!row) return;
-    // An explicit ?botmix on the URL reveals the control regardless of the
-    // account handshake. Authorization is still decided server-side per join.
-    row.hidden = !(this.admin === true || this.forceBotMixUi);
-    if (!row.hidden) {
-      $("bot-mix").value = this.botMixPreference || "classic";
-    }
+    row.hidden = false;
+    $("bot-mix").value = this.botMixPreference || "classic";
   }
   pointerDown(e) {
       if (!this.active()) return;
@@ -925,10 +930,10 @@ class Game {
       name: $("pilot-name").value,
       code: $("room-code").value.trim().toUpperCase(),
       bots: $("fill-bots").checked,
-      // Sent whenever the selector is visible (admin, or an explicit ?botmix).
-      // The server re-checks against the verified token on every join, so this
-      // is a request, never an authorization.
-      botMix: $("bot-mix-row")?.hidden === false ? $("bot-mix").value : undefined,
+      // Always sent: the server decides whether this account may seat paid
+      // (Jev) bots, and silently seats classic bots when it may not. The client
+      // never attempts to authorize anything.
+      botMix: $("bot-mix").value,
       mapId:this.selectedMap,profileToken:this.profileToken,rotate:true,
     };
     // A socket opened before sign-in carries no token, and Socket.IO reads the
@@ -962,26 +967,22 @@ class Game {
     this.setBotMixVisibility();
     this.showIdentityStatus();
   }
-  // A signed-in pilot who is not an admin needs to know why the paid-opponent
-  // selector is missing, otherwise a wrong allowlist or an unexpected Google
-  // address looks identical to a broken feature. Shown whenever the server
-  // reported a reason at all.
+  // Always states the account situation, because the selector no longer hides
+  // it. A guest or non-admin sees what they will actually get, which is better
+  // than a control that silently does nothing.
   showIdentityStatus() {
     const el = $("admin-status");
     if (!el) return;
-    if (this.admin) {
-      el.hidden = false;
-      el.textContent = "Admin: paid (Jev) opponents are available when you create a room.";
-      return;
-    }
-    if (!this.identityReason) {
-      el.hidden = true;
-      return;
-    }
     el.hidden = false;
-    el.textContent = this.authSession?.user
-      ? `Not an admin — ${this.identityReason}.${this.identityTokenPresented === false ? " No token reached the server." : ""}`
-      : "Guest pilot: paid (Jev) opponents need an admin account.";
+    if (!this.authSession?.user) {
+      el.textContent = "Guest pilot: choosing Jev opponents needs an admin account, so classic bots will be seated.";
+      return;
+    }
+    if (this.admin) {
+      el.textContent = "Admin: your Jev opponent choice will be honoured.";
+      return;
+    }
+    el.textContent = "Signed in, but this account cannot seat Jev opponents; classic bots will be seated.";
   }
   setupSocket() {
     this.socket = io({

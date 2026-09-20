@@ -577,7 +577,15 @@ function createGameServer({
     mCommunityActions.add({ action });
     return res.json({ ok: true, item });
   });
-  app.use(express.static(staticDir));
+  // The HTML document keeps a stable name while the hashed JS bundles change,
+  // so a cached index.html pins a returning player to old JavaScript no matter
+  // how many times the app is redeployed. Serve the document uncached and let
+  // the hashed assets stay cacheable.
+  app.use(express.static(staticDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    },
+  }));
   app.get("/health", (req, res) => {
     if (!healthLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many health checks. Please try again shortly." });
     return res.json({

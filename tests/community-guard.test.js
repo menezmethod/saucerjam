@@ -60,6 +60,13 @@ test("the ops community alert path renders guarded post text", () => {
   assert.equal(res.status, 0, `${res.stdout}${res.stderr}`);
   const out = res.stdout.replace(/\n+$/, ""); // the line terminator is not byproduct text
   assert.match(out, /CommunityQueue: 1 new item/);
-  assert.doesNotMatch(out, FORBIDDEN, "ops output must not carry control/bidi/zero-width characters");
+  // The message is multi-line by design, so a line feed is the only permitted
+  // control character. Everything else — bidi overrides, zero-width joiners,
+  // ANSI escapes — must have been stripped before the text reached stdout.
+  assert.doesNotMatch(
+    out.replace(/\n/g, ""),
+    FORBIDDEN,
+    "ops output must not carry control/bidi/zero-width characters",
+  );
   assert.ok(out.length <= 1200, `ops output is bounded (${out.length})`);
 });

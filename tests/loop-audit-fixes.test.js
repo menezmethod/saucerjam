@@ -260,6 +260,20 @@ test("a replayed delivery does not inflate the ingest counter", async () => {
   }, WEBHOOK_OPTS);
 });
 
+test("a replayed hostile id does not double-count either", async () => {
+  await withServer(async (url) => {
+    // ingest() stores under the guarded id, so the replay check has to look up
+    // the GUARDED id too. It looked up the raw one, so any id that guarding
+    // changes counted as a brand-new item on every delivery.
+    const body = JSON.stringify({ post_id: "7\u202E\u200B", post_title: "[bug] guarded id" });
+    await post(url, body);
+    await post(url, body);
+    const metrics = await (await fetch(`${url}/metrics`)).text();
+    const line = metrics.split("\n").find((l) => l.startsWith("saucerjam_community_ingest_total"));
+    assert.equal(Number(line.trim().split(" ").pop()), 1, "the guarded id must match on replay too");
+  }, WEBHOOK_OPTS);
+});
+
 // --- Opus P4: unescaped labels poison the whole scrape -----------------------
 
 test("an anonymous insights payload cannot emit an invalid exposition line", async () => {

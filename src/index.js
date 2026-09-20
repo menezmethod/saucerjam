@@ -479,6 +479,8 @@ class Game {
     // A sign-in or sign-out changes the identity the server sees. Reconnect so
     // socket.data.authUser (and therefore admin) reflects it.
     this.refreshIdentity();
+    // Reflect the account state immediately, before any socket round-trip.
+    this.showIdentityStatus();
   }
   // The bot-mix selector is an admin control. It stays hidden until the server
   // has confirmed this account is an admin, so a guest never sees a control
@@ -933,10 +935,19 @@ class Game {
   // server derives admin from that, so without this a mid-session sign-in would
   // never see admin controls.
   refreshIdentity() {
-    if (!this.socket || this.mode !== "lobby") return;
-    this.socket.auth = (callback) => callback({ accessToken: this.auth?.accessToken() || "" });
-    if (this.socket.connected) this.socket.disconnect();
-    this.socket.connect();
+    const token = this.auth?.accessToken() || "";
+    if (this.socket) {
+      this.socket.auth = (callback) => callback({ accessToken: token });
+      // A different token means the current connection is stale; reconnect so
+      // the server re-verifies. An empty token on a live connection still needs
+      // a fresh identity report, which onIdentityNeeded handles.
+      if (this.socket.connected && token) {
+        this.socket.disconnect();
+        this.socket.connect();
+        return;
+      }
+    }
+    if (this.socket?.connected) this.socket.emit("identity", (identity) => this.applyIdentity(identity));
   }
   applyIdentity(identity) {
     this.admin = identity?.admin === true;
@@ -946,7 +957,8 @@ class Game {
   }
   // A signed-in pilot who is not an admin needs to know why the paid-opponent
   // selector is missing, otherwise a wrong allowlist or an unexpected Google
-  // address looks identical to a broken feature.
+  // address looks identical to a broken feature. Shown whenever the server
+  // reported a reason at all.
   showIdentityStatus() {
     const el = $("admin-status");
     if (!el) return;
@@ -955,12 +967,14 @@ class Game {
       el.textContent = "Admin: paid (Jev) opponents are available when you create a room.";
       return;
     }
-    if (this.identityReason && this.identityReason !== "no verified session") {
-      el.hidden = false;
-      el.textContent = `Not an admin — ${this.identityReason}.`;
+    if (!this.identityReason) {
+      el.hidden = true;
       return;
     }
-    el.hidden = true;
+    el.hidden = false;
+    el.textContent = this.authSession?.user
+      ? `Not an admin — ${this.identityReason}.`
+      : "Guest pilot: paid (Jev) opponents need an admin account.";
   }
   setupSocket() {
     this.socket = io({
@@ -972,9 +986,15 @@ class Game {
       reconnectionDelayMax: 3000,
       reconnectionAttempts: 8,
     });
+    // The socket can only report an identity once it is connected, and a
+    // restored session may resolve after that. Ask again on every auth change
+    // so a signed-in pilot never stays anonymous just because the connection
+    // happened first.
+    this.onIdentityNeeded = () => {
+      if (!this.socket?.connected) return;
+      this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+    };
     this.socket.on("connect", () => {
-      // Ask the server who this connection's account is before any join, so the
-      // lobby knows whether to offer the paid-opponent selector.
       this.socket.emit("identity", (identity) => this.applyIdentity(identity));
       this.joinOnline();
     });

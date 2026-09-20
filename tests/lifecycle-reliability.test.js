@@ -144,7 +144,7 @@ test("R6 enumeration includes posts past 50 and declined reports", async () => {
 });
 
 test("R7 invalid policy config stops before any write", async () => {
-  for (const value of ["-1", "NaN", "Infinity", "1.5"]) {
+  for (const value of ["-1", "0", "NaN", "Infinity", "1.5"]) {
     await withFider(async ({ run, calls }) => {
       const result = await run(["--apply"], { LIFECYCLE_MAX_ACTIONS: value });
       assert.notEqual(result.code, 0);

@@ -233,6 +233,29 @@ test("a stalled board does not emit a warning on every tick", () => {
   assert.equal(r.stats.oldestPendingHours, 720, "age is still reported for external monitoring");
 });
 
+test("a cap-suppressed ack is visible as an unacked finding", () => {
+  // Findings are computed against the BOUNDED run, so work the cap suppressed is
+  // reported rather than silently invisible. Computing them against the uncapped
+  // list made this warning unreachable: every overdue report always had an ack
+  // planned for it, even when the cap meant that ack never happened.
+  const capped = run(
+    Array.from({ length: 9 }, (_, i) => post({ number: 200 + i, createdAt: hoursAgo(48) })),
+    {},
+    { maxActionsPerRun: 5, ackAfterHours: 4 },
+  );
+  const f = capped.findings.find((x) => x.kind === "unacked");
+  assert.ok(f, "acks the cap suppressed must be visible");
+  assert.match(f.reason, /4 report\(s\) are overdue/);
+
+  // When every overdue report is acked this run there is nothing to warn about.
+  const all = run(
+    Array.from({ length: 3 }, (_, i) => post({ number: 300 + i, createdAt: hoursAgo(48) })),
+    {},
+    { maxActionsPerRun: 5, ackAfterHours: 4 },
+  );
+  assert.equal(all.findings.filter((x) => x.kind === "unacked").length, 0, "no wallpaper when the work is done");
+});
+
 test("one run bounds how much it mutates", () => {
   const posts = Array.from({ length: 9 }, (_, i) => post({ number: 200 + i, createdAt: hoursAgo(48) }));
   const r = run(posts, {}, { maxActionsPerRun: 5, ackAfterHours: 4 });

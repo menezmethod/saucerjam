@@ -221,7 +221,11 @@ function plan({ posts = [], commentsByNumber = {}, unknownComments = [], config 
     //    the only state in the machine with no exit: the report was never
     //    acknowledged, never expired, never reopened-from, and emitted a WARN on
     //    every tick forever. Surfacing a problem must not also strand it.
-    if (attempts >= cfg.maxAttempts) {
+    // Only surface this where the collector can still act on it. A planned/started
+    // report is already in flight and can never expire, so warning about it every
+    // hour is the same wallpaper D5 removed - and it would never stop. Escalation is
+    // for reports that are both stuck and actionable.
+    if (attempts >= cfg.maxAttempts && !isWorking(status)) {
       findings.push({
         kind: "escalate", number, title: post.title, attempts,
         reason: `consumed ${attempts}/${cfg.maxAttempts} attempts without reaching a fix`,

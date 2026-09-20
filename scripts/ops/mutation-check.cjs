@@ -12,6 +12,8 @@
 //   node scripts/ops/mutation-check.cjs
 //   MUTATION_BASELINE=<sha> node scripts/ops/mutation-check.cjs
 //   MUTATION_EVIDENCE_DIR=/path  (default: a temp dir - evidence is not source)
+//
+// Safe to run alongside other tests: the working tree is never mutated.
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");

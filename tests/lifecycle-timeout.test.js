@@ -27,8 +27,14 @@ function withStub(handler) {
 }
 
 const collect = (port, ms) => new Promise((resolve) => {
+  // Build the child env explicitly. Inheriting the shell's LIFECYCLE_* would change
+  // the policy under test and make this fail spuriously.
+  const env = {};
+  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith("LIFECYCLE_") && k !== "FIDER_API_KEY" && k !== "FIDER_BASE_URL") env[k] = v;
+  env.FIDER_BASE_URL = `http://127.0.0.1:${port}`;
+  env.FIDER_API_KEY = "t";
   execFile("node", [path.resolve(__dirname, "../scripts/ops/saucerjam-lifecycle.cjs"), "--apply"], {
-    env: { ...process.env, FIDER_BASE_URL: `http://127.0.0.1:${port}`, FIDER_API_KEY: "t" },
+    env,
     timeout: ms,
     killSignal: "SIGKILL",
   }, (err, stdout, stderr) => resolve({ killed: Boolean(err && err.killed), stdout, stderr }));

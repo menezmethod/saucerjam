@@ -261,3 +261,15 @@ AGENT_GATEWAY_TOKEN=<operator-token>
 `MAX_AGENTS_PER_ROOM` (default 4) caps concurrent agents in one room. The
 operator token authorizes session creation; each session then uses its own
 `x-agent-session` token, so agents cannot act as one another.
+
+## Cost control
+
+Jev spends the operator's API credit per decision, so it is never left running
+by default:
+
+- The preview environment carries no `TYPESAFE_API_KEY` and no `JEV_BOTS`, so no
+  container spends credit between sessions.
+- To try it, set both preview-scoped, play, then remove them and redeploy. Env
+  changes only take effect on a new deploy.
+- `JEV_BOT_MAX_PER_MINUTE` is a hard server-wide ceiling; bots keep playing their
+  last intent when it is spent.

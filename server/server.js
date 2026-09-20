@@ -243,7 +243,10 @@ function createGameServer({
       const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
       const presented = (bearer ? bearer[1].trim() : "") || req.get("x-fider-token") || "";
       const hasSignature = Boolean(req.get("x-fider-signature") || req.get("x-signature"));
-      if (presented && !hasSignature) {
+      // Only short-circuit when a token is actually configured: with no
+      // credential set at all the handler must still answer 503, and a wrong
+      // bearer must never mask that misconfiguration.
+      if (fiderWebhookToken && presented && !hasSignature) {
         let ok = false;
         try { ok = verifyToken(fiderWebhookToken, presented); } catch { ok = false; }
         if (!ok) {

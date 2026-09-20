@@ -13,12 +13,10 @@ ENV NODE_ENV=production PORT=8080 MAX_ROOMS=8 MAX_CONNECTIONS=96 MAX_ROOM_PLAYER
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
-COPY server/server.js ./server/server.js
-COPY server/rankings ./server/rankings
-COPY server/metrics.js ./server/metrics.js
-COPY server/community.js ./server/community.js
-COPY server/insights.js ./server/insights.js
-RUN mkdir -p /app/server/data && chown node:node /app/server/data
+# Copy the whole server tree rather than naming files one by one: a new module
+# (e.g. server/agents/) silently breaks the image when the list is not updated.
+COPY server ./server
+RUN rm -rf /app/server/data && mkdir -p /app/server/data && chown node:node /app/server/data
 COPY shared ./shared
 USER node
 EXPOSE 8080

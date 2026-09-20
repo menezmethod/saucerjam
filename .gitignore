@@ -48,6 +48,11 @@ logs
 # Astra / dream-loop local working context
 /.dream-loop/
 
+# Agent skill installs (reproduce with `npx skills add`; only the lockfile is tracked)
+/.agents/
+/.claude/
+/agent/
+
 # Suno raw WAV masters (source for scripts/audio/build-soundtrack.sh)
 /_raw/
 

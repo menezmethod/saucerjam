@@ -77,6 +77,16 @@
             ><input id="fill-bots" type="checkbox" checked /> Private rooms:
               fill empty seats with bots</label
             >
+            <div id="bot-mix-row" class="room-actions">
+              <label for="bot-mix" class="sr-only">Opponent brains</label>
+              <select id="bot-mix" aria-label="Opponent brains">
+                <option value="classic">Bots: classic</option>
+                <option value="mixed">Bots: classic + Jev (mixed)</option>
+                <option value="jev">Bots: all Jev</option>
+              </select>
+              <span id="bot-mix-hint" class="lobby-population" role="status">Jev opponents think with a live AI model; classic bots are free.</span>
+            </div>
+            <p id="admin-status" class="lobby-population" role="status"></p>
           </div>
         </details>
         <details id="lobby-account" class="lobby-disclosure">
@@ -288,6 +298,7 @@
     <section id="scoreboard" class="modal" hidden>
       <div class="dialog wide">
         <h2>Flight standings</h2>
+        <p id="scoreboard-legend" class="scoreboard-legend" hidden></p>
         <table>
           <thead>
             <tr>

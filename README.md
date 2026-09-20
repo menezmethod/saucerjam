@@ -89,6 +89,10 @@ Optional accounts use Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABL
 
 Multiplayer is designed for a single server process. Guests use a random browser token; signed-in pilots use their verified Supabase user ID, so records can follow them across devices. Horizontal scaling and cross-region matchmaking are not implemented.
 
+## Agent pilots
+
+External agents can join and play through the same input-only interface a browser uses. `npm run agent:pilot` runs a reference pilot; set `AGENT_PILOTS=true` to class it as an agent (agents expand the world but record in a separate ledger). Bots can optionally use [Jev](https://docs.typesafe.ai) as a tactical intent layer on top of the deterministic reflexes: set `TYPESAFE_API_KEY` and `JEV_BOTS=true`. See [docs/AGENT-PILOTS.md](docs/AGENT-PILOTS.md).
+
 ## Arenas and pilot records
 
 Confluence is one 120×120 world: a tight industrial core, forest biodome, orbital rail yard, and frozen relay. Online play starts in the core; 3, 5, and 7 connected humans unlock additional districts after five seconds. Bots do not expand the map. Open territory remains available until the next round, when everyone safely respawns within the new population boundary. Practice opens the entire world immediately. Two crossings on each district border provide flanking routes. Previous maps remain only as internal regression fixtures; public matches no longer rotate between arenas.

@@ -6,6 +6,8 @@ const { Server } = require("socket.io");
 const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
+const { JevBrain, JevRunner, createJevClient } = require("./agents/jev");
+const { AgentGateway } = require("./agents/gateway");
 const { Metrics } = require("./metrics");
 const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
 const { Insights } = require("./insights");
@@ -44,6 +46,17 @@ function createGameServer({
   staticDir = path.join(__dirname, "../dist"),
   tick = true,
   rankingsFile = null,
+  agentRankingsFile = null,
+  allowAgents = process.env.AGENT_PILOTS === "true",
+  agentGatewayToken = String(process.env.AGENT_GATEWAY_TOKEN || ""),
+  maxAgentsPerRoom = Math.max(1, Number(process.env.MAX_AGENTS_PER_ROOM) || 4),
+  jevApiKey = String(process.env.TYPESAFE_API_KEY || ""),
+  jevBots = process.env.JEV_BOTS === "true",
+  jevBotIntervalMs = Math.max(250, Number(process.env.JEV_BOT_INTERVAL_MS) || 600),
+  jevBotMinIntervalMs = Math.max(0, Number(process.env.JEV_BOT_MIN_INTERVAL_MS) || 1500),
+  jevBotMaxInFlight = Math.max(1, Number(process.env.JEV_BOT_MAX_IN_FLIGHT) || 3),
+  jevBotMaxPerMinute = Math.max(0, Number(process.env.JEV_BOT_MAX_PER_MINUTE) || 120),
+  adminEmails = String(process.env.ADMIN_EMAILS || "luisgimenezdev@gmail.com"),
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
@@ -169,19 +182,110 @@ function createGameServer({
   const gBots = metrics.gauge("saucerjam_bots", "Active bots");
   const gCapacity = metrics.gauge("saucerjam_capacity_ratio", "Human pilots / maxPlayersPerRoom saturation");
   const gTokenBytes = metrics.gauge("saucerjam_fider_last_error", "1 when the most recent Fider call failed");
+  // Humans and agents both receive snapshots. Keeping them in separate sets
+  // means capacity, bot-fill, and the map-expansion population count stay
+  // human-only, while an agent still gets the same authoritative view.
+  const viewers = (room) => [...room.humans, ...room.agents];
   const sendSnapshots = (room) => {
-    for (const id of room.humans)
+    for (const id of viewers(room))
       io.sockets.sockets.get(id)?.emit("state", room.sim.snapshotFor(id));
   };
   const sendEvents = (room, events) => {
-    for (const id of room.humans) {
+    for (const id of viewers(room)) {
       const visible = room.sim.eventsFor(id, events);
       if (visible.length) io.sockets.sockets.get(id)?.emit("events", visible);
     }
   };
   const rankings = new RankingStore({filePath:rankingsFile});
+  // Agent pilots keep their own ledger so the human board stays human. Only
+  // created when agents are enabled; a null path means in-memory, like the
+  // human store in tests.
+  const agentRankings = allowAgents ? new RankingStore({ filePath: agentRankingsFile }) : null;
   const pendingSaves = new Set();
   let rankingError = null;
+  const mJevErrors = metrics.counter("saucerjam_jev_errors_total", "Jev brain decisions that failed", "counter");
+  const mJevSkipped = metrics.counter("saucerjam_jev_skipped_total", "Jev decisions skipped by a runner ceiling", "counter");
+  const mAgentJoins = metrics.counter("saucerjam_agent_joins_total", "Agent gateway sessions created", "counter");
+  const mAgentIntents = metrics.counter("saucerjam_agent_intents_total", "Agent intents accepted", "counter");
+  const mAgentInputs = metrics.counter("saucerjam_agent_inputs_total", "Agent raw inputs accepted", "counter");
+  // Admin identity comes only from a Supabase-verified email. A client cannot
+  // claim it: socket.data.authUser is set from the token the server validated.
+  const adminSet = new Set(
+    (Array.isArray(adminEmails) ? adminEmails : String(adminEmails).split(","))
+      .map((email) => String(email).trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const isAdmin = (socket) => {
+    const email = socket?.data?.authUser?.email;
+    return Boolean(email && adminSet.has(String(email).toLowerCase()));
+  };
+  // Admin attempts are worth an audit line: when an operator signs in and is
+  // still not recognised, the reason (no verified session vs a different email)
+  // is otherwise invisible from the client.
+  const describeIdentity = (socket) => {
+    const user = socket?.data?.authUser;
+    if (!user) return "no verified session";
+    const email = String(user.email || "").toLowerCase();
+    if (!email) return `session without email (id ${user.id || "?"})`;
+    if (adminSet.has(email)) return "admin";
+    return `signed in as ${email}, not in ADMIN_EMAILS`;
+  };
+  const mAdminDenied = metrics.counter("saucerjam_admin_denied_total", "Admin-only requests from non-admins", "counter");
+  const mJevRooms = metrics.counter("saucerjam_jev_rooms_total", "Rooms created with a Jev bot mix", "counter");
+  // The Jev runner is the only place model latency lives. It updates player
+  // intent on a timer; the simulation never awaits it. Off unless a key and
+  // JEV_BOTS=true are present.
+  const jevRunner = jevApiKey && jevBots
+    ? new JevRunner({
+        brain: new JevBrain({ client: createJevClient({ apiKey: jevApiKey }) }),
+        intervalMs: jevBotIntervalMs,
+        // A live key must not become an open tap. One Jev bot on a 600ms sweep
+        // would spend ~100 requests/minute forever, per bot. Cap the cadence
+        // per pilot and put a hard ceiling on requests per minute across the
+        // whole server.
+        minIntervalMs: jevBotMinIntervalMs,
+        maxInFlight: jevBotMaxInFlight,
+        maxPerMinute: jevBotMaxPerMinute,
+        onError: (error) => {
+          mJevErrors.add({});
+          console.error("Jev decision failed:", error.message);
+        },
+        onSkip: (reason) => mJevSkipped.add({ reason }),
+      })
+    : null;
+  jevRunner?.start(() => rooms.values());
+  // Split a finished round into the human and agent ledgers. The winner only
+  // scores in the ledger that actually contains them.
+  const roundRecordFor = (room, recap, keep) => {
+    const players = recap.players.filter(keep);
+    if (!players.length) return null;
+    const winnerId = players.some((p) => p.id === recap.winnerId) ? recap.winnerId : null;
+    return { id: room.matchId + ":" + room.sim.round, mapId: room.sim.map.id, players, winnerId };
+  };
+  function saveRound(room, recap) {
+    mRounds.add({ map: room.sim.map.id });
+    recap.recordId = room.matchId + ":" + room.sim.round;
+    const targets = [
+      [rankings, roundRecordFor(room, recap, (p) => !p.bot && p.pilotClass !== "agent")],
+    ];
+    if (agentRankings) targets.push([agentRankings, roundRecordFor(room, recap, (p) => p.pilotClass === "agent")]);
+    const saves = [];
+    for (const [store, record] of targets) {
+      if (!record) continue;
+      const save = store.recordRound(record).then(() => {
+        rankingError = null;
+        if (store === rankings) io.to(room.code).emit("careerUpdated");
+      }).catch((error) => {
+        rankingError = "Last round records could not be saved.";
+        mRankingErrors.add({});
+        console.error("Ranking save failed:", error.message);
+        io.to(room.code).emit("rankingsError", rankingError);
+      }).finally(() => pendingSaves.delete(save));
+      pendingSaves.add(save);
+      saves.push(save);
+    }
+    return Promise.all(saves);
+  }
   const profileKey = token => typeof token === "string" && /^[a-zA-Z0-9_-]{20,128}$/.test(token) ? createHash("sha256").update(token).digest("hex") : null;
   const cleanChatText = (value) => typeof value === "string"
     ? value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 160)
@@ -256,13 +360,16 @@ function createGameServer({
     return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
   });
   app.use("/api", express.json({ limit: "12kb", strict: true }));
+  // The agent gateway lives outside /api, so it needs its own body parser.
+  // Actions are small; a tight limit keeps a hostile agent from pushing memory.
+  app.use("/agent", express.json({ limit: "4kb", strict: true }));
   // Public, non-PII population signal for the landing page: how many pilots are
   // online right now and how many rounds have been played. No auth required.
   app.get("/api/statistics", (_req, res) => {
     let online = 0;
     for (const room of rooms.values()) online += room.humans.size;
     res.set("Cache-Control", "public, max-age=15");
-    res.json({ online, rooms: rooms.size, maxRoomPlayers: maxPlayersPerRoom });
+    res.json({ online, rooms: rooms.size, maxRoomPlayers: maxPlayersPerRoom, jev: jevRunner ? jevRunner.stats() : null });
   });
   // Behavioural friction ingest. Fire-and-forget, allow-listed event names,
   // coarse device/platform buckets, no identifiers or free text.
@@ -279,8 +386,66 @@ function createGameServer({
     supabaseUrl: supabaseUrl || "",
     supabasePublishableKey: supabasePublishableKey || "",
   }));
+  // ---- Tier-2 Agent Gateway (see docs/AGENT-PILOTS.md) --------------------
+  // A supported HTTP surface so an LLM can join with a few calls per second and
+  // emit intent instead of 60 Hz control. Disabled unless AGENT_PILOTS is on.
+  const gateway = new AgentGateway({
+    io,
+    rooms,
+    allowAgents,
+    maxAgentsPerRoom,
+    token: agentGatewayToken,
+    profileKey,
+  });
+  const agentLimiter = limiter(600, 60_000);
+  // Every agent route needs the operator token. The per-session token returned
+  // by /join authorizes that one session only.
+  const requireGateway = (req, res, next) => {
+    if (!gateway.enabled()) return res.status(503).json({ error: "Agent pilots are not enabled on this server." });
+    if (!gateway.token) return res.status(503).json({ error: "Agent gateway token is not configured." });
+    if (!gateway.authorized(req.get("authorization"))) return res.status(401).json({ error: "A valid gateway token is required." });
+    if (!agentLimiter(clientAddress(req))) { mRateLimited.add({ route: "agent" }); return res.status(429).json({ error: "Too many agent requests. Slow down." }); }
+    next();
+  };
+  const sessionFrom = (req) => {
+    const header = req.get("x-agent-session") || "";
+    const [sessionId, sessionToken] = header.split(":");
+    return gateway.resolve(sessionId, sessionToken);
+  };
+  app.post("/agent/v1/sessions", requireGateway, (req, res) => {
+    const result = gateway.join(req.body || {});
+    if (result.error) return res.status(400).json(result);
+    mAgentJoins.add({});
+    return res.status(201).json(result);
+  });
+  app.get("/agent/v1/sessions/:id/observe", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    const observation = gateway.observe(session);
+    if (observation.error) return res.status(410).json(observation);
+    return res.json(observation);
+  });
+  app.post("/agent/v1/sessions/:id/act", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    const result = gateway.act(session, req.body || {});
+    if (result.error) return res.status(400).json(result);
+    if (result.accepted === "intent") mAgentIntents.add({});
+    else mAgentInputs.add({});
+    return res.json(result);
+  });
+  app.delete("/agent/v1/sessions/:id", requireGateway, (req, res) => {
+    const { session, error } = sessionFrom(req);
+    if (error) return res.status(401).json({ error });
+    gateway.destroy(session.id);
+    return res.json({ ok: true });
+  });
+  app.get("/agent/v1/status", requireGateway, (_req, res) => res.json(gateway.status()));
+
   app.get("/api/leaderboard", async (req,res) => {
-    try { res.json({rows:await rankings.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
+    // ?class=agent reads the separate agent ledger; anything else is human.
+    const store = req.query.class === "agent" && agentRankings ? agentRankings : rankings;
+    try { res.json({rows:await store.getLeaderboard({mapId:req.query.mapId || undefined,limit:50}),scope:req.query.mapId || "overall",pilotClass:req.query.class === "agent" ? "agent" : "human",error:rankingError}); } catch { res.status(503).json({error:"Flight records are temporarily unavailable."}); }
   });
   app.get("/api/profile", async (req,res) => {
     let id = profileKey(req.get("x-pilot-token"));
@@ -412,7 +577,15 @@ function createGameServer({
     mCommunityActions.add({ action });
     return res.json({ ok: true, item });
   });
-  app.use(express.static(staticDir));
+  // The HTML document keeps a stable name while the hashed JS bundles change,
+  // so a cached index.html pins a returning player to old JavaScript no matter
+  // how many times the app is redeployed. Serve the document uncached and let
+  // the hashed assets stay cacheable.
+  app.use(express.static(staticDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    },
+  }));
   app.get("/health", (req, res) => {
     if (!healthLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many health checks. Please try again shortly." });
     return res.json({
@@ -422,20 +595,44 @@ function createGameServer({
       players: [...rooms.values()].reduce((n, r) => n + r.humans.size, 0),
     });
   });
-  const makeRoom = (code, bots, mapId = "classic", rotate = false) => {
-    const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(),matchId:randomBytes(12).toString("hex") };
+  // A room owns its bot-brain mix: "classic" (free heuristic), "jev" (every
+  // bot), or "mixed" (some Jev, the rest classic). Only an admin can request
+  // anything other than classic, because Jev costs money per decision.
+  const BOT_MIXES = new Set(["classic", "jev", "mixed"]);
+  const makeRoom = (code, bots, mapId = "classic", rotate = false, botMix = "classic") => {
+    const room = { code, bots, botMix: BOT_MIXES.has(botMix) ? botMix : "classic", sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(), agents: new Set(), matchId:randomBytes(12).toString("hex") };
     rooms.set(code, room);
     return room;
   };
+  // Which of the `desired` bots should think with Jev. Mixed keeps at least one
+  // classic bot so a human always has a free opponent, and never spends more
+  // than `jevBotsPerRoom`.
+  const jevBotsPerRoom = Math.max(0, Number(process.env.JEV_BOTS_PER_ROOM) || 2);
+  function jevBotIds(room, desired) {
+    if (!jevRunner) return new Set();
+    if (room.botMix === "jev") return new Set(Array.from({ length: desired }, (_, i) => `bot-${i}`));
+    if (room.botMix === "mixed") return new Set(Array.from({ length: Math.min(jevBotsPerRoom, Math.max(0, desired - 1)) }, (_, i) => `bot-${i}`));
+    return new Set();
+  }
   function fillBots(room) {
     const desired = room.bots ? Math.max(0, 4 - room.humans.size) : 0;
     const bots = [...room.sim.players.values()].filter((p) => p.bot);
     while (bots.length > desired) room.sim.removePlayer(bots.pop().id);
     const names = ["Vector", "Nova", "Echo", "Flux"];
+    const jevIds = jevBotIds(room, desired);
     for (let i = 0; bots.length < desired; i++) {
       const id = `bot-${i}`;
       if (room.sim.players.has(id)) continue;
-      bots.push(room.sim.addPlayer(id, names[i % names.length], true));
+      const bot = room.sim.addPlayer(id, names[i % names.length], true);
+      // Assign the brain from the room's mix; a classic bot keeps no brain and
+      // falls back to the free heuristic reflex.
+      if (jevIds.has(id)) bot.brain = "jev";
+      bots.push(bot);
+    }
+    // A bot that survived may need its brain reassigned if the mix changed.
+    for (const bot of bots) {
+      if (jevIds.has(bot.id)) bot.brain = "jev";
+      else if (bot.brain === "jev") { bot.brain = null; bot.intent = null; }
     }
   }
   function leave(socket, transportLoss = false) {
@@ -447,6 +644,7 @@ function createGameServer({
     socket.data.room = null;
     mLeaves.add({ cause: transportLoss ? "transport" : "client" });
     if (!room.humans.size) {
+      // No humans left. Agents do not hold a room open on their own.
       if(transportLoss){
         clearTimeout(room.expiry);
         room.expiry=setTimeout(()=>{if(!room.humans.size)rooms.delete(room.code);},reconnectGraceMs);
@@ -478,6 +676,14 @@ function createGameServer({
       if(socket.data.profileId && socket.data.profileId!==profileId)return ack({error:"Reconnect before changing pilot identity."});
       const mode = request.mode;
       const requestedMap = typeof request.mapId === "string" && allowLegacyMaps && LEGACY_MAPS.some(map=>map.id===request.mapId) ? request.mapId : allowLegacyMaps ? "classic" : "confluence";
+      // Bot mix is an admin capability because Jev spends money per decision.
+      // A non-admin asking for Jev is not refused outright: they silently get
+      // the free classic bots, so the room still works.
+      const requestedMix = typeof request.botMix === "string" ? request.botMix : "classic";
+      const wantsPaidBots = requestedMix === "jev" || requestedMix === "mixed";
+      const admin = isAdmin(socket);
+      if (wantsPaidBots && !admin) mAdminDenied.add({ route: "join" });
+      const botMix = admin && BOT_MIXES.has(requestedMix) ? requestedMix : "classic";
       let room;
       if (mode === "quick") {
         room = [...rooms.values()].find(
@@ -489,8 +695,9 @@ function createGameServer({
             }); }
           room = makeRoom(
             `PUBLIC-${randomBytes(3).toString("hex").toUpperCase()}`,
-            true, requestedMap, request.rotate === true,
+            true, requestedMap, request.rotate === true, botMix,
           );
+          if (room.botMix !== "classic") mJevRooms.add({ mix: room.botMix });
         }
       } else if (mode === "create") {
         if (rooms.size >= maxRooms) { mJoinFailures.add({ reason: "rooms_full" }); return ack({
@@ -500,7 +707,8 @@ function createGameServer({
         do {
           code = randomBytes(3).toString("hex").toUpperCase();
         } while (rooms.has(code));
-        room = makeRoom(code, request.bots !== false, requestedMap, request.rotate === true);
+        room = makeRoom(code, request.bots !== false, requestedMap, request.rotate === true, botMix);
+        if (room.botMix !== "classic") mJevRooms.add({ mix: room.botMix });
       } else if (mode === "join") {
         const code =
           typeof request.code === "string"
@@ -530,7 +738,8 @@ function createGameServer({
       // Remove a filling bot before choosing a color and a safe player spawn.
       fillBots(room);
       const prior=[...room.sim.departed.values()].find(p=>p.profileId===profileId);
-      const player = room.sim.addPlayer(socket.id, request.name, false, !room.sim.restartAt?prior:null);
+      const pilotClass = request.agent === true && allowAgents ? "agent" : "human";
+      const player = room.sim.addPlayer(socket.id, request.name, false, !room.sim.restartAt?prior:null, { pilotClass });
       player.profileId=profileId;
       if(prior && !room.sim.restartAt)room.sim.departed.delete(prior.id);
       fillBots(room);
@@ -540,6 +749,8 @@ function createGameServer({
         code: room.code,
         map: room.sim.map,
         state: room.sim.snapshotFor(socket.id),
+        botMix: room.botMix,
+        admin: isAdmin(socket),
       });
     });
     socket.on("input", (input) => {
@@ -578,6 +789,30 @@ function createGameServer({
     socket.on("pingCheck", (ack) => {
       if (typeof ack === "function") ack();
     });
+    // Reports whether this connection's verified account is an admin, so the
+    // lobby can show the paid-opponent selector before a room exists. It only
+    // ever reads the identity the connection middleware already established.
+    socket.on("identity", (ack) => {
+      if (typeof ack !== "function") return;
+      // Report the reason, not just the boolean, so a mis-set allowlist is
+      // diagnosable from the browser without reading server logs.
+      const reason = describeIdentity(socket);
+      if (reason !== "admin" && reason !== "no verified session") {
+        mAdminDenied.add({ route: "identity" });
+        console.log("Admin identity rejected:", reason);
+      }
+      // Whether a token arrived at all is the fact that matters when a signed-in
+      // pilot is still treated as anonymous; the client cannot see it otherwise.
+      const presented = socket.handshake?.auth?.accessToken;
+      ack({
+        admin: isAdmin(socket),
+        signedIn: Boolean(socket.data.authUser),
+        reason,
+        tokenPresented: typeof presented === "string" && presented.length > 0,
+        tokenLength: typeof presented === "string" ? presented.length : 0,
+        botMixes: [...BOT_MIXES],
+      });
+    });
     socket.on("leave", () => leave(socket));
     socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });
   });
@@ -589,18 +824,17 @@ function createGameServer({
     previous = now;
     while (accumulator >= STEP) {
       for (const room of rooms.values()) {
-        if(!room.humans.size)continue;
+        // Step while any viewer is present. A room whose humans left but whose
+        // agents are still connected keeps running so the agent's next
+        // observation is coherent, then closes with the room's own expiry.
+        if(!room.humans.size && !room.agents.size)continue;
         room.sim.step();
         const events = room.sim.drainEvents();
         for (const event of events) {
           mEvents.add({ type: event.type });
           if (event.type === "mapChanged") io.to(room.code).emit("map", event.map);
           if (event.type === "roundEnd") {
-            mRounds.add({ map: room.sim.map.id });
-            event.recap.recordId=room.matchId+":"+room.sim.round;
-            const record={id:event.recap.recordId,mapId:room.sim.map.id,players:event.recap.players,winnerId:event.recap.winnerId};
-            const save=Promise.resolve().then(()=>rankings.recordRound(record)).then(()=>{rankingError=null;io.to(room.code).emit("careerUpdated");}).catch(error=>{rankingError="Last round records could not be saved.";mRankingErrors.add({});console.error("Ranking save failed:",error.message);io.to(room.code).emit("rankingsError",rankingError);}).finally(()=>pendingSaves.delete(save));
-            pendingSaves.add(save);
+            saveRound(room, event.recap);
           }
         }
         if (events.length) sendEvents(room, events);
@@ -614,15 +848,21 @@ function createGameServer({
   const interval = tick ? setInterval(advance, 1000 / 60) : null;
   async function close() {
     clearInterval(interval);
+    jevRunner?.stop();
+    gateway.close();
     for(const room of rooms.values())clearTimeout(room.expiry);
     await new Promise((resolve) => io.close(resolve));
     await Promise.all([...pendingSaves]);
     await rankings.close();
+    await agentRankings?.close();
   }
-  return { app, server, io, rooms, rankings, close };
+  return { app, server, io, rooms, rankings, agentRankings, jevRunner, gateway, saveRound, close };
 }
 if (require.main === module) {
-  const game = createGameServer({rankingsFile:process.env.RANKINGS_FILE || path.join(__dirname,"data/rankings.json")}),
+  const game = createGameServer({
+    rankingsFile: process.env.RANKINGS_FILE || path.join(__dirname, "data/rankings.json"),
+    agentRankingsFile: process.env.AGENT_RANKINGS_FILE || path.join(__dirname, "data/agent-rankings.json"),
+  }),
     port = Number(process.env.PORT || 8080);
   game.server.listen(port, "0.0.0.0", () => {
     console.log(`SaucerJam is ready: http://localhost:${port}`);

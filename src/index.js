@@ -57,6 +57,10 @@ class Game {
     this.idleTimer = null;
     this.ping = 0;
     this.connected = false;
+    // Admin state is learned from the server on join; the saved preference just
+    // restores the selector so an admin does not re-pick it every session.
+    this.admin = false;
+    this.botMixPreference = storage.get("saucerjam:botMix", "classic");
     this.sfxOn = storage.get("qd-sfx", storage.get("qd-sound", "on")) === "on";
     this.musicOn = storage.get("qd-music", "on") === "on";
     this.music = null;
@@ -82,13 +86,19 @@ class Game {
     this.damageUntil = 0;
     this.noticeUntil = 0;
     $("pilot-name").value = storage.get("qd-name", "Pilot");
-    const invite = new URLSearchParams(location.search).get("room");
+    const params = new URLSearchParams(location.search);
+    const invite = params.get("room");
     if (invite) {
       $("room-code").value = invite.toUpperCase();
       this.openFriendsDisclosure();
       $("lobby-status").textContent =
         "Room invite ready. Enter your callsign and choose Join.";
     }
+    // Escape hatch: force the paid-opponent selector open on this device. The
+    // server still authorizes every join, so this only reveals a control; it
+    // never grants Jev by itself. Useful when account plumbing misbehaves and
+    // an operator still needs to reach the option.
+    this.forceBotMixUi = params.has("botmix");
     this.bind();
     this.interface=new Interface({maps:MAPS,onMap:id=>this.chooseMap(id),onLeaderboard:scope=>this.loadLeaderboard(scope),onPractice:()=>this.practice(),onOnline:scope=>{if(scope&&scope!=='overall')this.chooseMap(scope);this.online('quick');},onCamera:view=>this.setView(view),onZoom:zoom=>{this.renderer.zoom=Number(zoom);}});
     this.interface.setMaps(MAPS,this.selectedMap);
@@ -97,6 +107,10 @@ class Game {
     this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
     this.loadCareer();
+    // The selector is always visible, so its state and the account line must be
+    // correct before any socket round-trip.
+    this.setBotMixVisibility();
+    this.showIdentityStatus();
     this.loadPopulation();
     // Read-only diagnostics for support and end-to-end verification.
     window.__qd = Object.freeze({
@@ -233,6 +247,11 @@ class Game {
     $("quick-play").onclick = () => this.online("quick");
     $("create-room").onclick = () => this.online("create");
     $("join-room").onclick = () => this.online("join");
+    // Remember the admin's choice locally; the server still authorizes it.
+    $("bot-mix").addEventListener("change", () => {
+      this.botMixPreference = $("bot-mix").value;
+      try { localStorage.setItem("saucerjam:botMix", this.botMixPreference); } catch {}
+    });
     $("room-code").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.online("join");
     });
@@ -467,6 +486,25 @@ class Game {
     if (error) this.openAuthDisclosure("Account session could not be restored. You can continue as a guest.");
     else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
     if (user) this.loadCareer();
+    // A sign-in or sign-out changes the identity the server sees. Reconnect so
+    // socket.data.authUser (and therefore admin) reflects it.
+    this.refreshIdentity();
+    // Reflect the account state immediately, before any socket round-trip.
+    this.showIdentityStatus();
+  }
+  // The bot-mix selector is an admin control. It stays hidden until the server
+  // has confirmed this account is an admin, so a guest never sees a control
+  // whose requests the server would refuse.
+  // Opponent selection is always available. It is a *request*, never an
+  // authorization: the server decides per join whether this account may seat
+  // paid (Jev) bots, and silently seats classic bots otherwise. Gating the
+  // control on the client only ever hid a working feature when the account
+  // handshake misbehaved.
+  setBotMixVisibility() {
+    const row = $("bot-mix-row");
+    if (!row) return;
+    row.hidden = false;
+    $("bot-mix").value = this.botMixPreference || "classic";
   }
   pointerDown(e) {
       if (!this.active()) return;
@@ -892,11 +930,59 @@ class Game {
       name: $("pilot-name").value,
       code: $("room-code").value.trim().toUpperCase(),
       bots: $("fill-bots").checked,
+      // Always sent: the server decides whether this account may seat paid
+      // (Jev) bots, and silently seats classic bots when it may not. The client
+      // never attempts to authorize anything.
+      botMix: $("bot-mix").value,
       mapId:this.selectedMap,profileToken:this.profileToken,rotate:true,
     };
+    // A socket opened before sign-in carries no token, and Socket.IO reads the
+    // auth callback only on a fresh connection. Refresh it so the join that
+    // follows is authenticated.
+    if (this.socket) this.socket.auth = (callback) => callback({ accessToken: this.auth?.accessToken() || "" });
     if (!this.socket) this.setupSocket();
-    if (this.socket.connected) this.joinOnline();
-    else this.socket.connect();
+    else if (this.socket.connected) this.socket.disconnect();
+    this.socket.connect();
+  }
+  // Reconnect so an account change is reflected in socket.data.authUser. The
+  // server derives admin from that, so without this a mid-session sign-in would
+  // never see admin controls.
+  refreshIdentity() {
+    const token = this.auth?.accessToken() || "";
+    if (!this.socket) return;
+    this.socket.auth = (callback) => callback({ accessToken: token });
+    if (token) {
+      // A token means the connection must be re-established so the server
+      // verifies it, whether or not the old connection is still up.
+      if (this.socket.connected) this.socket.disconnect();
+      this.socket.connect();
+      return;
+    }
+    if (this.socket.connected) this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+  }
+  applyIdentity(identity) {
+    this.admin = identity?.admin === true;
+    this.identityReason = identity?.reason || "";
+    this.identityTokenPresented = identity?.tokenPresented;
+    this.setBotMixVisibility();
+    this.showIdentityStatus();
+  }
+  // Always states the account situation, because the selector no longer hides
+  // it. A guest or non-admin sees what they will actually get, which is better
+  // than a control that silently does nothing.
+  showIdentityStatus() {
+    const el = $("admin-status");
+    if (!el) return;
+    el.hidden = false;
+    if (!this.authSession?.user) {
+      el.textContent = "Guest pilot: choosing Jev opponents needs an admin account, so classic bots will be seated.";
+      return;
+    }
+    if (this.admin) {
+      el.textContent = "Admin: your Jev opponent choice will be honoured.";
+      return;
+    }
+    el.textContent = "Signed in, but this account cannot seat Jev opponents; classic bots will be seated.";
   }
   setupSocket() {
     this.socket = io({
@@ -908,7 +994,18 @@ class Game {
       reconnectionDelayMax: 3000,
       reconnectionAttempts: 8,
     });
-    this.socket.on("connect", () => this.joinOnline());
+    // The socket can only report an identity once it is connected, and a
+    // restored session may resolve after that. Ask again on every auth change
+    // so a signed-in pilot never stays anonymous just because the connection
+    // happened first.
+    this.onIdentityNeeded = () => {
+      if (!this.socket?.connected) return;
+      this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+    };
+    this.socket.on("connect", () => {
+      this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+      this.joinOnline();
+    });
     this.socket.on("connect_error", () => {
       if (this.mode === "connecting")
         this.failJoin(
@@ -965,6 +1062,9 @@ class Game {
       }
       this.connected = true;
       this.room = response.code;
+      // Admin is server-authoritative: it reflects a verified account email,
+      // not anything this client can choose.
+      this.applyIdentity({ admin: response.admin });
       this.begin("online", response.playerId, response.state, response.map);
       this.receivedAt = performance.now();
       if (reconnect) this.notice("Reconnected. You’re back in the arena.", 3);
@@ -1434,16 +1534,22 @@ class Game {
     }
   }
   renderScores() {
+    const label = (p) => {
+      if (p.id === this.playerId) return p.name + " (you)";
+      if (p.brain === "jev") return p.name + " (Jev)";
+      if (p.pilotClass === "agent") return p.name + " (agent)";
+      if (p.bot) return p.name + " (bot)";
+      return p.name;
+    };
     const rows = [...this.state.players]
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
       .map((p) => {
         const row = document.createElement("tr");
         if (p.id === this.playerId) row.className = "self";
-        for (const text of [
-          p.name + (p.bot ? " (bot)" : p.id === this.playerId ? " (you)" : ""),
-          p.kills,
-          p.deaths,
-        ]) {
+        // Marking the Jev-driven pilots is what makes the difference between a
+        // free bot and a live model visible during play.
+        if (p.brain === "jev") row.classList.add("jev");
+        for (const text of [label(p), p.kills, p.deaths]) {
           const td = document.createElement("td");
           td.textContent = text;
           row.append(td);
@@ -1451,6 +1557,18 @@ class Game {
         return row;
       });
     $("scores").replaceChildren(...rows);
+    // Summarise the opponent mix once, so the individual (Jev) tags are
+    // understandable at a glance.
+    const legend = $("scoreboard-legend");
+    if (legend) {
+      const jev = this.state.players.filter((p) => p.brain === "jev").length;
+      const classic = this.state.players.filter((p) => p.bot && p.brain !== "jev").length;
+      const parts = [];
+      if (jev) parts.push(`${jev} Jev`);
+      if (classic) parts.push(`${classic} classic`);
+      legend.hidden = parts.length === 0;
+      if (parts.length) legend.textContent = `Opponents: ${parts.join(" · ")}`;
+    }
   }
   radar(local) {
     const canvas = $("radar"),

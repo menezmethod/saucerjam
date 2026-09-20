@@ -76,6 +76,27 @@ hermes webhook list
 Then verify each loop once by hand (`/api/community/queue`, a test alert) before
 trusting it unattended.
 
+## Current state in production (verified 2026-09-20)
+
+Measured against prod, not assumed:
+
+| Piece | State |
+| --- | --- |
+| App | 1.4 deployed on `https://qd.menezmethod.com`, healthy |
+| `/metrics` | 200, contains `saucerjam_rooms` |
+| `/health` | 200 |
+| `/api/community/queue` | 401 — route live, `COMMUNITY_ACTION_TOKEN` not set |
+| Prometheus scrape | target `saucerjam` health=up, 0 active alerts |
+| Grafana → relay → Hermes | relay active on Pi5, `hermes_reachable: true`, round-trip proven |
+| `npm run ops:selftest` | 8/8 PASS |
+| `contract-check` vs prod | 2/3 PASS (fails only on the missing community token) |
+| Scheduled heartbeats | **not installed** — no Hermes subscriptions or cron on the dev host |
+
+The loop is therefore **observe-only today**: the observation half is complete and
+proven, and alerts would reach Hermes if one fired, but nothing yet runs the
+15-minute SRE or 30-minute community cycle on a schedule. Installing those two
+subscriptions is the remaining step, and it must happen on the Hermes host.
+
 ## Honest boundaries
 
 - The relay and dashboard are staged; Grafana alert **routing to Hermes** requires

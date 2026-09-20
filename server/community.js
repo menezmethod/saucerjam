@@ -91,7 +91,7 @@ class CommunityQueue {
   ingest(post = {}) {
     const id = String(post.id ?? post.number ?? "");
     if (!id) return null;
-    const title = clean(post.title, 200);
+    const title = guardPublicText(post.title, { limit: 200 });
     if (!title) return null;
     const kind =
       (typeof post.kind === "string" && ["bug", "feature", "balance", "question"].includes(post.kind) && post.kind) ||
@@ -99,15 +99,38 @@ class CommunityQueue {
         const match = title.match(/^\[(bug|feature|balance|question)\]/i);
         return match ? match[1].toLowerCase() : "question";
       })();
+    const description = guardPublicText(post.description, { limit: 4000 });
+    const url = clean(post.url, 400) || null;
+    const reference = clean(post.reference, 120) || null;
+    const votes = Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0;
+    // A repeat delivery is a retry or a status-change webhook, not new work.
+    // Replacing the entry would erase the action record and hand an already
+    // triaged post back to the worker as though nobody had seen it, so merge
+    // into what we already hold and keep status, action and first receipt.
+    const prev = this.items.get(id);
+    if (prev) {
+      prev.title = title;
+      prev.description = description;
+      prev.url = url;
+      prev.reference = reference;
+      prev.votes = votes;
+      if (post.number != null) prev.number = post.number;
+      // Re-derive routing only while nothing has been decided for this item.
+      if (prev.status === "new") {
+        prev.kind = kind;
+        prev.proposal = propose({ kind, title });
+      }
+      return prev;
+    }
     const item = {
       id,
       number: post.number ?? null,
       title,
       kind,
-      description: clean(post.description, 4000),
-      url: clean(post.url, 400) || null,
-      reference: clean(post.reference, 120) || null,
-      votes: Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0,
+      description,
+      url,
+      reference,
+      votes,
       status: "new",
       proposal: propose({ kind, title }),
       receivedAt: new Date().toISOString(),

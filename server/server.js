@@ -190,7 +190,13 @@ function createGameServer({
   app.use((req, res, next) => {
     const started = process.hrtime.bigint();
     res.on("finish", () => {
-      const route = (req.route?.path || req.path || "unknown").replace(/[0-9a-f]{16,}/gi, ":id");
+      // Only a matched route TEMPLATE is safe as a metric label. For an
+      // unmatched request req.route is undefined, and falling back to req.path
+      // let any anonymous client mint a permanent counter/histogram series per
+      // unique URL it invented. That is unbounded cardinality on a shared
+      // process, reachable without a credential and before the rate limiter,
+      // and a scrape re-expands every series. Collapse them into one label.
+      const route = req.route?.path || "unmatched";
       const labels = { method: req.method, route, status: String(res.statusCode) };
       mHttp.add(labels);
       metrics.httpDuration.observe(labels, Number(process.hrtime.bigint() - started) / 1e9);
@@ -199,6 +205,12 @@ function createGameServer({
     next();
   });
   app.use("/api", (req, res, next) => {
+    // The Fider webhook must never be rate limited. Fider permanently disables
+    // a webhook the first time it sees a non-2xx (WEBHOOK_DISABLE_ON_FAILURE
+    // defaults to true) and never retries, so a single 429 from this shared
+    // bucket would silently drop every future report with no error reaching the
+    // reporter and nothing on our side to observe.
+    if (req.originalUrl.split("?")[0] === "/api/community/webhook") return next();
     if (!httpLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
     next();
   });
@@ -209,7 +221,7 @@ function createGameServer({
   const mCommunityIngest = metrics.counter("saucerjam_community_ingest_total", "Fider webhook items ingested by kind", "counter");
   const mCommunityRejected = metrics.counter("saucerjam_community_webhook_rejected_total", "Fider webhooks rejected by reason", "counter");
   const mCommunityActions = metrics.counter("saucerjam_community_actions_total", "AI actions recorded by type", "counter");
-  app.post("/api/community/webhook", express.raw({ type: "*/*", limit: "64kb" }), (req, res) => {
+  app.post("/api/community/webhook", express.raw({ type: "*/*", limit: "512kb" }), (req, res) => {
     if (!fiderWebhookSecret && !fiderWebhookToken) return res.status(503).json({ error: "Community webhooks are not configured." });
     const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
     const signature = req.get("x-fider-signature") || req.get("x-signature") || "";
@@ -244,6 +256,10 @@ function createGameServer({
     // Fider templates emit flat keys (post_number, post_title, ...) via the
     // Go-template webhook content; accept both flat and nested shapes.
     const post = payload?.post || payload?.data?.post || payload || {};
+    // Distinguish a first delivery from a replay so the counter reports items
+    // accepted rather than webhook calls received.
+    const incomingId = post.post_id ?? post.id ?? post.post_number ?? post.number;
+    const existed = incomingId != null && community.get(incomingId) != null;
     const item = community.ingest({
       id: post.post_id ?? post.id ?? post.post_number ?? post.number,
       number: post.post_number ?? post.number,
@@ -260,8 +276,18 @@ function createGameServer({
       return res.status(202).json({ ok: false });
     }
     if (degraded) mCommunityRejected.add({ reason: "degraded_parse" });
-    mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
+    if (!existed) mCommunityIngest.add({ kind: item.kind, proposal: item.proposal });
     return res.status(202).json({ ok: true, id: item.id, proposal: item.proposal });
+  });
+  // The raw-body parser rejects an oversized or malformed body BEFORE the
+  // webhook handler runs, so the handler's "never answer non-2xx" contract
+  // cannot protect those paths — a long post used to produce a 413 straight
+  // from the parser. Fider disables a webhook permanently on the first non-2xx
+  // it sees, so answer 202 and count the drop instead of killing the loop.
+  app.use((err, req, res, next) => {
+    if (req.originalUrl.split("?")[0] !== "/api/community/webhook") return next(err);
+    mCommunityRejected.add({ reason: "body_rejected" });
+    return res.status(202).json({ ok: false });
   });
   app.use("/api", express.json({ limit: "12kb", strict: true }));
   // Public, non-PII population signal for the landing page: how many pilots are

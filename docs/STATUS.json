@@ -1,6 +1,7 @@
 {
   "goal": "SaucerJam release 1.4: cross-device playability + AI-operated SRE and community loop",
-  "status": "release-1.4.0-pr-open",
+  "status": "release-1.4.0-deployed; loop built and observe-only",
+  "statusNote": "Verified against prod 2026-09-20: 1.4 is deployed to https://qd.menezmethod.com (running, healthy), not pending review. Metrics, alert rules and the Grafana->relay->Hermes alert path are live. The scheduled heartbeats (Hermes subscriptions) are not installed, so the loop observes but does not yet act on a cadence.",
   "passScore": 8.5,
   "integrator": "parent agent (sole core writer)",
   "referenceScope": "Nex Machina, WipEout, Battlerite: aspirational design references, not claimed parity",
@@ -246,9 +247,7 @@
       "weeklyRemainingPercent": 88,
       "scope": "shared account; not exclusive feature cost"
     },
-    "automation": {
-      "status": "deleted-by-user"
-    }
+    "automation": "See deploy/automation.json note: the old quantum-drift fleet automation was removed by the user and must not be recreated. The current release-loop scope is the Hermes SRE + community contract in docs/HERMES-AUTOMATION-CONTRACT.md, which is built and self-tested. These are different systems; this flag is not a block on the Hermes contract."
   },
   "currentRelease": {
     "version": "1.2.0",
@@ -262,19 +261,20 @@
       "Pickups, portals, teams in subsequent bounded releases"
     ],
     "next": "Refine cover and crossing fights based on human play; no additional maps",
-    "automation": "Deleted by user; do not recreate"
+    "automation": "The old fleet auto-deploy automation was deleted by the user and must not be recreated. This does not apply to the Hermes SRE/community contract, which is built, self-tested, and awaiting subscription install (see sreSetup.humanTodo)."
   },
-  "nextAction": "Review PR release/1.4.0, run automation setup (COMMUNITY_ACTION_TOKEN, Fider webhook), then deploy and tag 1.4.0",
+  "nextAction": "Install the Hermes saucerjam-sre + saucerjam-community subscriptions (no hermes CLI or cron present on the dev host; needs the Hermes host). Set COMMUNITY_ACTION_TOKEN in Coolify to finish the community half. Then deploy and tag 1.4.0.",
   "sreSetup": {
-    "prometheus": "saucerjam job + 8 alert rules loaded on Pi5 (3 groups)",
+    "prometheus": "saucerjam job + 9 alert rules loaded on Pi5 (4 groups)",
     "grafana": "SaucerJam dashboard provisioned (/d/saucerjam-sre/saucerjam)",
-    "relay": "grafana-hermes-relay staged at ~/grafana-hermes-relay on Pi5 (not started)",
-    "scrape": "down until release/1.4.0 deploys (expects /metrics)",
+    "relay": "grafana-hermes-relay active on Pi5, hermes_reachable=true; alert round-trip proven end-to-end 2026-09-19",
+    "scrape": "UP. Verified 2026-09-20: Prometheus target https://qd.menezmethod.com/metrics health=up, 0 active alerts",
+    "contractCheck": "Verified 2026-09-20 against prod: /health 200, /metrics 200 + saucerjam_rooms, /api/community/queue 401 (token not set)",
+    "opsSelftest": "Verified 2026-09-20: npm run ops:selftest -> 8/8 PASS",
     "humanTodo": [
-      "set COMMUNITY_ACTION_TOKEN + FIDER_WEBHOOK_SECRET in Coolify",
-      "add Fider webhook",
-      "install Hermes saucerjam-community + saucerjam-sre subscriptions",
-      "start the relay if alert routing is wanted"
+      "set COMMUNITY_ACTION_TOKEN in Coolify (only remaining contract-check failure)",
+      "install Hermes saucerjam-community + saucerjam-sre subscriptions on the Hermes host",
+      "confirm the Fider webhook is registered and delivering"
     ]
   }
 }

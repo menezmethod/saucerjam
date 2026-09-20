@@ -1,10 +1,15 @@
 # SaucerJam v2 Loop State
 
-Updated: 2026-09-17
+Updated: 2026-09-17 (scaling cycle) · SRE loop state: see docs/STATUS.json and docs/LOOP.md
+
+> Scope note: this file tracks the **scaling** experiment on
+> `codex/saucerjam-loop-v2`, not the SRE/community operating loop. That is
+> described in `docs/LOOP.md`, gated by `docs/SRE.md` §4, and its measured
+> production state lives in `docs/STATUS.json`.
 
 ## Baseline
 
-- Branch: `codex/saucerjam-loop-v2`
+- Branch: `codex/saucerjam-loop-v2` (scaling work only; not the active branch)
 - Default game branch remains untouched.
 - Production build succeeds.
 - Full automated suite passes (100/100), production build succeeds, and Brave browser acceptance passes. Physical iPhone/iPad Safari evidence is still required.

@@ -1,7 +1,30 @@
 # Agent pilots (RFC)
 
-Status: prototype. Intent/reflex split, Tier-0 pilot, and the Jev brain ship in
-this branch. The Agent Gateway is designed here but not built yet.
+**Status: not released — archived on `feat/agent-pilots`. Do not deploy.**
+
+This branch adds Jev as a bot feature and it is complete, tested and verified
+against a live preview. It is deliberately **not released**, because Jev bills
+the operator's TypeSafe account for every decision a bot makes, and that is a
+standing cost we do not want attached to a public server.
+
+Nothing in production depends on this branch. `main` has no Jev code, no
+`TYPESAFE_API_KEY`, and no agent routes. The preview's Jev environment variables
+have been removed, so no running container can spend credit.
+
+To bring it back later, see "Reviving this work" at the end of this file.
+
+## What this branch contains
+
+- The intent/reflex split, so a slow model can drive a 60 Hz pilot.
+- A Tier-0 agent that joins over Socket.IO, and a Tier-2 HTTP gateway for
+  external agents and LLMs.
+- A Jev brain (TypeSafe System One) driving bots, measured live: ~213 ms per
+  tactical decision, 0 failures, and 3 kills / 732 damage / 53% accuracy across
+  a scoring run.
+- An admin gate so only allow-listed accounts can seat paid opponents, plus a
+  cost ceiling that bounds requests per minute.
+- A scoring harness (`npm run agent:score`) that measures whether an agent is
+  any good, rather than assuming it.
 
 ## Why this is not "drop an LLM into the game loop"
 
@@ -273,3 +296,51 @@ by default:
   changes only take effect on a new deploy.
 - `JEV_BOT_MAX_PER_MINUTE` is a hard server-wide ceiling; bots keep playing their
   last intent when it is spent.
+
+## Reviving this work
+
+Everything needed is on this branch and nothing is live. To switch Jev bots back
+on in a preview:
+
+1. Confirm the branch still builds and passes:
+   ```sh
+   npm ci && npm test        # 199 tests, including tests/agents.test.js
+   ```
+2. Set these **preview-scoped** in Coolify, then redeploy. Environment changes
+   only take effect on a new deploy:
+   ```
+   AGENT_PILOTS=true
+   AGENT_GATEWAY_TOKEN=<operator-token>
+   TYPESAFE_API_KEY=<key>
+   JEV_BOTS=true
+   JEV_BOTS_PER_ROOM=2
+   JEV_BOT_MIN_INTERVAL_MS=1500
+   JEV_BOT_MAX_PER_MINUTE=120
+   ADMIN_EMAILS=<admin emails, comma-separated>
+   ```
+3. Play a room created by an admin account and choose the opponent mix. The
+   scoreboard marks Jev opponents so the difference is visible.
+4. Watch spend at `GET /api/statistics` → the `jev` field, and the metric
+   `saucerjam_jev_errors_total`.
+5. To stop the cost, delete `TYPESAFE_API_KEY` and `JEV_BOTS`, then redeploy.
+   Deleting the variables alone does not stop a running container.
+
+Cost reference, measured: Jev 1.13 bills **input tokens only at $42 per billion**
+(output tokens are free), and a full tactical request is ~1,000 input tokens, so
+one decision costs about **$0.00004**. A five-minute all-Jev 1v3 match is roughly
+**$0.025**, and an hour of play about **$0.30**. The cost is small but unbounded
+in the sense that it is per-decision and per-player, which is why it is gated
+and off by default rather than always-on.
+
+### Not built, if this is picked up again
+
+- The gateway has no per-agent billing or quota keyed to an external account;
+  TypeSafe exposes no delegation model, so third parties cannot bring a key the
+  server uses on their behalf. They can, however, run their own agent process
+  against the gateway with their own key (the intent, not the key, crosses the
+  wire).
+- The external-agent path is proven with a scripted driver and with Jev, but not
+  with a third-party LLM harness.
+- The question set (stance, desired range, weapon, per-enemy focus) is
+  deliberately simple and has not been tuned for strong play. The scoring
+  harness exists to support that tuning.

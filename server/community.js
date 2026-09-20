@@ -127,7 +127,17 @@ class CommunityQueue {
       if (description) prev.description = description;
       if (url) prev.url = url;
       if (reference) prev.reference = reference;
-      if (Number.isFinite(Number(post.votes))) prev.votes = votes;
+      // Only a genuinely supplied count overwrites. `Number("")`, `Number(null)`
+      // and `Number([])` are all 0 and all finite, so the old single guard let an
+      // explicit empty value pass and zero out a real count — the exact thing the
+      // comment above forbids. Reachable when an operator quotes the numeric field
+      // (`"post_votes": {{ quote .post_votes }}`) as the docs tell them to quote
+      // every other field.
+      const votesSupplied =
+        typeof post.votes === "number"
+          ? Number.isFinite(post.votes)
+          : typeof post.votes === "string" && post.votes.trim() !== "" && Number.isFinite(Number(post.votes));
+      if (votesSupplied) prev.votes = votes;
       if (number !== null) prev.number = number;
       // Re-derive routing only while nothing has been decided for this item.
       if (prev.status === "new") {

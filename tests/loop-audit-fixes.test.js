@@ -78,6 +78,22 @@ test("a delivery that omits fields does not blank what a richer template set", (
   assert.equal(item.votes, 9);
 });
 
+test("an explicitly empty votes value does not overwrite a real count", () => {
+  // The operator quotes the numeric field the way the docs tell them to quote every
+  // other one — `"post_votes": {{ quote .post_votes }}` — which yields "". Number("")
+  // is 0 and finite, so a single Number.isFinite guard let it zero a real count.
+  const q = new CommunityQueue();
+  q.ingest({ id: 8, title: "[bug] x", votes: 41 });
+  for (const empty of ["", null, [], "   "]) {
+    q.ingest({ id: 8, title: "[bug] x", votes: empty });
+    assert.equal(q.get(8).votes, 41, `votes=${JSON.stringify(empty)} must not zero a real count`);
+  }
+  q.ingest({ id: 8, title: "[bug] x", votes: 7 });
+  assert.equal(q.get(8).votes, 7, "a genuine count still updates");
+  q.ingest({ id: 8, title: "[bug] x", votes: "12" });
+  assert.equal(q.get(8).votes, 12, "a numeric string still updates");
+});
+
 test("an unrecognised id still creates a new item (the merge must not swallow all)", () => {
   const q = new CommunityQueue();
   q.ingest({ id: 1, title: "[bug] one" });

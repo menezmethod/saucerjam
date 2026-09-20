@@ -241,36 +241,107 @@ class JevBrain {
 // Drives JevBrains without ever overlapping a player's in-flight request. A
 // slow or failed call leaves the previous intent in place, so the pilot keeps
 // playing on the last good decision.
+//
+// Two ceilings keep a live key from becoming an open tap:
+//   - per-pilot cooldown: one pilot cannot decide faster than `minIntervalMs`
+//     even if the sweep runs more often than that.
+//   - global budget: `maxInFlight` bounds concurrent requests across all rooms,
+//     and `maxPerMinute` stops issuing new work once the running total for the
+//     current minute is spent. A bot then plays on its last intent until the
+//     window rolls over, rather than the server hammering the API.
 class JevRunner {
-  constructor({ brain, intervalMs = 600, onError = () => {} } = {}) {
+  constructor({
+    brain,
+    intervalMs = 600,
+    minIntervalMs = 0,
+    maxInFlight = 4,
+    maxPerMinute = 0,
+    now = () => Date.now(),
+    onError = () => {},
+    onSkip = () => {},
+  } = {}) {
     this.brain = brain;
     this.intervalMs = intervalMs;
+    this.minIntervalMs = Math.max(0, minIntervalMs);
+    this.maxInFlight = Math.max(1, maxInFlight);
+    this.maxPerMinute = Math.max(0, maxPerMinute);
+    this.now = now;
     this.onError = onError;
+    this.onSkip = onSkip;
     this.pending = new Set();
+    this.lastDecisionAt = new Map();
     this.timer = null;
+    this.window = { startedAt: 0, count: 0 };
   }
+
+  // A rolling per-minute budget. Returns false once the window is spent, so a
+  // caller can skip work instead of queueing an unbounded backlog.
+  withinBudget() {
+    if (!this.maxPerMinute) return true;
+    const now = this.now();
+    if (now - this.window.startedAt >= 60_000) {
+      this.window = { startedAt: now, count: 0 };
+    }
+    return this.window.count < this.maxPerMinute;
+  }
+
+  // Called when a request is actually issued, so retries and failures still
+  // count against the budget.
+  spend() {
+    if (this.maxPerMinute) this.window.count++;
+  }
+
+  eligible(p) {
+    if (p.brain !== "jev" || !p.alive) return false;
+    if (this.pending.has(p.id)) return false;
+    if (this.pending.size >= this.maxInFlight) return false;
+    if (this.minIntervalMs) {
+      const last = this.lastDecisionAt.get(p.id) || 0;
+      if (this.now() - last < this.minIntervalMs) return false;
+    }
+    return true;
+  }
+
   sweep(rooms) {
     for (const room of rooms) {
       for (const p of room.sim.players.values()) {
-        if (p.brain !== "jev" || !p.alive || this.pending.has(p.id)) continue;
+        if (!this.eligible(p)) continue;
+        if (!this.withinBudget()) {
+          this.onSkip("budget", p);
+          return;
+        }
         this.pending.add(p.id);
+        this.lastDecisionAt.set(p.id, this.now());
+        this.spend();
         this.brain
           .decide(room.sim, p)
           .then((intent) => { if (intent) p.intent = intent; })
-          .catch((error) => this.onError(error, p))
+          .catch((error) => { this.lastErrorMessage = error.message; this.onError(error, p); })
           .finally(() => this.pending.delete(p.id));
       }
     }
   }
+
   start(getRooms) {
     if (this.timer) return;
     this.timer = setInterval(() => this.sweep(getRooms()), this.intervalMs);
     this.timer.unref?.();
   }
+
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this.pending.clear();
+    this.lastDecisionAt.clear();
+  }
+
+  stats() {
+    return {
+      inFlight: this.pending.size,
+      decisionsThisMinute: this.maxPerMinute ? this.window.count : null,
+      maxPerMinute: this.maxPerMinute || null,
+      lastError: this.lastErrorMessage || null,
+    };
   }
 }
 

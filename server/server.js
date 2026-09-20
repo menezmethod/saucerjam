@@ -53,6 +53,9 @@ function createGameServer({
   jevApiKey = String(process.env.TYPESAFE_API_KEY || ""),
   jevBots = process.env.JEV_BOTS === "true",
   jevBotIntervalMs = Math.max(250, Number(process.env.JEV_BOT_INTERVAL_MS) || 600),
+  jevBotMinIntervalMs = Math.max(0, Number(process.env.JEV_BOT_MIN_INTERVAL_MS) || 1500),
+  jevBotMaxInFlight = Math.max(1, Number(process.env.JEV_BOT_MAX_IN_FLIGHT) || 3),
+  jevBotMaxPerMinute = Math.max(0, Number(process.env.JEV_BOT_MAX_PER_MINUTE) || 120),
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
@@ -200,6 +203,7 @@ function createGameServer({
   const pendingSaves = new Set();
   let rankingError = null;
   const mJevErrors = metrics.counter("saucerjam_jev_errors_total", "Jev brain decisions that failed", "counter");
+  const mJevSkipped = metrics.counter("saucerjam_jev_skipped_total", "Jev decisions skipped by a runner ceiling", "counter");
   const mAgentJoins = metrics.counter("saucerjam_agent_joins_total", "Agent gateway sessions created", "counter");
   const mAgentIntents = metrics.counter("saucerjam_agent_intents_total", "Agent intents accepted", "counter");
   const mAgentInputs = metrics.counter("saucerjam_agent_inputs_total", "Agent raw inputs accepted", "counter");
@@ -210,10 +214,18 @@ function createGameServer({
     ? new JevRunner({
         brain: new JevBrain({ client: createJevClient({ apiKey: jevApiKey }) }),
         intervalMs: jevBotIntervalMs,
+        // A live key must not become an open tap. One Jev bot on a 600ms sweep
+        // would spend ~100 requests/minute forever, per bot. Cap the cadence
+        // per pilot and put a hard ceiling on requests per minute across the
+        // whole server.
+        minIntervalMs: jevBotMinIntervalMs,
+        maxInFlight: jevBotMaxInFlight,
+        maxPerMinute: jevBotMaxPerMinute,
         onError: (error) => {
           mJevErrors.add({});
           console.error("Jev decision failed:", error.message);
         },
+        onSkip: (reason) => mJevSkipped.add({ reason }),
       })
     : null;
   jevRunner?.start(() => rooms.values());
@@ -332,7 +344,7 @@ function createGameServer({
     let online = 0;
     for (const room of rooms.values()) online += room.humans.size;
     res.set("Cache-Control", "public, max-age=15");
-    res.json({ online, rooms: rooms.size, maxRoomPlayers: maxPlayersPerRoom });
+    res.json({ online, rooms: rooms.size, maxRoomPlayers: maxPlayersPerRoom, jev: jevRunner ? jevRunner.stats() : null });
   });
   // Behavioural friction ingest. Fire-and-forget, allow-listed event names,
   // coarse device/platform buckets, no identifiers or free text.

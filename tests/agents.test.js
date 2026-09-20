@@ -466,6 +466,61 @@ test("a human with no intent still uses its own submitted input", () => {
   assert.equal(human.shotsFired, 0, "the human does not fire without asking");
 });
 
+test("JevRunner bounds cost with a per-pilot cooldown and a per-minute budget", async () => {
+  // A live API key must not become an open tap: a 600ms sweep with no ceilings
+  // spends ~100 requests/minute forever, per bot.
+  let now = 0;
+  let calls = 0;
+  let skips = 0;
+  const brain = { decide: async () => { calls++; return { stance: "press" }; } };
+  const runner = new JevRunner({ brain, minIntervalMs: 1500, maxInFlight: 3, maxPerMinute: 5, now: () => now, onSkip: () => skips++ });
+  const p = { id: "b1", brain: "jev", alive: true, intent: null };
+  const room = { sim: { players: new Map([["b1", p]]) } };
+  for (let i = 0; i < 20; i++) { runner.sweep([room]); now += 100; await new Promise((r) => setImmediate(r)); }
+  assert.equal(calls, 1, "the per-pilot cooldown throttles repeated sweeps");
+  runner.stop();
+});
+
+test("JevRunner spends the per-minute budget and resets on rollover", async () => {
+  let now = 0;
+  let calls = 0;
+  let skips = 0;
+  const brain = { decide: async () => { calls++; return { stance: "press" }; } };
+  const runner = new JevRunner({ brain, minIntervalMs: 0, maxInFlight: 10, maxPerMinute: 3, now: () => now, onSkip: () => skips++ });
+  const players = new Map();
+  for (let i = 0; i < 10; i++) players.set(`b${i}`, { id: `b${i}`, brain: "jev", alive: true, intent: null });
+  const room = { sim: { players } };
+  runner.sweep([room]);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls, 3, "the budget caps requests regardless of how many pilots want one");
+  assert.equal(skips, 1, "hitting the budget is reported, not hidden");
+  assert.equal(runner.stats().decisionsThisMinute, 3);
+  now += 61_000;
+  calls = 0;
+  runner.sweep([room]);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls, 3, "the budget resets after a minute");
+  runner.stop();
+});
+
+test("JevRunner never overlaps a request for the same pilot", async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let calls = 0;
+  const brain = { decide: async () => { calls++; await gate; return { stance: "press" }; } };
+  const runner = new JevRunner({ brain, minIntervalMs: 0, maxPerMinute: 0 });
+  const p = { id: "b1", brain: "jev", alive: true, intent: null };
+  const room = { sim: { players: new Map([["b1", p]]) } };
+  runner.sweep([room]);
+  runner.sweep([room]);
+  assert.equal(calls, 1);
+  release();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(p.intent.stance, "press");
+  runner.stop();
+});
+
 test("summarizeRecap exposes the authoritative stats a scoring harness needs", () => {
   const recap = {
     winnerId: "agent-1",

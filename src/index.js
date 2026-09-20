@@ -476,6 +476,9 @@ class Game {
     if (error) this.openAuthDisclosure("Account session could not be restored. You can continue as a guest.");
     else if (!configured) $("auth-status").textContent = "Accounts are not enabled on this server yet. Guest play is ready.";
     if (user) this.loadCareer();
+    // A sign-in or sign-out changes the identity the server sees. Reconnect so
+    // socket.data.authUser (and therefore admin) reflects it.
+    this.refreshIdentity();
   }
   // The bot-mix selector is an admin control. It stays hidden until the server
   // has confirmed this account is an admin, so a guest never sees a control
@@ -912,14 +915,32 @@ class Game {
       name: $("pilot-name").value,
       code: $("room-code").value.trim().toUpperCase(),
       bots: $("fill-bots").checked,
-      // Only sent when the server has already told this client it is an admin;
-      // the server re-checks against the verified token regardless.
-      botMix: this.admin ? $("bot-mix").value : undefined,
+      // Sent whenever the selector is visible. Admin was confirmed by a previous
+      // join in this session; the server re-checks against the verified token
+      // on every join, so this is a request, never an authorization.
+      botMix: $("bot-mix-row")?.hidden === false ? $("bot-mix").value : undefined,
       mapId:this.selectedMap,profileToken:this.profileToken,rotate:true,
     };
+    // A socket opened before sign-in carries no token, and Socket.IO reads the
+    // auth callback only on a fresh connection. Refresh it so the join that
+    // follows is authenticated.
+    if (this.socket) this.socket.auth = (callback) => callback({ accessToken: this.auth?.accessToken() || "" });
     if (!this.socket) this.setupSocket();
-    if (this.socket.connected) this.joinOnline();
-    else this.socket.connect();
+    else if (this.socket.connected) this.socket.disconnect();
+    this.socket.connect();
+  }
+  // Reconnect so an account change is reflected in socket.data.authUser. The
+  // server derives admin from that, so without this a mid-session sign-in would
+  // never see admin controls.
+  refreshIdentity() {
+    if (!this.socket || this.mode !== "lobby") return;
+    this.socket.auth = (callback) => callback({ accessToken: this.auth?.accessToken() || "" });
+    if (this.socket.connected) this.socket.disconnect();
+    this.socket.connect();
+  }
+  applyIdentity(identity) {
+    this.admin = identity?.admin === true;
+    this.setBotMixVisibility();
   }
   setupSocket() {
     this.socket = io({
@@ -931,7 +952,12 @@ class Game {
       reconnectionDelayMax: 3000,
       reconnectionAttempts: 8,
     });
-    this.socket.on("connect", () => this.joinOnline());
+    this.socket.on("connect", () => {
+      // Ask the server who this connection's account is before any join, so the
+      // lobby knows whether to offer the paid-opponent selector.
+      this.socket.emit("identity", (identity) => this.applyIdentity(identity));
+      this.joinOnline();
+    });
     this.socket.on("connect_error", () => {
       if (this.mode === "connecting")
         this.failJoin(
@@ -990,8 +1016,7 @@ class Game {
       this.room = response.code;
       // Admin is server-authoritative: it reflects a verified account email,
       // not anything this client can choose.
-      this.admin = response.admin === true;
-      this.setBotMixVisibility();
+      this.applyIdentity({ admin: response.admin });
       this.begin("online", response.playerId, response.state, response.map);
       this.receivedAt = performance.now();
       if (reconnect) this.notice("Reconnected. You’re back in the arena.", 3);

@@ -606,6 +606,22 @@ test("with no Jev key configured, even an admin request stays classic", async ()
   });
 });
 
+test("the identity handshake reports admin before a room exists", async () => {
+  // The lobby needs to know whether to offer the paid-opponent selector before
+  // any join happens, so admin status cannot depend on a join ack.
+  await withServer({ allowAgents: true }, async (game, url, track) => {
+    const socket = track(await connect(url));
+    const guest = await new Promise((resolve) => socket.timeout(8000).emit("identity", (error, result) => resolve(error || result)));
+    assert.equal(guest.admin, false);
+    assert.equal(guest.signedIn, false);
+    assert.deepEqual(guest.botMixes, ["classic", "jev", "mixed"]);
+    withAuthEmail(game, socket, "luisgimenezdev@gmail.com");
+    const admin = await new Promise((resolve) => socket.timeout(8000).emit("identity", (error, result) => resolve(error || result)));
+    assert.equal(admin.admin, true);
+    assert.equal(admin.signedIn, true);
+  });
+});
+
 test("summarizeRecap exposes the authoritative stats a scoring harness needs", () => {
   const recap = {
     winnerId: "agent-1",

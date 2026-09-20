@@ -770,6 +770,13 @@ function createGameServer({
     socket.on("pingCheck", (ack) => {
       if (typeof ack === "function") ack();
     });
+    // Reports whether this connection's verified account is an admin, so the
+    // lobby can show the paid-opponent selector before a room exists. It only
+    // ever reads the identity the connection middleware already established.
+    socket.on("identity", (ack) => {
+      if (typeof ack !== "function") return;
+      ack({ admin: isAdmin(socket), signedIn: Boolean(socket.data.authUser), botMixes: [...BOT_MIXES] });
+    });
     socket.on("leave", () => leave(socket));
     socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });
   });

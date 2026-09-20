@@ -7,7 +7,7 @@ const { Simulation, MAP, STEP } = require("../shared/simulation");
 const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
 const { Metrics } = require("./metrics");
-const { CommunityQueue, verifySignature, verifyToken, clean } = require("./community");
+const { CommunityQueue, verifySignature, verifyToken, clean, guardPublicText } = require("./community");
 const { Insights } = require("./insights");
 
 // Fider's webhook content is a Go template edited by hand in its admin UI, so it
@@ -235,9 +235,13 @@ function createGameServer({
       return next();
     },
     // A credential carried in a header can be rejected before the body is read,
-    // so a bogus bearer costs nothing. This only short-circuits when no HMAC is
-    // offered at all, because a valid signature must still open the gate on its
-    // own — the two credentials are evaluated independently, never either/or.
+    // so an honest sender with a stale token is rejected cheaply. This is NOT a
+    // bound on a hostile caller: hasSignature only tests header PRESENCE, so
+    // adding any junk x-signature header skips this check and still buys the
+    // full body read. The real ingress bound is the meter above times the body
+    // cap. It short-circuits only when no HMAC is offered at all, because a
+    // valid signature must still open the gate on its own — the two credentials
+    // are evaluated independently, never either/or.
     (req, res, next) => {
       const authorization = req.get("authorization") || "";
       const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
@@ -298,8 +302,11 @@ function createGameServer({
     const post = payload?.post || payload?.data?.post || payload || {};
     // Distinguish a first delivery from a replay so the counter reports items
     // accepted rather than webhook calls received.
-    const incomingId = post.post_id ?? post.id ?? post.post_number ?? post.number;
-    const existed = incomingId != null && community.get(incomingId) != null;
+    // ingest() stores under the GUARDED id, so the lookup has to apply the same
+    // guard: an id carrying bidi, zero-width characters, or more than 40 chars
+    // would otherwise never match and every replay would count as a new item.
+    const incomingId = guardPublicText(String(post.post_id ?? post.id ?? post.post_number ?? post.number ?? ""), { limit: 40 });
+    const existed = incomingId !== "" && community.get(incomingId) != null;
     const item = community.ingest({
       id: post.post_id ?? post.id ?? post.post_number ?? post.number,
       number: post.post_number ?? post.number,
@@ -324,7 +331,13 @@ function createGameServer({
     // runs, and Fider disables a webhook permanently on the first non-2xx, so
     // those rejections must surface as a counted 202 instead of a parser 413.
     (err, req, res, next) => {
-      mCommunityRejected.add({ reason: "body_rejected" });
+      // Branch on the actual error. A client that drops mid-upload raises
+      // `request aborted`, not a size error, and labelling both body_rejected
+      // sends the operator hunting for an oversized post that never existed.
+      // Anything unexpected still answers 202 — a non-2xx here permanently
+      // disables the webhook — but is counted separately so it stays visible
+      // rather than being silently filed as a size problem.
+      mCommunityRejected.add({ reason: err?.type === "entity.too.large" ? "body_rejected" : "body_error" });
       return res.status(202).json({ ok: false });
     },
   );

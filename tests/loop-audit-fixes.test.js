@@ -117,6 +117,16 @@ test("a non-integer post number is not stored as-is", () => {
   assert.ok(!Array.isArray(q.get(12).number), "an array post_number must not be echoed back out");
 });
 
+test("a non-http(s) url is not handed downstream as the canonical link", () => {
+  const q = new CommunityQueue();
+  q.ingest({ id: 3, title: "[bug] x", url: "javascript:alert(1)" });
+  assert.equal(q.get(3).url, null, "the worker pastes this link into PRs and comments");
+  q.ingest({ id: 4, title: "[bug] y", url: "data:text/html,<script>" });
+  assert.equal(q.get(4).url, null);
+  q.ingest({ id: 5, title: "[bug] z", url: "https://community.menezmethod.com/posts/5/x" });
+  assert.equal(q.get(5).url, "https://community.menezmethod.com/posts/5/x");
+});
+
 // --- Astra B3: unbounded metric cardinality from anonymous requests ----------
 
 test("an anonymous request cannot invent a metric series", async () => {
@@ -195,9 +205,35 @@ test("a body under the cap is still accepted (the cap was raised, not just guard
   }, WEBHOOK_OPTS);
 });
 
-test("a wrong bearer with no signature is rejected without buffering the body", async () => {
+test("a wrong bearer with no signature is rejected before the body is read", async () => {
   await withServer(async (url) => {
-    assert.equal((await post(url, bigBody(100), { authorization: "Bearer wrong-token" })).status, 401);
+    // 300kb deliberately exceeds the body cap. WITH the pre-body check the
+    // request is rejected on its header, the parser never runs, and this is 401.
+    // WITHOUT it the parser rejects the oversized body and the route-scoped
+    // handler answers 202 — which is how this test distinguishes the two. A
+    // small body could not: the main handler also returns 401 when both
+    // credentials fail, so the earlier 100kb version passed with and without the
+    // middleware and was killed only by an unrelated cap change.
+    const res = await post(url, bigBody(300), { authorization: "Bearer wrong-token" });
+    assert.equal(res.status, 401, "a wrong bearer must be rejected before the body is buffered");
+  }, WEBHOOK_OPTS);
+});
+
+test("the webhook meter drops with a counted 202 and never answers 429", async () => {
+  await withServer(async (url) => {
+    // The meter is the only thing bounding how much body an anonymous caller can
+    // make this process buffer, on the one route that must never answer 429.
+    // Deleting the middleware used to leave the entire suite green.
+    let sawDropped = false;
+    for (let i = 0; i < 640 && !sawDropped; i += 1) {
+      const res = await post(url, JSON.stringify({ post_number: 900 + i, post_title: `[bug] flood ${i}` }));
+      assert.notEqual(res.status, 429, "the webhook answered 429; Fider would permanently disable it");
+      if (res.status === 202 && (await res.json()).ok === false) sawDropped = true;
+    }
+    assert.ok(sawDropped, "the webhook meter never engaged, so nothing bounds anonymous ingress");
+    const metrics = await (await fetch(`${url}/metrics`)).text();
+    assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="rate_limited"\} [1-9]/, "a dropped delivery must be counted");
+    assert.ok(!/status="429"/.test(metrics), "the webhook must never answer 429");
   }, WEBHOOK_OPTS);
 });
 

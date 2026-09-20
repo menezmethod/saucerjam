@@ -103,7 +103,12 @@ class CommunityQueue {
         return match ? match[1].toLowerCase() : "question";
       })();
     const description = guardPublicText(post.description, { limit: 4000 });
-    const url = guardPublicText(post.url, { limit: 400 }) || null;
+    // Guarding neutralises the text; it does not make the link safe to use. The
+    // worker pastes this into PRs and comments as the canonical link to a
+    // report, so only http(s) survives — a `javascript:` or `data:` URL must
+    // never be handed downstream.
+    const rawUrl = guardPublicText(post.url, { limit: 400 });
+    const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : null;
     const reference = guardPublicText(post.reference, { limit: 120 }) || null;
     const votes = Number.isFinite(Number(post.votes)) ? Number(post.votes) : 0;
     // Only a real post number is meaningful. `[1,2]` or an object would be

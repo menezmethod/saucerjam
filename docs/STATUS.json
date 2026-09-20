@@ -1,6 +1,6 @@
 {
   "goal": "SaucerJam release 1.4: cross-device playability + AI-operated SRE and community loop",
-  "status": "release-1.4.0-pr-open",
+  "status": "release-1.4.0-deployed; loop built, observe-only",
   "passScore": 8.5,
   "integrator": "parent agent (sole core writer)",
   "referenceScope": "Nex Machina, WipEout, Battlerite: aspirational design references, not claimed parity",
@@ -264,17 +264,20 @@
     "next": "Refine cover and crossing fights based on human play; no additional maps",
     "automation": "Deleted by user; do not recreate"
   },
-  "nextAction": "Review PR release/1.4.0, run automation setup (COMMUNITY_ACTION_TOKEN, Fider webhook), then deploy and tag 1.4.0",
+  "nextAction": "Install the Hermes saucerjam-sre + saucerjam-community subscriptions (no hermes CLI or cron present on the dev host; needs the Hermes host). Then register the Fider webhook and confirm a real post is ingested. Then tag 1.4.0. 1.4 is already deployed.",
   "sreSetup": {
-    "prometheus": "saucerjam job + 8 alert rules loaded on Pi5 (3 groups)",
+    "prometheus": "saucerjam job + 9 alert rules loaded on Pi5 (4 groups)",
     "grafana": "SaucerJam dashboard provisioned (/d/saucerjam-sre/saucerjam)",
-    "relay": "grafana-hermes-relay staged at ~/grafana-hermes-relay on Pi5 (not started)",
-    "scrape": "down until release/1.4.0 deploys (expects /metrics)",
+    "relay": "grafana-hermes-relay active on Pi5, hermes_reachable=true; alert round-trip proven end-to-end 2026-09-19",
+    "scrape": "UP. Verified 2026-09-20: Prometheus target https://qd.menezmethod.com/metrics health=up, 0 active alerts",
+    "secrets": "All server-side secrets ARE configured in Coolify for prod, confirmed inside the running container 2026-09-20: COMMUNITY_ACTION_TOKEN (len 64), FIDER_WEBHOOK_TOKEN (43), FIDER_WEBHOOK_SECRET (64), FIDER_BASE_URL (33), FIDER_API_KEY (64). Earlier notes claiming the token was unset were wrong.",
+    "contractCheck": "PASS 3/3 exit 0, verified 2026-09-20 with COMMUNITY_ACTION_TOKEN exported. contract-check.cjs reads the token from ITS OWN environment, so running it without exporting reports a false failure about the shell, not the server.",
+    "communityRoute": "GET /api/community/queue returns 200 {\"items\":[]} with the real token, verified 2026-09-20.",
+    "webhookTraffic": "NONE received yet. saucerjam_community_webhook_rejected_total{reason=bad_credential} is 1 and ingest is 0, so no real Fider post has ever been delivered; the one rejection was a deliberate malformed-signature probe.",
+    "opsSelftest": "Verified 2026-09-20: npm run ops:selftest -> 8/8 PASS on main (10/10 after the queue-detail work merged via PR #15)",
     "humanTodo": [
-      "set COMMUNITY_ACTION_TOKEN + FIDER_WEBHOOK_SECRET in Coolify",
-      "add Fider webhook",
-      "install Hermes saucerjam-community + saucerjam-sre subscriptions",
-      "start the relay if alert routing is wanted"
+      "register the Fider webhook (Admin > Site Settings > Webhooks, Post Created + Post Status Changed) and confirm a real post is delivered and ingested",
+      "install Hermes saucerjam-community + saucerjam-sre subscriptions on the Hermes host"
     ]
   }
 }

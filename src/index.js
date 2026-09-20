@@ -940,7 +940,27 @@ class Game {
   }
   applyIdentity(identity) {
     this.admin = identity?.admin === true;
+    this.identityReason = identity?.reason || "";
     this.setBotMixVisibility();
+    this.showIdentityStatus();
+  }
+  // A signed-in pilot who is not an admin needs to know why the paid-opponent
+  // selector is missing, otherwise a wrong allowlist or an unexpected Google
+  // address looks identical to a broken feature.
+  showIdentityStatus() {
+    const el = $("admin-status");
+    if (!el) return;
+    if (this.admin) {
+      el.hidden = false;
+      el.textContent = "Admin: paid (Jev) opponents are available when you create a room.";
+      return;
+    }
+    if (this.identityReason && this.identityReason !== "no verified session") {
+      el.hidden = false;
+      el.textContent = `Not an admin — ${this.identityReason}.`;
+      return;
+    }
+    el.hidden = true;
   }
   setupSocket() {
     this.socket = io({

@@ -219,6 +219,17 @@ function createGameServer({
     const email = socket?.data?.authUser?.email;
     return Boolean(email && adminSet.has(String(email).toLowerCase()));
   };
+  // Admin attempts are worth an audit line: when an operator signs in and is
+  // still not recognised, the reason (no verified session vs a different email)
+  // is otherwise invisible from the client.
+  const describeIdentity = (socket) => {
+    const user = socket?.data?.authUser;
+    if (!user) return "no verified session";
+    const email = String(user.email || "").toLowerCase();
+    if (!email) return `session without email (id ${user.id || "?"})`;
+    if (adminSet.has(email)) return "admin";
+    return `signed in as ${email}, not in ADMIN_EMAILS`;
+  };
   const mAdminDenied = metrics.counter("saucerjam_admin_denied_total", "Admin-only requests from non-admins", "counter");
   const mJevRooms = metrics.counter("saucerjam_jev_rooms_total", "Rooms created with a Jev bot mix", "counter");
   // The Jev runner is the only place model latency lives. It updates player
@@ -775,7 +786,14 @@ function createGameServer({
     // ever reads the identity the connection middleware already established.
     socket.on("identity", (ack) => {
       if (typeof ack !== "function") return;
-      ack({ admin: isAdmin(socket), signedIn: Boolean(socket.data.authUser), botMixes: [...BOT_MIXES] });
+      // Report the reason, not just the boolean, so a mis-set allowlist is
+      // diagnosable from the browser without reading server logs.
+      const reason = describeIdentity(socket);
+      if (reason !== "admin" && reason !== "no verified session") {
+        mAdminDenied.add({ route: "identity" });
+        console.log("Admin identity rejected:", reason);
+      }
+      ack({ admin: isAdmin(socket), signedIn: Boolean(socket.data.authUser), reason, botMixes: [...BOT_MIXES] });
     });
     socket.on("leave", () => leave(socket));
     socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });

@@ -190,9 +190,40 @@ three heuristic bots:
 | 3 | 0 | 2 | 120 | 50% |
 | 4 | 1 | 2 | 148 | 70% |
 
-The `policy` driver is the deterministic Tier-0 baseline; the `intent` driver is
-what a slow model's decisions look like. Comparing them on the same seed tells
-you whether a prompt or question change actually helped.
+### Driving with Jev
+
+The `jev` driver sends the observation to the real TypeSafe API and plays the
+composed intent. The API key stays in the harness process; only the intent
+crosses to the game server.
+
+```sh
+TYPESAFE_API_KEY=... AGENT_GATEWAY_TOKEN=... \
+  npm run agent:score -- --url https://<preview> --driver jev --runs 3 --seconds 25 --hz 2
+```
+
+Measured against three heuristic bots, 2 decisions/second:
+
+| run | kills | deaths | damage | accuracy | jev calls | avg latency | gated out | failures |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 1 | 264 | 46% | 28 | 217 ms | 0 | 0 |
+| 2 | 0 | 1 | 96 | 25% | 28 | 223 ms | 0 | 0 |
+| 3 | 1 | 0 | 210 | 50% | 32 | 199 ms | 0 | 0 |
+
+Notes from that run:
+
+- ~213 ms per full tactical request (state plus all questions), so Jev can decide
+  roughly 2–4 times per second. This is why intent is asynchronous: a model
+  round-trip is fast, but still 13 times slower than a 60 Hz tick.
+- `gated out` counts answers whose confidence fell below `--min-confidence`. It
+  was 0, meaning every Jev answer was confident enough to act on. A run where
+  this climbs is Jev silently degrading to the heuristic, which the outcome
+  alone would not reveal.
+- `failures` counts transport errors. Retries are handled by the client.
+
+The `policy` driver is the deterministic Tier-0 baseline, `intent` is a scripted
+slow decision sequence, and `jev` is the real model. Comparing them on the same
+room and duration tells you whether a question or threshold change actually
+helped.
 
 Non-goals: agents as authoritative state writers, model calls on the tick loop,
 or secrets in the browser.
@@ -204,7 +235,8 @@ or secrets in the browser.
 - `server/agents/jev.js` — state builder, question set, answer composer, client,
   brain, runner.
 - `scripts/agents/policy.cjs`, `scripts/agents/pilot.cjs` — Tier-0 pilot.
-- `tests/agents.test.js` — all of the above, offline.
+- `scripts/agents/score.cjs` — scoring harness (`policy`, `intent`, `jev` drivers).
+- `tests/agents.test.js`, `tests/docker-image.test.js` — all of the above, offline.
 
 ## Verification
 

@@ -10,16 +10,20 @@
 //
 //   node scripts/agents/score.cjs --url http://localhost:8080 --token ... --runs 3
 //   node scripts/agents/score.cjs --url https://qd14.menezmethod.com --token ... --driver intent
+//   node scripts/agents/score.cjs --url https://qd14.menezmethod.com --token ... --driver jev
 //
-// Two drivers:
+// Three drivers:
 //   policy  the deterministic Tier-0 policy (baseline: what a good script does)
 //   intent  a scripted intent sequence (baseline: what a slow LLM's decisions do)
+//   jev     the real TypeSafe model. Same interface as `intent`, but the
+//           decisions come from Jev, so this measures the model, not a script.
 //
 // Output is one JSON summary per run plus an aggregate, so results can be
 // pasted into a PR or compared across commits.
 
 const { randomBytes } = require("node:crypto");
 const { io } = require("socket.io-client");
+const { buildState, buildQuestions, composeIntent, createJevClient } = require("../../server/agents/jev");
 
 function parseArgs(argv) {
   const args = {
@@ -31,6 +35,8 @@ function parseArgs(argv) {
     hz: 5,
     name: "Scorer",
     json: false,
+    jevKey: String(process.env.TYPESAFE_API_KEY || ""),
+    minConfidence: 0.4,
   };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i],
@@ -42,12 +48,21 @@ function parseArgs(argv) {
     else if (flag === "--seconds") args.seconds = Number(value());
     else if (flag === "--hz") args.hz = Number(value());
     else if (flag === "--name") args.name = value();
+    else if (flag === "--min-confidence") args.minConfidence = Number(value());
     else if (flag === "--json") args.json = true;
     else if (flag === "--help" || flag === "-h") { printHelp(); process.exit(0); }
     else { console.error(`Unknown flag: ${flag}`); printHelp(); process.exit(2); }
   }
   if (!args.token) {
     console.error("A gateway token is required. Set AGENT_GATEWAY_TOKEN or pass --token.");
+    process.exit(2);
+  }
+  if (!["policy", "intent", "jev"].includes(args.driver)) {
+    console.error('--driver must be "policy", "intent", or "jev".');
+    process.exit(2);
+  }
+  if (args.driver === "jev" && !args.jevKey) {
+    console.error("The jev driver needs TYPESAFE_API_KEY in the environment.");
     process.exit(2);
   }
   return args;
@@ -57,12 +72,16 @@ function printHelp() {
   console.log(`Usage: node scripts/agents/score.cjs [options]
   --url <url>       Server base URL (default http://localhost:8080)
   --token <token>   Agent gateway token (or AGENT_GATEWAY_TOKEN)
-  --driver <kind>   policy | intent (default policy)
+  --driver <kind>   policy | intent | jev (default policy)
   --runs <n>        Independent matches to run (default 1)
   --seconds <n>     Match length per run (default 45)
   --hz <n>          Decisions per second (default 5)
+  --min-confidence  Confidence floor for Jev answers (default 0.4)
   --name <callsign> Agent name
-  --json            Print machine-readable results only`);
+  --json            Print machine-readable results only
+
+The jev driver reads TYPESAFE_API_KEY from the environment. It never sends the
+key to the game server; only the composed intent crosses that boundary.`);
 }
 
 // The intent driver holds a stance and range, and switches to healing when the
@@ -77,6 +96,83 @@ function scriptedIntent(observation) {
   if (nearest.hull < 40 && nearest.visible && inFront) return { stance: "press", desiredRange: 8, aggression: 1 };
   if (nearest.range_band === "far") return { stance: "press", desiredRange: 12, aggression: 0.8 };
   return { stance: "trade", desiredRange: 14, aggression: 0.6 };
+}
+
+// The gateway observation is already the Jev state plus transport fields, so a
+// driver can ask TypeSafe directly: no simulation access, no second view of the
+// game. This is the same question set the in-process JevBrain uses, kept in one
+// place so a change to the questions cannot silently diverge between them.
+function jevQuestions(observation) {
+  const questions = {
+    stance: {
+      type: "choice",
+      instructions:
+        "Given this pilot's hull, energy, and the nearby enemies, what should the pilot do for the next few seconds?",
+      criteria: {
+        press: "Push in and try to secure a kill.",
+        trade: "Hold position and exchange fire.",
+        disengage: "Back off while still shooting when able.",
+        reposition: "Break contact and move to a different position.",
+        heal: "Avoid combat and let hull regenerate.",
+      },
+    },
+    desired_range: {
+      type: "score",
+      instructions: "What engagement distance should the pilot try to hold?",
+      criteria: [
+        "Point blank, under six meters.",
+        "Close, eight to fourteen meters.",
+        "Mid, fifteen to twenty-four meters.",
+        "Far, hold beyond twenty-five meters.",
+      ],
+    },
+    weapon: {
+      type: "choice",
+      instructions:
+        "Which weapon suits the next few seconds of this fight? Consider energy cost and how much hull the enemy has.",
+      criteria: {
+        LASER: "Reliable direct fire, cheap.",
+        GRENADE: "Area burst for clustered or close enemies.",
+        BOUNCE: "Ricochet that banks off cover.",
+      },
+    },
+    trapped: {
+      type: "noul",
+      instructions:
+        "Is this pilot at high risk of being trapped or focused down in the next few seconds?",
+    },
+  };
+  for (const enemy of observation.enemies) {
+    questions[`focus_${enemy.id}`] = {
+      type: "score",
+      instructions: `How strong is the case to focus ${enemy.name} (${enemy.range_band}, ${enemy.hull} hull) next?`,
+      criteria: ["Poor target.", "Acceptable.", "Good.", "Best target available."],
+    };
+  }
+  return questions;
+}
+
+// Jev state from a gateway observation: strip the transport fields the model
+// does not need, keep the tactical picture verbatim.
+function jevState(observation) {
+  return {
+    self: {
+      hull: observation.self.hull,
+      energy: observation.self.energy,
+      weapon: observation.self.weapon,
+      district: observation.self.district,
+      under_fire: observation.self.under_fire,
+      deaths: observation.self.deaths,
+    },
+    enemies: observation.enemies,
+    objective: observation.objective,
+    recent: observation.recent,
+  };
+}
+
+async function jevIntent(client, observation, minConfidence = 0.4) {
+  const answers = await client.ask(jevState(observation), jevQuestions(observation));
+  return { intent: composeIntent(answers, { minConfidence }), answers };
 }
 
 class Harness {
@@ -173,7 +269,11 @@ async function runOnce(harness, args, runIndex) {
   }
   const session = joined.body;
   const interval = Math.max(50, Math.round(1000 / Math.max(1, args.hz)));
-  let decisions = 0, intents = 0, inputs = 0, observations = 0, lastObservation = null, stopped = false, seq = 0;
+  let decisions = 0, intents = 0, observations = 0, stopped = false, lastError = null;
+  let jevCalls = 0, jevFailures = 0, jevMs = 0, lowConfidence = 0;
+  const client = args.driver === "jev"
+    ? createJevClient({ apiKey: args.jevKey, maxAttempts: 2, timeoutMs: 5000 })
+    : null;
 
   while (!stopped && Date.now() - started < args.seconds * 1000) {
     const observation = await harness.call("GET", `/agent/v1/sessions/${session.sessionId}/observe`, { session });
@@ -182,20 +282,36 @@ async function runOnce(harness, args, runIndex) {
       break;
     }
     observations++;
-    lastObservation = observation.body;
 
     if (observation.body.alive) {
+      let intent = null;
       if (args.driver === "intent") {
+        intent = scriptedIntent(observation.body);
+      } else if (args.driver === "jev") {
+        // Measure the model, including its latency and how often its answers
+        // were too uncertain to use. A run where every answer is gated out is
+        // Jev quietly degrading to the heuristic, which the outcome alone
+        // would not reveal.
+        const callStarted = Date.now();
+        try {
+          const result = await jevIntent(client, observation.body, args.minConfidence);
+          jevMs += Date.now() - callStarted;
+          jevCalls++;
+          if (!result.intent) lowConfidence++;
+          intent = result.intent;
+        } catch (error) {
+          jevFailures++;
+          jevMs += Date.now() - callStarted;
+          lastError = error.message;
+        }
+      }
+      if (intent) {
         const acted = await harness.call("POST", `/agent/v1/sessions/${session.sessionId}/act`, {
-          body: { type: "intent", intent: scriptedIntent(observation.body) },
+          body: { type: "intent", intent },
           session,
         });
         if (acted.status === 200) intents++;
         decisions++;
-      } else {
-        // The input driver needs the full snapshot, which the gateway digest
-        // deliberately does not carry. It is a separate client shape, so it is
-        // measured by tests/agents.test.js and the Tier-0 pilot instead.
       }
     }
     await new Promise((resolve) => setTimeout(resolve, interval));
@@ -212,6 +328,17 @@ async function runOnce(harness, args, runIndex) {
     decisions,
     intents,
     observations,
+    ...(args.driver === "jev"
+      ? {
+          jev: {
+            calls: jevCalls,
+            failures: jevFailures,
+            gatedOut: lowConfidence,
+            avgMs: jevCalls ? Math.round(jevMs / jevCalls) : null,
+            lastError: lastError || null,
+          },
+        }
+      : {}),
     outcome: final
       ? {
           kills: final.objective.my_kills,
@@ -221,7 +348,6 @@ async function runOnce(harness, args, runIndex) {
           alive: final.alive,
         }
       : null,
-    lastObservation,
   });
 }
 

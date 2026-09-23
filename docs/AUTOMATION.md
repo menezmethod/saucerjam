@@ -15,21 +15,26 @@ Fider webhook (post created / status change) ───────────�
 POST /api/community/webhook            (express.raw, credential verified)
       │
       ▼
-CommunityQueue.ingest()                deterministic triage → proposal
+Durable CommunityQueue.ingest()        deterministic triage → proposal
       │  fix-pr | prototype-pr | matchmaking-proposal | discuss
+      │  journal on mounted storage: attempts, leases, receipts
       ▼
-GET /api/community/queue               (x-community-token)   ← Hermes reads
-      │
+POST /api/community/claim              (x-community-token)   ← Hermes leases one item
+      │  { item: null } when there is no work; no model run
       ▼
 Hermes agent                            drafts a change, opens branch/PR
       │
 POST /api/community/action             (allow-list: open-fix-pr, open-prototype-pr,
       │                                  comment, flag-duplicate, request-info)
+      │  POST /api/community/fail      explicit failed attempt, same lease
       ▼
 Gates (docs/RELEASE-LOOP.md + PR checks) ──► maintainer/community acceptance
       │
       ▼
 Merge to main (human-triggered only) ──► Coolify deploy ──► /metrics reflects it
+
+Read-only reconciliation (COMMUNITY_RECONCILE) re-reads Fider on boot and every
+5 minutes, so a missed webhook, a restart, or an eviction cannot lose work.
 ```
 
 ## Gates — nothing skips these
@@ -56,8 +61,10 @@ Hard rules enforced in code and process:
    an HMAC signature (`FIDER_WEBHOOK_SECRET`) or the shared bearer token
    (`FIDER_WEBHOOK_TOKEN`). Either one alone opens the gate; both are compared in
    constant time and never logged or echoed.
-5. **Rate/abuse limited.** `/api` is rate-limited and the queue is bounded to 500
-   items. The webhook route is the one deliberate exception: Fider permanently
+5. **Rate/abuse limited.** `/api` is rate-limited and the durable queue refuses
+   new intake past `COMMUNITY_MAX_ITEMS` (default 5000 unfinished records) rather
+   than evicting unfinished work. The webhook route is the one deliberate
+   exception: Fider permanently
    disables a webhook on the first non-2xx it sees and never retries, so a 429
    there would silently drop every future report. It is registered ahead of the
    `/api` limiter and metered separately, and an over-limit delivery is dropped
@@ -69,13 +76,31 @@ Hard rules enforced in code and process:
 
 ## Hermes agent contract
 
-Hermes polls the queue (cron/heartbeat) and handles each item:
+Hermes leases one item at a time (cron/heartbeat) and handles it:
 
 ```
-GET  <game>/api/community/queue?status=new          header: x-community-token
+POST <game>/api/community/claim                     header: x-community-token
+     { "workerId": "<stable worker id>" }
+  -> { "item": {...}, "leaseToken": "...", "inputHash": "...", "attempt": 1 }
+  -> { "item": null }                              when there is no work
+
 POST <game>/api/community/action                    header: x-community-token
-     { "id": "<post id>", "action": "open-fix-pr", "detail": "<PR url>" }
+     { "id": "<post number>", "action": "open-fix-pr",
+       "detail": "https://github.com/menezmethod/saucerjam/pull/<n>",
+       "leaseToken": "<from claim>", "inputHash": "<from claim>" }
+
+POST <game>/api/community/fail                      header: x-community-token
+     { "id": "<post number>", "detail": "<why>",
+       "leaseToken": "<from claim>", "inputHash": "<from claim>" }
 ```
+
+`GET /api/community/queue` still exists for inspection; it answers non-200 when
+the durable store cannot be read, because an unusable store must never look like
+an empty queue. The lease is mandatory for a state-changing completion: without
+it a worker could mark unrelated work done. A `detail` that is not an exact PR
+URL in this repository is rejected — a receipt records that a PR was opened, and
+it never marks a report done. That only happens when Fider itself reports a
+terminal status.
 
 It reports to Telegram only when judgment is needed (see Hermes `AGENTS.md`:
 "handle routine work silently; escalate only when judgment matters"). Expected
@@ -126,3 +151,19 @@ behaviour per proposal is in `deploy/hermes/saucerjam-community-triage.md`.
 - The AI's worst case is opening a PR — which a human can close.
 - All actions are counted (`saucerjam_community_actions_total`) and visible on the
   Grafana dashboard, so runaway automation is observable.
+
+## Merge and release gate
+
+- `main` is protected: the `verify` check (`.github/workflows/ci.yml`) must pass;
+  no direct or force pushes, enforced for administrators too.
+- `.github/workflows/automerge.yml` runs from `main` after every successful
+  `verify` on a PR and every 30 minutes. It merges at most one PR per run, and only
+  when `verify` passed on the exact head SHA, the PR comes from this repo, it has
+  no `prototype`/`no-automerge`/`hold` label, and every changed path passes
+  `scripts/ops/automerge-eligible.cjs` (styles, static page shell, ordinary docs).
+  Everything else waits for a human merge. Labels and PR text cannot widen it.
+- Coolify auto-deploys `main`; that is the only deploy trigger. Its container
+  `HEALTHCHECK` keeps a failing build from replacing the running one, and the SRE
+  heartbeat (`saucerjam-ops sre check`, then a bounded `heal`) covers the rest.
+- Ops cron wrappers run from a dedicated clone pinned to `origin/main`, not from a
+  working checkout, so an agent switching branches cannot change what ops run.

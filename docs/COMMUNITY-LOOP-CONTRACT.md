@@ -69,6 +69,11 @@ from Fider every pass, processes a bounded batch (`limits.maxPerPass`, default
 10) one key at a time, and must be correct if invoked twice. Status is derived
 from Fider; local state holds only attempts, leases, and idempotency keys.
 
+## 5a. Durable record and lease protocol
+
+The durable journal, the claim/action/fail lease protocol, and read-only Fider
+reconciliation are specified in [COMMUNITY-QUEUE.md](COMMUNITY-QUEUE.md).
+
 ## 6. Forbidden
 
 The loop must never:

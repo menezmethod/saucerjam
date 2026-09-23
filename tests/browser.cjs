@@ -79,14 +79,6 @@ async function main() {
     return page;
   }
   const snapshot = (page) => page.evaluate(() => window.__qd.getSnapshot());
-  // Frames per second as the page experiences them; slow software WebGL shows up here first.
-  const fps = (page) => page.evaluate(() => new Promise((resolve) => {
-    let frames = 0; const start = performance.now();
-    const tick = () => { frames += 1; if (performance.now() - start < 2000) requestAnimationFrame(tick); else resolve(Math.round(frames / 2)); };
-    requestAnimationFrame(tick);
-    setTimeout(() => resolve(`${frames} frames in 5s (stalled)`), 5000);
-  }));
-  if (process.env.CI) console.log(`diag: nproc=${require("node:os").availableParallelism()} chromium=${(await chromium.launch(launchOptions).then(async (b) => { const v = b.version(); await b.close(); return v; }))}`);
   try {
     const a = await newPage();
     await a.screenshot({ path: path.join(out, "lobby.png") });
@@ -100,9 +92,7 @@ async function main() {
     const initialA = await snapshot(a),
       room = game.rooms.get(initialA.room),
       idA = initialA.playerId;
-    if (process.env.CI) console.log(`diag: fps a alone=${await fps(a)}`);
     const b = await newPage();
-    if (process.env.CI) console.log(`diag: fps a=${await fps(a)} b=${await fps(b)} with two pages`);
     await b.goto(`${url}?room=${initialA.room}`);
     await b.waitForFunction(() => window.__qd);
     assert.equal(await b.inputValue("#room-code"), initialA.room);

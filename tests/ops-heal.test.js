@@ -10,7 +10,24 @@ const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+const { spawn } = require("node:child_process");
+
+// ponytail: async on purpose — spawnSync blocks this process, so the in-process
+// HTTP fixture could never answer and every heal request timed out.
+function spawnAsync(cmd, args, opts) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { env: opts.env });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (d) => (stdout += d));
+    child.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
+    const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeout);
+    child.on("close", (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout, stderr });
+    });
+  });
+}
 
 const OPS = path.join(__dirname, "..", "scripts", "ops", "saucerjam-ops.cjs");
 const HEALTHY = '{"status":"ok","rankings":"ok","community":{"status":"ok"}}';
@@ -49,7 +66,7 @@ async function brokenServer({ recoverAfterRestarts = 0, activeDeployment = false
 }
 
 function runHeal({ base, stateDir, env = {} }) {
-  return spawnSync("node", [OPS, "sre", "heal"], {
+  return spawnAsync("node", [OPS, "sre", "heal"], {
     encoding: "utf8",
     timeout: 60_000,
     env: {
@@ -76,7 +93,7 @@ test("heal does not act on a saved state when the service is healthy right now",
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "sre.state.json"), JSON.stringify({ condition: "down", notifiedAt: Date.now() }));
     state.healthy = true;
-    const result = runHeal({ base, stateDir: dir });
+    const result = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 0, "a healthy service must never be restarted because a stale file said down");
     assert.equal(result.status, 0);
     assert.equal(result.stdout.trim(), "", "a cleared incident stays silent");
@@ -102,7 +119,7 @@ test("heal reports a degraded condition instead of restarting", async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
-    const result = runHeal({ base, stateDir: dir });
+    const result = await runHeal({ base, stateDir: dir });
     assert.notEqual(result.status, 0, "a degraded ranking is an alert");
     assert.match(result.stdout, /not a restart condition/, "the reason must say a restart is not the remedy");
   } finally {
@@ -115,7 +132,7 @@ test("heal restarts once and verifies recovery", async () => {
   const dir = tmpDir();
   const { server, state, base } = await brokenServer({ recoverAfterRestarts: 0 });
   try {
-    const result = runHeal({ base, stateDir: dir });
+    const result = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 1, "one confirmed failure earns exactly one restart");
     assert.equal(result.status, 0, `heal must succeed when recovery is verified: ${result.stdout}`);
     assert.match(result.stdout, /recovered after restart/);
@@ -130,7 +147,7 @@ test("an accepted restart that never recovers is reported and stays counted", as
   const dir = tmpDir();
   const { server, state, base } = await brokenServer({ recoverAfterRestarts: 99 });
   try {
-    const first = runHeal({ base, stateDir: dir });
+    const first = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 1);
     assert.notEqual(first.status, 0, "an accepted POST is not recovery");
     assert.match(first.stdout, /did not recover/);
@@ -138,11 +155,11 @@ test("an accepted restart that never recovers is reported and stays counted", as
     assert.equal(saved.incident.restarts, 1, "an accepted-but-down restart must spend budget");
     assert.equal(saved.incident.lastRestartAccepted, true);
 
-    const second = runHeal({ base, stateDir: dir });
+    const second = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 2, "the second attempt is still allowed");
     assert.notEqual(second.status, 0);
 
-    const third = runHeal({ base, stateDir: dir });
+    const third = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 2, "the restart budget must not be exceeded across invocations");
     assert.notEqual(third.status, 0);
     assert.match(third.stdout, /budget exhausted|cooldown/i);
@@ -156,10 +173,10 @@ test("a healthy sample clears the incident and renews the restart budget", async
   const dir = tmpDir();
   const { server, state, base } = await brokenServer({ recoverAfterRestarts: 99 });
   try {
-    runHeal({ base, stateDir: dir });
+    await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 1);
     state.healthy = true;
-    const recovered = runHeal({ base, stateDir: dir });
+    const recovered = await runHeal({ base, stateDir: dir });
     assert.equal(recovered.status, 0);
     assert.equal(state.restarts, 1, "no restart is attempted once the service is healthy");
     assert.doesNotMatch(fs.readFileSync(path.join(dir, "sre.state.json"), "utf8"), /restarts/, "the incident budget is cleared by a healthy sample");
@@ -173,9 +190,9 @@ test("heal respects a cooldown so two ticks cannot stack restarts", async () => 
   const dir = tmpDir();
   const { server, state, base } = await brokenServer({ recoverAfterRestarts: 99 });
   try {
-    runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_COOLDOWN_MS: "600000" } });
+    await runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_COOLDOWN_MS: "600000" } });
     assert.equal(state.restarts, 1);
-    const second = runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_COOLDOWN_MS: "600000" } });
+    const second = await runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_COOLDOWN_MS: "600000" } });
     assert.equal(state.restarts, 1, "the cooldown must hold the second restart back");
     assert.notEqual(second.status, 0);
     assert.match(second.stdout, /cooldown/i);
@@ -189,7 +206,7 @@ test("heal defers while a deployment is active for the application", async () =>
   const dir = tmpDir();
   const { server, state, base } = await brokenServer({ activeDeployment: true });
   try {
-    const result = runHeal({ base, stateDir: dir });
+    const result = await runHeal({ base, stateDir: dir });
     assert.equal(state.restarts, 0, "an active deployment must block a restart");
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /deployment is active/i);
@@ -203,7 +220,7 @@ test("heal requires credentials before it will restart anything", async () => {
   const dir = tmpDir();
   const { server, state, base } = await brokenServer();
   try {
-    const result = spawnSync("node", [OPS, "sre", "heal"], {
+    const result = await spawnAsync("node", [OPS, "sre", "heal"], {
       encoding: "utf8",
       timeout: 60_000,
       env: {
@@ -249,7 +266,7 @@ test("heal stops on a second sample that has already recovered", async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
-    const result = runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_CONFIRM_DELAY_MS: "5" } });
+    const result = await runHeal({ base, stateDir: dir, env: { SAUCERJAM_HEAL_CONFIRM_DELAY_MS: "5" } });
     assert.equal(restarts, 0, "a single flapping sample must not spend a restart");
     assert.match(result.stdout, /not confirmed/i);
   } finally {

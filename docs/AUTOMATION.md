@@ -151,3 +151,19 @@ behaviour per proposal is in `deploy/hermes/saucerjam-community-triage.md`.
 - The AI's worst case is opening a PR — which a human can close.
 - All actions are counted (`saucerjam_community_actions_total`) and visible on the
   Grafana dashboard, so runaway automation is observable.
+
+## Merge and release gate
+
+- `main` is protected: the `verify` check (`.github/workflows/ci.yml`) must pass;
+  no direct or force pushes, enforced for administrators too.
+- `.github/workflows/automerge.yml` runs from `main` after every successful
+  `verify` on a PR and every 30 minutes. It merges at most one PR per run, and only
+  when `verify` passed on the exact head SHA, the PR comes from this repo, it has
+  no `prototype`/`no-automerge`/`hold` label, and every changed path passes
+  `scripts/ops/automerge-eligible.cjs` (styles, static page shell, ordinary docs).
+  Everything else waits for a human merge. Labels and PR text cannot widen it.
+- Coolify auto-deploys `main`; that is the only deploy trigger. Its container
+  `HEALTHCHECK` keeps a failing build from replacing the running one, and the SRE
+  heartbeat (`saucerjam-ops sre check`, then a bounded `heal`) covers the rest.
+- Ops cron wrappers run from a dedicated clone pinned to `origin/main`, not from a
+  working checkout, so an agent switching branches cannot change what ops run.

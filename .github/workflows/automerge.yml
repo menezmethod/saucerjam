@@ -1,0 +1,55 @@
+name: Auto-merge eligible PRs
+# Trusted gate: workflow_run and schedule always run THIS file from main and
+# never check out PR code. Eligibility lives in scripts/ops/automerge-eligible.cjs
+# (read from main). Branch protection still enforces the verify check.
+on:
+  workflow_run:
+    workflows: [Verify game]
+    types: [completed]
+  schedule:
+    - cron: "*/30 * * * *" # recovers missed workflow_run events
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+jobs:
+  merge:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Merge at most one eligible PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Candidates: open, same-repo, non-draft PRs into main, oldest first.
+          gh api "repos/$R/pulls?state=open&base=main&sort=created&direction=asc&per_page=50" \
+            --jq ".[] | select(.draft == false and .head.repo.full_name == \"$R\") | .number" > candidates
+          while read -r N; do
+            pr=$(gh api "repos/$R/pulls/$N")
+            SHA=$(jq -r .head.sha <<<"$pr")
+            if jq -e '[.labels[].name] | any(. == "prototype" or . == "no-automerge" or . == "hold")' <<<"$pr" >/dev/null; then
+              echo "#$N: held by label"; continue; fi
+            # verify must have succeeded on exactly this SHA, from GitHub Actions, with no failed rerun.
+            verify=$(gh api "repos/$R/commits/$SHA/check-runs?check_name=verify&per_page=100" \
+              --jq '[.check_runs[] | select(.app.slug == "github-actions")] | if length == 0 then "missing" elif all(.status == "completed" and .conclusion == "success") then "success" else "not-success" end')
+            if [ "$verify" != "success" ]; then echo "#$N@$SHA: verify $verify"; continue; fi
+            gh api "repos/$R/pulls/$N/files?per_page=100" --paginate --slurp > files.json
+            if ! node scripts/ops/automerge-eligible.cjs files.json; then echo "#$N: see reason above"; continue; fi
+            # Refetch: the head must not have moved since verify passed.
+            if [ "$(gh api "repos/$R/pulls/$N" --jq .head.sha)" != "$SHA" ]; then echo "#$N: head moved"; continue; fi
+            gh pr merge "$N" --repo "$R" --squash --match-head-commit "$SHA" --delete-branch
+            echo "merged #$N at $SHA"
+            exit 0 # one PR per run
+          done < candidates
+          echo "nothing eligible"

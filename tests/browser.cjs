@@ -22,7 +22,7 @@ async function main() {
     (process.platform === "darwin"
       ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
       : undefined);
-  const browser = await chromium.launch({
+  const launchOptions = {
     ...(chromePath && fs.existsSync(chromePath)
       ? { executablePath: chromePath }
       : {}),
@@ -32,25 +32,50 @@ async function main() {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
     ],
-  });
+  };
+  // One browser per client: each gets its own software GPU process, so one
+  // page's rendering cannot starve another page's WebGL startup on a small CI runner.
+  const browsers = [];
   const errors = [],
     contexts = [],
     out = path.join(__dirname, "../test-results");
   fs.mkdirSync(out, { recursive: true });
   async function newPage(options = {}) {
+    const browser = await chromium.launch(launchOptions);
+    browsers.push(browser);
     const ctx = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       ...options,
     });
     contexts.push(ctx);
+    // Software WebGL on a CI runner draws 1-2 fps at full quality; input is sampled per frame.
+    await ctx.addInitScript(() => { window.__SAUCERJAM_LOWGFX = true; });
     const page = await ctx.newPage();
+    // Poll on a timer, not requestAnimationFrame: with several WebGL pages open,
+    // headless Chromium stalls frames and a rAF poll never re-checks a true condition.
+    const waitForFunction = page.waitForFunction.bind(page);
+    page.waitForFunction = (fn, arg, options = {}) => waitForFunction(fn, arg, { polling: 100, ...options });
     page.on("pageerror", (e) => errors.push(e.message));
+    const consoleLines = [];
+    page.on("console", (m) => consoleLines.push(`${m.type()}: ${m.text()}`));
     page.on("response", (r) => {
       if (r.status() >= 400 && !r.url().endsWith("favicon.ico"))
         errors.push(`${r.status()} ${r.url()}`);
     });
     await page.goto(url);
-    await page.waitForFunction(() => window.__qd);
+    try {
+      await page.waitForFunction(() => window.__qd);
+    } catch (error) {
+      // Without this, a page that never boots fails as a bare timeout.
+      const state = await page.evaluate(() => ({
+        readyState: document.readyState,
+        lobbyStatus: document.getElementById("lobby-status")?.textContent,
+        uptimeMs: Math.round(performance.now()),
+        resources: performance.getEntriesByType("resource").map((r) => `${r.name.replace(location.origin, "")} at ${Math.round(r.startTime)}ms took ${Math.round(r.duration)}ms ${r.responseStatus ?? ""}`),
+      })).catch((e) => ({ evaluateFailed: e.message }));
+      console.error("page never booted:", JSON.stringify({ errors, console: consoleLines.slice(-15), state }));
+      throw error;
+    }
     return page;
   }
   const snapshot = (page) => page.evaluate(() => window.__qd.getSnapshot());
@@ -138,6 +163,14 @@ async function main() {
     );
     await a.screenshot({ path: path.join(out, "portal-traversal.png") });
     console.log("PASS: authoritative portal traversal snaps the client with readable feedback");
+    // Input is sampled once per rendered frame; on a slow CI runner a fixed
+    // 100ms press can fall between frames. Hold until the server fires once.
+    async function fireOnce(page, shooter) {
+      const before = shooter.nextFire;
+      await page.keyboard.down("Space");
+      try { await until(() => shooter.nextFire !== before, 10000); }
+      finally { await page.keyboard.up("Space"); }
+    }
     function fixture(weapon, az, bz) {
       const pa = room.sim.players.get(idA),
         pb = room.sim.players.get(idB);
@@ -189,9 +222,7 @@ async function main() {
     await a.keyboard.press("Digit2");
     await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "GRENADE");
     await until(() => pa.weapon === "GRENADE");
-    await a.keyboard.down("Space");
-    await sleep(100);
-    await a.keyboard.up("Space");
+    await fireOnce(a, pa);
     await until(() => pb.health < 100);
     assert.equal(pb.health, 20);
     console.log("PASS: Nova Charge arc and authoritative area damage");
@@ -199,9 +230,7 @@ async function main() {
     await a.keyboard.press("Digit3");
     await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "BOUNCE");
     await until(() => pa.weapon === "BOUNCE");
-    await a.keyboard.down("Space");
-    await sleep(100);
-    await a.keyboard.up("Space");
+    await fireOnce(a, pa);
     await until(() => pb.health < 100);
     assert.equal(pb.health, 66);
     console.log(
@@ -472,7 +501,7 @@ async function main() {
     console.log("PASS: no browser exceptions or broken application requests");
   } finally {
     for (const c of contexts) await c.close();
-    await browser.close();
+    for (const b of browsers) await b.close();
     await game.close();
   }
 }

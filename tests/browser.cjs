@@ -48,6 +48,8 @@ async function main() {
       ...options,
     });
     contexts.push(ctx);
+    // Software WebGL on a CI runner draws 1-2 fps at full quality; input is sampled per frame.
+    await ctx.addInitScript(() => { window.__SAUCERJAM_LOWGFX = true; });
     const page = await ctx.newPage();
     // Poll on a timer, not requestAnimationFrame: with several WebGL pages open,
     // headless Chromium stalls frames and a rAF poll never re-checks a true condition.

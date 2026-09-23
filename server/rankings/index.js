@@ -82,8 +82,13 @@ function readLedger(filePath) {
   catch (error) { if (error.code === "ENOENT") return []; throw error; }
   const data = JSON.parse(text);
   if (data?.version !== 1 || !Array.isArray(data.rounds)) throw new TypeError("Unsupported rankings file schema");
+  return validateStoredRounds(data.rounds);
+}
+
+// Same checks for the file ledger and for rows read back from Supabase.
+function validateStoredRounds(rounds) {
   const ids = new Set();
-  return data.rounds.map((round) => {
+  return rounds.map((round) => {
     const id = identifier(round?.id, "stored round id");
     const mapId = identifier(round.mapId, "stored map id");
     if (ids.has(id)) throw new TypeError("Duplicate stored round id");
@@ -102,6 +107,45 @@ function readLedger(filePath) {
     });
     return { id, mapId, endedAt: round.endedAt, players };
   });
+}
+
+// Supabase (PostgREST) ledger: one row per round in `ranking_rounds`, written
+// with the server-only secret key. Rows are insert-only; the first write wins.
+// ponytail: loads every round at boot; move aggregation into SQL past ~100k rounds.
+function supabaseLedger({ url, key, fetch: doFetch = globalThis.fetch, timeoutMs = 10_000 }) {
+  if (typeof url !== "string" || !/^https:\/\//.test(url) || typeof key !== "string" || !key) throw new TypeError("Supabase rankings need an https url and a secret key");
+  const endpoint = `${url.replace(/\/$/, "")}/rest/v1/ranking_rounds`;
+  // Legacy service_role keys are JWTs and also go in Authorization; sb_secret_ keys go in apikey only.
+  const headers = { apikey: key, ...(key.startsWith("eyJ") ? { authorization: `Bearer ${key}` } : {}) };
+  const call = async (target, init = {}) => {
+    const response = await doFetch(target, { ...init, headers: { ...headers, ...init.headers }, signal: AbortSignal.timeout(timeoutMs) });
+    if (!response.ok) throw new Error(`Supabase rankings ${init.method || "GET"} failed: HTTP ${response.status}`);
+    return response;
+  };
+  return {
+    async insert(rounds) {
+      if (!rounds.length) return;
+      const rows = rounds.map((round) => ({ id: round.id, map_id: round.mapId, ended_at: round.endedAt, players: round.players }));
+      await call(`${endpoint}?on_conflict=id`, {
+        method: "POST",
+        headers: { "content-type": "application/json", prefer: "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(rows),
+      });
+    },
+    async loadAll() {
+      const rows = [];
+      const page = 1000;
+      for (let offset = 0; ; offset += page) {
+        const response = await call(`${endpoint}?select=id,map_id,ended_at,players&order=ended_at.asc,id.asc&limit=${page}&offset=${offset}`);
+        const batch = await response.json();
+        if (!Array.isArray(batch)) throw new TypeError("Supabase rankings returned a non-array page");
+        rows.push(...batch);
+        if (batch.length < page) break;
+      }
+      const endedAt = (value) => { const ms = Date.parse(value); return Number.isFinite(ms) ? new Date(ms).toISOString() : value; };
+      return validateStoredRounds(rows.map((row) => ({ id: row?.id, mapId: row?.map_id, endedAt: endedAt(row?.ended_at), players: row?.players })));
+    },
+  };
 }
 
 async function atomicWrite(filePath, contents) {
@@ -138,14 +182,52 @@ class RankingStore {
   #flushing = null;
   #closed = false;
 
-  constructor({ filePath } = {}) {
+  #remote = null;
+  #loading = null;
+  #loaded = true;
+
+  constructor({ filePath, supabase = null } = {}) {
     if (filePath !== null && (typeof filePath !== "string" || !filePath.trim())) throw new TypeError("Provide filePath or explicit null for memory mode");
+    const fileRounds = filePath === null ? [] : readLedger(path.resolve(filePath));
+    if (supabase) {
+      // Supabase is the ledger. A leftover file is imported once (duplicates are
+      // ignored), so switching an existing server over keeps its history.
+      this.#remote = supabaseLedger(supabase);
+      this.#filePath = null;
+      this.#rounds = [];
+      this.#loaded = false;
+      this.#ensureLoaded(fileRounds).catch((error) => console.error("Rankings load failed:", error.message));
+      return;
+    }
     this.#filePath = filePath === null ? null : path.resolve(filePath);
-    this.#rounds = this.#filePath === null ? [] : readLedger(this.#filePath);
+    this.#rounds = fileRounds;
     for (const round of this.#rounds) {
       this.#apply(round);
       this.#ids.add(round.id);
     }
+  }
+
+  // Retries on the next use after a failed load; never serves a partial ledger.
+  #ensureLoaded(importRounds = []) {
+    if (this.#loaded) return Promise.resolve();
+    this.#loading ??= (async () => {
+      await this.#remote.insert(importRounds);
+      const rounds = await this.#remote.loadAll();
+      for (const round of rounds) {
+        if (this.#ids.has(round.id)) continue;
+        this.#apply(round);
+        this.#rounds.push(round);
+        this.#ids.add(round.id);
+      }
+      this.#loaded = true;
+    })().finally(() => { this.#loading = null; });
+    return this.#loading;
+  }
+
+  #requireLoaded() {
+    if (this.#loaded) return;
+    this.#ensureLoaded().catch(() => {});
+    throw new Error("Rankings are still loading");
   }
 
   #apply(round) {
@@ -165,6 +247,19 @@ class RankingStore {
     if (this.#closed) throw new Error("RankingStore is closed");
     const id = identifier(input?.id, "round id");
     let recorded = false;
+    if (this.#remote) {
+      await this.#ensureLoaded();
+      if (this.#ids.has(id)) return { id, recorded };
+      const round = normalizeRound(input);
+      // Reserve the id before the network write so a concurrent retry cannot
+      // double-count; memory only advances once the row is durable.
+      this.#ids.add(id);
+      try { await this.#remote.insert([round]); }
+      catch (error) { this.#ids.delete(id); throw error; }
+      this.#apply(round);
+      this.#rounds.push(round);
+      return { id, recorded: true };
+    }
     // First accepted payload wins, including retries with changed/omitted payloads.
     if (!this.#ids.has(id)) {
       const round = normalizeRound(input);
@@ -198,6 +293,7 @@ class RankingStore {
   }
 
   getLeaderboard({ mapId = null, limit = 50 } = {}) {
+    this.#requireLoaded();
     if (mapId !== null) identifier(mapId, "map id");
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new TypeError("limit must be an integer from 1 to 1000");
     const rows = [];
@@ -210,6 +306,7 @@ class RankingStore {
 
   getProfile(id) {
     identifier(id, "profile id", /^[A-Za-z0-9_-]+$/);
+    this.#requireLoaded();
     const profile = this.#profiles.get(id);
     if (!profile) return null;
     return {

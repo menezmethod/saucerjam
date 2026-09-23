@@ -22,7 +22,7 @@ async function main() {
     (process.platform === "darwin"
       ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
       : undefined);
-  const browser = await chromium.launch({
+  const launchOptions = {
     ...(chromePath && fs.existsSync(chromePath)
       ? { executablePath: chromePath }
       : {}),
@@ -32,12 +32,17 @@ async function main() {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
     ],
-  });
+  };
+  // One browser per client: each gets its own software GPU process, so one
+  // page's rendering cannot starve another page's WebGL startup on a small CI runner.
+  const browsers = [];
   const errors = [],
     contexts = [],
     out = path.join(__dirname, "../test-results");
   fs.mkdirSync(out, { recursive: true });
   async function newPage(options = {}) {
+    const browser = await chromium.launch(launchOptions);
+    browsers.push(browser);
     const ctx = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       ...options,
@@ -493,7 +498,7 @@ async function main() {
     console.log("PASS: no browser exceptions or broken application requests");
   } finally {
     for (const c of contexts) await c.close();
-    await browser.close();
+    for (const b of browsers) await b.close();
     await game.close();
   }
 }

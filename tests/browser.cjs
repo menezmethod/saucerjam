@@ -45,12 +45,20 @@ async function main() {
     contexts.push(ctx);
     const page = await ctx.newPage();
     page.on("pageerror", (e) => errors.push(e.message));
+    const consoleLines = [];
+    page.on("console", (m) => consoleLines.push(`${m.type()}: ${m.text()}`));
     page.on("response", (r) => {
       if (r.status() >= 400 && !r.url().endsWith("favicon.ico"))
         errors.push(`${r.status()} ${r.url()}`);
     });
     await page.goto(url);
-    await page.waitForFunction(() => window.__qd);
+    try {
+      await page.waitForFunction(() => window.__qd);
+    } catch (error) {
+      // Without this, a page that never boots fails as a bare timeout.
+      error.message += `\npage errors: ${JSON.stringify(errors)}\nconsole: ${JSON.stringify(consoleLines.slice(-10))}`;
+      throw error;
+    }
     return page;
   }
   const snapshot = (page) => page.evaluate(() => window.__qd.getSnapshot());

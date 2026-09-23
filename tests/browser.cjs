@@ -82,6 +82,7 @@ async function main() {
     let frames = 0; const start = performance.now();
     const tick = () => { frames += 1; if (performance.now() - start < 2000) requestAnimationFrame(tick); else resolve(Math.round(frames / 2)); };
     requestAnimationFrame(tick);
+    setTimeout(() => resolve(`${frames} frames in 5s (stalled)`), 5000);
   }));
   if (process.env.CI) console.log(`diag: nproc=${require("node:os").availableParallelism()} chromium=${(await chromium.launch(launchOptions).then(async (b) => { const v = b.version(); await b.close(); return v; }))}`);
   try {

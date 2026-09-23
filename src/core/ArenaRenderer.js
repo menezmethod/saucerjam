@@ -10,11 +10,10 @@ const Y=.9;
 // `?lowgfx` (or the test harness flag) trades antialiasing, shadows and resolution
 // for frame rate on software rendering and old GPUs.
 const LOW_GFX=typeof window!=='undefined'&&(window.__SAUCERJAM_LOWGFX===true||new URLSearchParams(location.search).has('lowgfx'));
-const pixelRatio=()=>LOW_GFX?.5:Math.min(devicePixelRatio,1.5);
 export class ArenaRenderer {
   constructor(canvas){
-    this.canvas=canvas;this.renderer=new THREE.WebGLRenderer({canvas,antialias:!LOW_GFX,powerPreference:'high-performance'});
-    this.renderer.setPixelRatio(pixelRatio());this.renderer.setClearColor('#080d18');
+    this.canvas=canvas;this.lowGfx=LOW_GFX;this.renderer=new THREE.WebGLRenderer({canvas,antialias:!LOW_GFX,powerPreference:'high-performance'});
+    this.renderer.setPixelRatio(LOW_GFX?.5:Math.min(devicePixelRatio,1.5));this.renderer.setClearColor('#080d18');
     this.renderer.shadowMap.enabled=!LOW_GFX;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.renderer.shadowMap.autoUpdate=false;
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(55,1,.1,400);this.rig=new CameraRig(this.camera);
@@ -37,7 +36,7 @@ export class ArenaRenderer {
   }
   resize(){
     const rect=this.canvas.getBoundingClientRect(),width=Math.max(1,Math.round(rect.width)),height=Math.max(1,Math.round(rect.height));
-    const ratio=pixelRatio();
+    const ratio=this.lowGfx?.5:Math.min(devicePixelRatio,1.5);
     if(this.width===width&&this.height===height&&this.pixelRatio===ratio)return;
     this.width=width;this.height=height;this.pixelRatio=ratio;
     this.renderer.setPixelRatio(ratio);this.renderer.setSize(width,height,false);

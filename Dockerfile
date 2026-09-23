@@ -17,8 +17,12 @@ COPY server/server.js ./server/server.js
 COPY server/rankings ./server/rankings
 COPY server/metrics.js ./server/metrics.js
 COPY server/community.js ./server/community.js
+COPY server/community-core.js ./server/community-core.js
+COPY server/community-queue.js ./server/community-queue.js
+COPY server/community-fider.js ./server/community-fider.js
 COPY server/insights.js ./server/insights.js
 RUN mkdir -p /app/server/data && chown node:node /app/server/data
+ENV COMMUNITY_QUEUE_FILE=/app/server/data/community.json
 COPY shared ./shared
 USER node
 EXPOSE 8080

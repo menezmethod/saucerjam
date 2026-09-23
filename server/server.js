@@ -8,7 +8,17 @@ const { LEGACY_MAPS, getMap, MAP_ROTATION } = require("../shared/maps");
 const { RankingStore } = require("./rankings");
 const { Metrics } = require("./metrics");
 const { CommunityQueue, verifySignature, verifyToken, clean, guardPublicText } = require("./community");
+const { FiderReconciler } = require("./community-fider");
 const { Insights } = require("./insights");
+
+// The GitHub PR shape the worker is allowed to report back. Exact repository and
+// path, so a worker cannot point the receipt at a fork, another repository, or a
+// pull request it does not own.
+const PR_URL = /^https:\/\/github\.com\/menezmethod\/saucerjam\/pull\/\d+$/;
+// Explicit compatibility switch for existing fixtures that predate leases. It is
+// OFF unless set, and it only relaxes the lease requirement for the
+// state-changing worker completions below — never for the terminal Fider path.
+const LEGACY_ACTIONS = String(process.env.COMMUNITY_LEGACY_ACTIONS || "") === "true";
 
 // Fider's webhook content is a Go template edited by hand in its admin UI, so it
 // drifts. A missing field renders as the literal `<no value>`, which is invalid
@@ -53,6 +63,14 @@ function createGameServer({
   fiderWebhookSecret = String(process.env.FIDER_WEBHOOK_SECRET || ""),
   fiderWebhookToken = String(process.env.FIDER_WEBHOOK_TOKEN || ""),
   communityActionToken = String(process.env.COMMUNITY_ACTION_TOKEN || ""),
+  // Production points this at mounted storage (server/data by default, mounted
+  // at deploy time by the operator). Tests pass null and stay in memory.
+  // `stateFile: undefined` means "use the production default"; an explicit null
+  // means "keep this instance in memory", which is what every test does. Only
+  // the real entrypoint (below) installs the default, so importing the server
+  // from a test can never write into the repository's data directory.
+  communityStateFile = process.env.COMMUNITY_QUEUE_FILE || null,
+  communityReconcile = String(process.env.COMMUNITY_RECONCILE || "") === "true",
   maxRooms = Math.max(1, Math.min(100, Number(process.env.MAX_ROOMS) || 8)),
   maxPlayersPerRoom = Math.max(1, Math.min(128, Number(process.env.MAX_ROOM_PLAYERS) || 32)),
   maxConnections = Math.max(8, Math.min(1000, Number(process.env.MAX_CONNECTIONS) || 96)),
@@ -215,11 +233,32 @@ function createGameServer({
   // string compare misses them and quietly restores the 429 and the 413.
   // The Fider webhook needs the exact raw bytes for HMAC, so it must be
   // declared BEFORE the JSON body parser (or the signature never validates).
-  const community = new CommunityQueue();
+  const community = new CommunityQueue({ stateFile: communityStateFile });
+  // Read-only reconciliation. Fider is the content and status source; this only
+  // ever reads it, and it stays off unless the operator configured credentials
+  // AND turned it on. It is the only place the server reads Fider's post list.
+  const reconciler = new FiderReconciler({ baseUrl: fiderBaseUrl, apiKey: fiderApiKey });
+  // Reconciliation stays off unless the operator turned it on AND configured
+  // Fider. `reconciler.configured()` is the real gate; the flag is the opt-in.
+  if (communityReconcile && reconciler.configured()) reconciler.start(community);
   const insights = new Insights();
   const mCommunityIngest = metrics.counter("saucerjam_community_ingest_total", "Fider webhook items ingested by kind", "counter");
   const mCommunityRejected = metrics.counter("saucerjam_community_webhook_rejected_total", "Fider webhooks rejected by reason", "counter");
   const mCommunityActions = metrics.counter("saucerjam_community_actions_total", "AI actions recorded by type", "counter");
+  // Bounded, label-free community health. No report text or post ids become
+  // metric labels: those fields are unbounded and attacker-controlled, and a
+  // scrape re-expands every series it has ever seen.
+  const mCommunityClaims = metrics.counter("saucerjam_community_claims_total", "Worker claims by outcome", "counter");
+  const mCommunityExhausted = metrics.counter("saucerjam_community_triage_exhausted_total", "Queue items parked after exhausting attempts", "counter");
+  const mCommunityConflicts = metrics.counter("saucerjam_community_conflicts_total", "Worker completions rejected as stale or conflicting", "counter");
+  const mCommunityReconcile = metrics.counter("saucerjam_community_reconcile_total", "Fider reconciliation passes and failures", "counter");
+  const gCommunityQueue = metrics.gauge("saucerjam_community_queue_size", "Queue records held");
+  const gCommunityBacklog = metrics.gauge("saucerjam_community_queue_backlog", "Non-terminal queue records");
+  const gCommunityExhausted = metrics.gauge("saucerjam_community_queue_exhausted", "Dead-lettered queue records");
+  const gCommunityHealthy = metrics.gauge("saucerjam_community_queue_healthy", "1 when the durable store loaded cleanly and has not failed a write");
+  const gCommunityOldest = metrics.gauge("saucerjam_community_queue_oldest_due_timestamp_seconds", "Unix time of the oldest claimable item; 0 when none");
+  const gCommunityReconcileAge = metrics.gauge("saucerjam_community_reconcile_age_seconds", "Seconds since the last Fider reconciliation pass; -1 when none has run");
+  const gCommunityReconcileOk = metrics.gauge("saucerjam_community_reconcile_ok", "1 when the most recent reconciliation pass completed; -1 when none has run");
   // A dedicated meter for the webhook. It must never answer 429 — that is the
   // non-2xx that permanently kills the webhook — so an over-limit request is
   // accepted and dropped with 202 plus a counter. Its real job is to bound how
@@ -470,9 +509,24 @@ function createGameServer({
   // Prometheus scrape target (no auth: exposes only aggregate, non-PII counts).
   app.get("/metrics", (req, res) => {
     if (!healthLimiter(clientAddress(req))) return res.status(429).end();
+    communityGauges();
     res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
     res.send(metrics.render({ extraGauges: [ ...roomGauges(), insights.render(), ...["ok","degraded"].map(s => `saucerjam_rankings_status{status="${s}"} ${(rankingError?"degraded":"ok")===s?1:0}`) ] }));
   });
+  // Community freshness, backlog and exhaustion. Label-free on purpose: post
+  // ids and report text are unbounded, so they must never become series.
+  function communityGauges() {
+    const health = community.status();
+    gCommunityQueue.set({}, health.size);
+    gCommunityBacklog.set({}, health.backlog);
+    gCommunityExhausted.set({}, health.exhausted);
+    gCommunityHealthy.set({}, health.healthy ? 1 : 0);
+    gCommunityOldest.set({}, health.oldestDueAt ? Math.floor(Date.parse(health.oldestDueAt) / 1000) : 0);
+    const last = reconciler.health().lastPass;
+    gCommunityReconcileAge.set({}, last ? Math.max(0, (Date.now() - Date.parse(last.at)) / 1000) : -1);
+    gCommunityReconcileOk.set({}, last ? (last.ok ? 1 : 0) : -1);
+    return [];
+  }
   function roomGauges() {
     let humans = 0, bots = 0, maxStage = 3;
     for (const room of rooms.values()) {
@@ -490,32 +544,173 @@ function createGameServer({
   app.get("/api/community/queue", (req, res) => {
     if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
       return res.status(401).json({ error: "Community action token required." });
+    // A queue read from a store that did not load cleanly would report "no work"
+    // while the real journal is sitting unusable on disk. That is the exact
+    // false-green the audit found, so it answers non-200 instead.
+    const health = community.status();
+    if (!health.healthy) return res.status(503).json({ error: "Community queue store is unavailable.", ...health });
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     return res.json({ items: community.list({ status }) });
   });
+
+  // Claim one eligible item. This is the leased entry point the worker uses:
+  // the lease is persisted before the token is returned, so two workers can
+  // never hold the same item, and an abandoned lease becomes a failed attempt.
+  app.post("/api/community/claim", (req, res) => {
+    if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
+      return res.status(401).json({ error: "Community action token required." });
+    const workerId = clean(req.body?.workerId, 64);
+    if (!workerId) return res.status(400).json({ error: "workerId is required." });
+    const claimed = community.claim({ workerId });
+    mCommunityClaims.add({ outcome: claimed.status === "claimed" ? "claimed" : claimed.status });
+    if (claimed.status === "unavailable")
+      return res.status(503).json({ error: "Community queue store is unavailable.", reason: claimed.reason });
+    // No work is the common case: answer cheaply, with no lease and no model call.
+    if (claimed.status !== "claimed") return res.json({ item: null });
+    return res.json({
+      item: claimed.item,
+      leaseToken: claimed.leaseToken,
+      inputHash: claimed.inputHash,
+      attempt: claimed.attempt,
+      leaseExpiresAt: claimed.expiresAt,
+    });
+  });
+
   app.post("/api/community/action", (req, res) => {
     if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
       return res.status(401).json({ error: "Community action token required." });
-    const { id, action, detail } = req.body || {};
+    const { id, action, detail, leaseToken, inputHash } = req.body || {};
     if (!CommunityQueue.allowedActions().includes(action)) {
       mCommunityRejected.add({ reason: "disallowed_action" });
       return res.status(400).json({ error: `Action must be one of: ${CommunityQueue.allowedActions().join(", ")}` });
     }
-    const item = community.record(id, { action, detail: clean(detail, 500) });
+    const known = community.get(id);
+    if (!known) return res.status(404).json({ error: "Unknown community item." });
+    // Map the worker's vocabulary onto the journal's transitions. `fix-pr` and
+    // `prototype-pr` are receipts that a PR was opened; they are NOT done, and a
+    // comment is not a fix. Nothing here can mark an item terminal.
+    const completion =
+      action === "request-info" ? "request_info"
+      : action === "open-fix-pr" || action === "open-prototype-pr" ? "actioned"
+      : action === "comment" || action === "flag-duplicate" ? "comment"
+      : null;
+    if (completion === null) {
+      mCommunityRejected.add({ reason: "disallowed_action" });
+      return res.status(400).json({ error: `Action must be one of: ${CommunityQueue.allowedActions().join(", ")}` });
+    }
+    const durable = community.status().healthy;
+    // A state-changing completion needs the lease the claim handed out. Without
+    // it any caller holding the shared token could mark unrelated work done, and
+    // two workers racing the same item would both "succeed". The legacy switch
+    // exists only for fixtures written against the pre-lease surface.
+    const needsLease = completion !== "comment";
+    if (needsLease && !leaseToken && !LEGACY_ACTIONS)
+      return res.status(428).json({ error: "A leaseToken from /api/community/claim is required." });
+    if (needsLease && leaseToken) {
+      const verdict = community.complete({ id, action: completion, leaseToken, inputHash });
+      if (verdict.status === "unavailable")
+        return res.status(503).json({ error: "Community queue store is unavailable.", reason: verdict.reason });
+      if (verdict.status === "expired_lease" || verdict.status === "no_lease" || verdict.status === "bad_lease")
+        { mCommunityConflicts.add({ reason: verdict.status }); return res.status(409).json({ error: "This lease is no longer valid. Claim the item again.", reason: verdict.status }); }
+      if (verdict.status === "stale_input")
+        { mCommunityConflicts.add({ reason: "stale_input" }); return res.status(409).json({ error: "The report changed since this lease was issued.", reason: "stale_input" }); }
+      if (verdict.status === "terminal")
+        { mCommunityConflicts.add({ reason: "terminal" }); return res.status(409).json({ error: "This item already reached a terminal state.", reason: "terminal" }); }
+      if (verdict.status === "replayed") {
+        mCommunityActions.add({ action: completion });
+        return res.json({ ok: true, replayed: true, item: verdict.item });
+      }
+      if (verdict.status === "accepted" && completion === "actioned") {
+        // A `fix-pr` receipt may only cite an exact PR in this repository. A
+        // receipt is not release evidence: it records that a PR was opened.
+        const detailText = clean(detail, 500);
+        if (!PR_URL.test(detailText))
+          return res.status(400).json({ error: "detail must be a https://github.com/menezmethod/saucerjam/pull/<number> URL." });
+        const item = community.record(id, "actioned", { detail: detailText, inputHash });
+        mCommunityActions.add({ action: completion });
+        return res.json({ ok: true, item });
+      }
+      if (verdict.status === "accepted" && completion === "request_info") {
+        const item = community.record(id, "request_info", { detail: clean(detail, 500), inputHash });
+        mCommunityActions.add({ action: completion });
+        return res.json({ ok: true, item });
+      }
+      if (verdict.status === "accepted" && !durable) {
+        // No store configured: the in-memory journal cannot bound attempts, so a
+        // completion is refused rather than accepted and lost on restart.
+        return res.status(503).json({ error: "Community queue store is not configured." });
+      }
+    }
+    const item = community.record(id, completion, { detail: clean(detail, 500), inputHash });
     if (!item) return res.status(404).json({ error: "Unknown community item." });
-    mCommunityActions.add({ action });
+    if (item.status === "dead_letter") mCommunityExhausted.add({});
+    mCommunityActions.add({ action: completion });
+    return res.json({ ok: true, item, acknowledged: completion === "comment" ? true : undefined });
+  });
+
+  // An explicit failed attempt. Guarded by the same lease, so a worker cannot
+  // burn another worker's attempt or reset an item it does not hold.
+  app.post("/api/community/fail", (req, res) => {
+    if (!communityActionToken || req.get("x-community-token") !== communityActionToken)
+      return res.status(401).json({ error: "Community action token required." });
+    const { id, detail, leaseToken, inputHash } = req.body || {};
+    const known = community.get(id);
+    if (!known) return res.status(404).json({ error: "Unknown community item." });
+    const verdict = community.complete({ id, action: "fail", leaseToken, inputHash });
+    if (verdict.status === "unavailable")
+      return res.status(503).json({ error: "Community queue store is unavailable.", reason: verdict.reason });
+    if (["no_lease", "bad_lease", "expired_lease"].includes(verdict.status))
+      { mCommunityConflicts.add({ reason: verdict.status }); return res.status(409).json({ error: "This lease is no longer valid. Claim the item again.", reason: verdict.status }); }
+    if (verdict.status === "stale_input")
+      { mCommunityConflicts.add({ reason: "stale_input" }); return res.status(409).json({ error: "The report changed since this lease was issued.", reason: "stale_input" }); }
+    if (verdict.status === "terminal")
+      { mCommunityConflicts.add({ reason: "terminal" }); return res.status(409).json({ error: "This item already reached a terminal state.", reason: "terminal" }); }
+    const item = community.record(id, "fail", { detail: clean(detail, 500) });
+    if (item?.status === "dead_letter") mCommunityExhausted.add({});
     return res.json({ ok: true, item });
   });
   app.use(express.static(staticDir));
   app.get("/health", (req, res) => {
     if (!healthLimiter(clientAddress(req))) return res.status(429).json({ error: "Too many health checks. Please try again shortly." });
-    return res.json({
+    const payload = {
       status: "ok",
       rankings:rankingError?"degraded":"ok",
+      community: communityHealth(),
       rooms: rooms.size,
       players: [...rooms.values()].reduce((n, r) => n + r.humans.size, 0),
-    });
+    };
+    return res.json(payload);
   });
+  // Community readiness. A store that failed to load, or a reconciliation
+  // credential that is configured but whose last pass failed, is a real
+  // degradation of the loop. Missing optional integration credentials are NOT:
+  // a standalone game with no Fider configured is healthy, and reporting it
+  // unhealthy would break every deployment that does not run the loop.
+  function communityHealth() {
+    const queue = community.status();
+    const reconcile = reconciler.health();
+    const issues = [];
+    if (!queue.healthy) issues.push(queue.loadError || "state_unhealthy");
+    if (queue.persistError) issues.push(queue.persistError);
+    if (reconcile.configured && reconcile.lastPass && !reconcile.lastPass.ok) issues.push("reconcile_failed");
+    const status = issues.length ? "degraded" : "ok";
+    return {
+      status,
+      durable: queue.durable,
+      backlog: queue.backlog,
+      exhausted: queue.exhausted,
+      size: queue.size,
+      oldestDueAt: queue.oldestDueAt,
+      reconcile: {
+        configured: reconcile.configured,
+        running: reconcile.running,
+        lastPassAt: reconcile.lastPass?.at || null,
+        lastPassOk: reconcile.lastPass ? reconcile.lastPass.ok : null,
+        excludedPosts: reconcile.excludedPosts,
+      },
+      issues,
+    };
+  }
   const makeRoom = (code, bots, mapId = "classic", rotate = false) => {
     const room = { code, bots, sim: new Simulation({map:getMap(mapId),mapRotation:rotate?MAP_ROTATION.map(getMap):[]}), humans: new Set(),matchId:randomBytes(12).toString("hex") };
     rooms.set(code, room);
@@ -708,15 +903,27 @@ function createGameServer({
   const interval = tick ? setInterval(advance, 1000 / 60) : null;
   async function close() {
     clearInterval(interval);
+    // The reconcile timer must not outlive the server: a leaked interval keeps
+    // reading Fider (and holding the process open) after close.
+    reconciler.stop();
     for(const room of rooms.values())clearTimeout(room.expiry);
     await new Promise((resolve) => io.close(resolve));
     await Promise.all([...pendingSaves]);
+    // Flush the journal before the process goes away. Without the store the
+    // write is already synchronous, so this only matters for the durable path.
+    community.write();
     await rankings.close();
   }
   return { app, server, io, rooms, rankings, close };
 }
 if (require.main === module) {
-  const game = createGameServer({rankingsFile:process.env.RANKINGS_FILE || path.join(__dirname,"data/rankings.json")}),
+  const game = createGameServer({
+      rankingsFile: process.env.RANKINGS_FILE || path.join(__dirname, "data/rankings.json"),
+      // The durable journal lives on mounted storage in production. Without an
+      // explicit path the queue stays in memory and /health reports it.
+      communityStateFile: process.env.COMMUNITY_QUEUE_FILE || path.join(__dirname, "data/community.json"),
+      communityReconcile: process.env.COMMUNITY_RECONCILE === undefined ? true : String(process.env.COMMUNITY_RECONCILE) === "true",
+    }),
     port = Number(process.env.PORT || 8080);
   game.server.listen(port, "0.0.0.0", () => {
     console.log(`SaucerJam is ready: http://localhost:${port}`);

@@ -48,7 +48,10 @@ test("a replayed webhook does not reset an already-actioned item", () => {
 
   const after = q.get(13);
   assert.equal(after.status, "actioned", "replay must not downgrade an actioned item back to new");
-  assert.deepEqual(after.action?.action, "open-fix-pr", "replay must not erase the recorded action");
+  // The stored receipt now names the journal transition (`actioned`), and the
+  // worker's own vocabulary is kept on the receipt detail. Both must survive.
+  assert.deepEqual(after.action?.action, "actioned", "replay must not erase the recorded action");
+  assert.deepEqual(after.action?.detail, "PR #99", "replay must not erase the recorded detail");
   assert.equal(after.receivedAt, receivedAt, "replay must not rewrite the first receipt time");
   assert.equal(q.list({ status: "new" }).length, 0, "an actioned item must not reappear as new work");
 });

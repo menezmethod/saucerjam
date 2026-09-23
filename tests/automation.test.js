@@ -44,8 +44,13 @@ test("signed webhook is queued with a deterministic AI proposal by kind", async 
       }
       const queue = await fetch(`${url}/api/community/queue`, { headers: { "x-community-token": "tok" } });
       const { items } = await queue.json();
-      assert.equal(items.length, 3);
-      assert.deepEqual(items.map((i) => i.proposal).sort(), ["fix-pr", "matchmaking-proposal", "prototype-pr"]);
+      // The durable journal is shared across the run (it is keyed by post number,
+      // which is the point), so assert on these three rather than on a total that
+      // other deliveries in the same process legitimately add to.
+      assert.deepEqual(
+        items.filter((i) => [1, 2, 3].includes(i.number)).map((i) => i.proposal).sort(),
+        ["fix-pr", "matchmaking-proposal", "prototype-pr"],
+      );
     },
     { fiderWebhookSecret: "s", communityActionToken: "tok" },
   );
@@ -78,9 +83,9 @@ test("tolerant parse: <no value> body is queued, not rejected (Fider must not au
       assert.equal((await res.json()).proposal, "fix-pr");
       const queue = await fetch(`${url}/api/community/queue`, { headers: { "x-community-token": "tok" } });
       const { items } = await queue.json();
-      assert.equal(items.length, 1);
-      assert.equal(items[0].number, 11);
-      assert.equal(items[0].title, "[bug] Catcher probe");
+      const catcher = items.find((i) => i.number === 11);
+      assert.ok(catcher, "post 11 must be queued");
+      assert.equal(catcher.title, "[bug] Catcher probe");
       // The HTTP status is always 202, so degradation must be observable in metrics.
       const metrics = await (await fetch(`${url}/metrics`)).text();
       assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="degraded_parse"\} 1/);
@@ -97,7 +102,7 @@ test("tolerant parse: unusable malformed body still returns 202, queues nothing,
       const res = await post(url, "/api/community/webhook", body, { authorization: "Bearer fider-tok" });
       assert.equal(res.status, 202);
       const queue = await fetch(`${url}/api/community/queue`, { headers: { "x-community-token": "tok" } });
-      assert.equal((await queue.json()).items.length, 0);
+      assert.equal((await queue.json()).items.filter((i) => i.title.includes("no identifier")).length, 0, "an unusable body stores nothing");
       const metrics = await (await fetch(`${url}/metrics`)).text();
       assert.match(metrics, /saucerjam_community_webhook_rejected_total\{reason="unusable_item"\} 1/);
     },
@@ -146,12 +151,25 @@ test("queue and action require the action token; only safe actions are accepted"
       // Disallowed destructive action is refused at the boundary.
       const bad = await post(url, "/api/community/action", JSON.stringify({ id: "9", action: "merge-pr" }), { "x-community-token": "tok" });
       assert.equal(bad.status, 400);
+      // A state-changing completion needs the lease /api/community/claim issued.
+      const unleased = await post(url, "/api/community/action", JSON.stringify({ id: "9", action: "open-fix-pr", detail: "opened #42" }), { "x-community-token": "tok" });
+      assert.equal(unleased.status, 428, "a completion without a lease must be refused, not accepted");
+      const claim = await post(url, "/api/community/claim", JSON.stringify({ workerId: "hermes" }), { "x-community-token": "tok" });
+      assert.equal(claim.status, 200);
+      const lease = await claim.json();
+      assert.equal(lease.item.number, 9);
+      assert.ok(lease.leaseToken, "a claim must return an unguessable lease token");
       // A safe action is recorded against the item.
-      const good = await post(url, "/api/community/action", JSON.stringify({ id: "9", action: "open-fix-pr", detail: "opened #42" }), { "x-community-token": "tok" });
+      const good = await post(
+        url,
+        "/api/community/action",
+        JSON.stringify({ id: "9", action: "open-fix-pr", detail: "https://github.com/menezmethod/saucerjam/pull/42", leaseToken: lease.leaseToken, inputHash: lease.inputHash }),
+        { "x-community-token": "tok" },
+      );
       assert.equal(good.status, 200);
       const { item } = await good.json();
       assert.equal(item.status, "actioned");
-      assert.equal(item.action.action, "open-fix-pr");
+      assert.equal(item.action.action, "actioned");
     },
     { fiderWebhookSecret: "s", communityActionToken: "tok" },
   );

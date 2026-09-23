@@ -42,8 +42,8 @@ test("the ops community alert path renders guarded post text", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "saucerjam-guard-"));
   const title = "\u202eOwned\u202c\u200b\u001b[31m" + "T".repeat(5000);
   const fixture = {
-    health: { status: 200, body: "{}" },
-    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' },
+    metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" },
     queue: {
       status: 200,
       body: JSON.stringify({

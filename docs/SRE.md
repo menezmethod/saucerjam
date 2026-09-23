@@ -137,6 +137,24 @@ human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 3. Check RSS before restart — if it was OOM, capture the value for the incident.
 4. Restart via Coolify; re-run `live.cjs`. If it stays down, escalate.
 
+`scripts/ops/saucerjam-sre.sh heal` performs exactly this, unattended, under
+these bounds:
+
+1. **Re-confirm now.** A saved `down` state is never acted on; the failure has to
+   be true at invocation time.
+2. **Require `COOLIFY_URL` + `COOLIFY_TOKEN`.** No credentials, no restart.
+3. **Two samples.** A second reading after a short backoff must also be
+   unavailable, so one flapping response cannot spend a restart.
+4. **Only true unavailability restarts.** A malformed `/health` body, degraded
+   rankings, or a metrics-only problem is reported and skipped.
+5. **Deployment guard.** An active deployment for the app blocks the restart.
+6. **Budget and cooldown.** At most 2 restarts per incident, remembered across
+   invocations in `logs/ops/sre.state.json`, with a cooldown between attempts.
+   Only an observed healthy sample clears the budget; an accepted restart POST
+   does not.
+7. **Verified recovery.** `/health` must answer healthy inside the budget
+   (< 55s total). Accepted-but-still-down is a failure and is reported.
+
 ### Runbook: RankingsDegraded
 1. `saucerjam_ranking_save_errors_total` / `saucerjam_rankings_status{status="degraded"}`.
 2. SSH to the host; verify the rankings volume is mounted and writable.
@@ -172,8 +190,25 @@ human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 
 See `docs/AUTOMATION.md` for the full design. Summary: Fider webhook →
 credentialed `POST /api/community/webhook` (bearer token or HMAC) → deterministic proposal → Hermes reads
-`GET /api/community/queue` with `x-community-token` → acts via
-`POST /api/community/action` (allow-list only) → maintainer/community gate.
+`POST /api/community/claim` with `x-community-token` (one leased item, or a
+cheap `{ item: null }`) → acts via `POST /api/community/action` (allow-list
+only) or reports a failed attempt via `POST /api/community/fail` →
+maintainer/community gate.
+
+The durable journal lives on mounted storage (`COMMUNITY_QUEUE_FILE`) and a
+read-only reconciliation pass backfills anything the webhook missed. Attempts,
+leases, and receipts survive a restart. The full protocol — states, backoff,
+idempotency, and the fail-closed store rules — is in
+`docs/COMMUNITY-LOOP-CONTRACT.md` §5a. `GET /api/community/queue` remains for
+inspection and answers non-200 when the store is unusable.
+
+Community signals: `saucerjam_community_queue_size`,
+`saucerjam_community_queue_backlog`, `saucerjam_community_queue_exhausted`,
+`saucerjam_community_queue_healthy`, `saucerjam_community_queue_oldest_due_timestamp_seconds`,
+`saucerjam_community_reconcile_age_seconds`, `saucerjam_community_reconcile_ok`,
+`saucerjam_community_claims_total`, `saucerjam_community_conflicts_total`,
+`saucerjam_community_triage_exhausted_total`. No report text or post id is ever a
+label.
 
 ## 7. Environment variables (server)
 
@@ -182,6 +217,12 @@ credentialed `POST /api/community/webhook` (bearer token or HMAC) → determinis
 | `FIDER_WEBHOOK_TOKEN` | Shared bearer token for inbound Fider webhooks; the route Fider actually uses (it cannot HMAC-sign). Sent as `Authorization: Bearer <token>` or `x-fider-token` |
 | `FIDER_WEBHOOK_SECRET` | HMAC secret for senders that can sign the raw body; kept for signers that can produce `sha256` |
 | `COMMUNITY_ACTION_TOKEN` | Shared secret for the AI queue/action endpoints |
+| `COMMUNITY_QUEUE_FILE` | Durable work journal path. Defaults to `/app/server/data/community.json` when the server runs standalone; must be on mounted storage |
+| `COMMUNITY_RECONCILE` | `true` enables the read-only Fider reconciliation pass (boot + interval). Inert without `FIDER_BASE_URL`/`FIDER_API_KEY` |
+| `COMMUNITY_RECONCILE_INTERVAL_MS`, `COMMUNITY_RECONCILE_TIMEOUT_MS`, `COMMUNITY_RECONCILE_EXCLUDE` | Reconcile cadence, per-request timeout, and the excluded smoke-post numbers (default `9,10`) |
+| `COMMUNITY_LEASE_TTL_MS`, `COMMUNITY_MAX_ATTEMPTS`, `COMMUNITY_RETRY_BASE_MS`, `COMMUNITY_RETRY_CAP_MS` | Worker lease TTL (15m), attempt ceiling (3), and per-item backoff (30s base, 1h cap, +15-25% jitter) |
+| `COMMUNITY_LEGACY_ACTIONS` | Compatibility only: accepts lease-less state-changing actions. Never enable in production |
+| `SAUCERJAM_HEAL_MAX_RESTARTS`, `SAUCERJAM_HEAL_COOLDOWN_MS`, `SAUCERJAM_HEAL_BUDGET_MS`, `SAUCERJAM_HEAL_CONFIRM_DELAY_MS` | SRE heal bounds (2 restarts per incident, cooldown, total budget, second-sample delay) |
 | `FIDER_BASE_URL`, `FIDER_API_KEY` | Existing outbound report bridge (Coolify env) |
 | `MAX_ROOMS`, `MAX_ROOM_PLAYERS`, `MAX_CONNECTIONS` | Admission limits (unchanged) |
 

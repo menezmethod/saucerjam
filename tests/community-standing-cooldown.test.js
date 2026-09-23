@@ -20,8 +20,8 @@ const OPS = path.join(__dirname, "..", "scripts", "ops", "saucerjam-ops.cjs");
 
 function queueFixture(ids) {
   return {
-    health: { status: 200, body: "{}" },
-    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' },
+    metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" },
     queue: {
       status: 200,
       body: JSON.stringify({
@@ -85,7 +85,7 @@ test("a cleared queue announces RESOLVED once, then goes quiet", () => {
   // cannot repeat — that one-shot property is the thing worth pinning.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "saucerjam-standing-empty-"));
   const fixturePath = path.join(tmp, "fx.json");
-  fs.writeFileSync(fixturePath, JSON.stringify({ health: { status: 200, body: "{}" }, metrics: { status: 200, body: "" }, queue: { status: 200, body: JSON.stringify({ items: [] }) } }));
+  fs.writeFileSync(fixturePath, JSON.stringify({ health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' }, metrics: { status: 200, body: "" }, queue: { status: 200, body: JSON.stringify({ items: [] }) } }));
   const stateDir = path.join(tmp, "state");
   fs.mkdirSync(stateDir, { recursive: true });
   fs.writeFileSync(path.join(stateDir, "community.state.json"), JSON.stringify({ condition: "queue:13,36", since: new Date().toISOString(), notifiedAt: Date.now() - 60_000 }));

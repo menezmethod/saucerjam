@@ -2,7 +2,13 @@
   "SaucerJamDown": {
     "allowed_autonomously": true,
     "command": "scripts/ops/saucerjam-sre.sh heal",
-    "escalate_when": "two restarts fail",
+    "escalate_when": "two restarts fail for one incident, or a restart is accepted and /health does not recover inside the heal budget",
+    "runbook_anchor": "docs/SRE.md#runbook-saucerjamdown"
+  },
+  "SaucerJamHealthMalformed": {
+    "allowed_autonomously": false,
+    "command": "scripts/ops/saucerjam-sre.sh check",
+    "escalate_when": "/health answers 200 without a parseable status; a restart is not the remedy",
     "runbook_anchor": "docs/SRE.md#runbook-saucerjamdown"
   },
   "SaucerJamHealthDegraded": {

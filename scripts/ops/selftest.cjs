@@ -14,12 +14,12 @@ const OPS = path.join(__dirname, "saucerjam-ops.cjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "saucerjam-ops-"));
 const state = path.join(tmp, "state");
 const fixtures = {
-  healthy: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[]}' } },
+  healthy: { health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' }, metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" }, queue: { status: 200, body: '{"items":[]}' } },
   broken: { health: { status: 503, body: "down" }, metrics: { status: 404, body: "" }, queue: { status: 200, body: '{"items":[]}' } },
-  queue: { health: { status: 200, body: "{}" }, metrics: { status: 200, body: "saucerjam_rooms 0\n" }, queue: { status: 200, body: '{"items":[{"id":"42"}]}' } },
+  queue: { health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' }, metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" }, queue: { status: 200, body: '{"items":[{"id":"42"}]}' } },
   bulk: {
-    health: { status: 200, body: "{}" },
-    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' },
+    metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" },
     queue: {
       status: 200,
       body: JSON.stringify({
@@ -39,8 +39,8 @@ const fixtures = {
     },
   },
   detail: {
-    health: { status: 200, body: "{}" },
-    metrics: { status: 200, body: "saucerjam_rooms 0\n" },
+    health: { status: 200, body: '{"status":"ok","rankings":"ok","community":{"status":"ok"}}' },
+    metrics: { status: 200, body: "saucerjam_rooms 0\nsaucerjam_rankings_status{status=\"ok\"} 1\n" },
     queue: {
       status: 200,
       body: JSON.stringify({

@@ -12,6 +12,12 @@
     "provider": "opencode-go",
     "timeout_s": 60,
     "required_env": ["COOLIFY_TOKEN", "COOLIFY_URL"],
+    "heal_requires_env": ["COOLIFY_TOKEN", "COOLIFY_URL"],
+    "heal_budget_s": 50,
+    "heal_max_restarts_per_incident": 2,
+    "heal_cooldown_s": 300,
+    "heal_confirm_samples": 2,
+    "heal_verify_health_ms": 45000,
     "silent_when": "exit 0 and empty stdout"
   },
   "saucerjam-community": {
@@ -27,6 +33,13 @@
     "provider": "opencode-go",
     "timeout_s": 60,
     "required_env": ["COMMUNITY_ACTION_TOKEN"],
+    "worker_endpoints": {
+      "claim": "POST /api/community/claim",
+      "complete": "POST /api/community/action",
+      "fail": "POST /api/community/fail"
+    },
+    "worker_lease_ttl_s": 900,
+    "worker_max_attempts": 3,
     "silent_when": "exit 0 and empty stdout"
   }
 }

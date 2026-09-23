@@ -155,6 +155,14 @@ async function main() {
     );
     await a.screenshot({ path: path.join(out, "portal-traversal.png") });
     console.log("PASS: authoritative portal traversal snaps the client with readable feedback");
+    // Input is sampled once per rendered frame; on a slow CI runner a fixed
+    // 100ms press can fall between frames. Hold until the server fires once.
+    async function fireOnce(page, shooter) {
+      const before = shooter.nextFire;
+      await page.keyboard.down("Space");
+      try { await until(() => shooter.nextFire !== before, 10000); }
+      finally { await page.keyboard.up("Space"); }
+    }
     function fixture(weapon, az, bz) {
       const pa = room.sim.players.get(idA),
         pb = room.sim.players.get(idB);
@@ -206,9 +214,7 @@ async function main() {
     await a.keyboard.press("Digit2");
     await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "GRENADE");
     await until(() => pa.weapon === "GRENADE");
-    await a.keyboard.down("Space");
-    await sleep(100);
-    await a.keyboard.up("Space");
+    await fireOnce(a, pa);
     await until(() => pb.health < 100);
     assert.equal(pb.health, 20);
     console.log("PASS: Nova Charge arc and authoritative area damage");
@@ -216,9 +222,7 @@ async function main() {
     await a.keyboard.press("Digit3");
     await a.waitForFunction(() => window.__qd.getSnapshot().weapon === "BOUNCE");
     await until(() => pa.weapon === "BOUNCE");
-    await a.keyboard.down("Space");
-    await sleep(100);
-    await a.keyboard.up("Space");
+    await fireOnce(a, pa);
     await until(() => pb.health < 100);
     assert.equal(pb.health, 66);
     console.log(

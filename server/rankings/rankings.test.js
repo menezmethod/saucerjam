@@ -186,3 +186,82 @@ test("fails loudly on corrupt/unreadable/unsupported storage without replacing i
   assert.equal(memory.getProfile("hash-a").level, 1);
   await memory.close();
 });
+
+// A fake PostgREST `ranking_rounds` table: enough of the real contract (insert
+// with ignore-duplicates, ordered paged reads) to prove the Supabase ledger.
+function fakeSupabase({ failInserts = 0, failLoads = 0 } = {}) {
+  const table = new Map();
+  const calls = [];
+  const fetch = async (url, init = {}) => {
+    calls.push({ url, init });
+    const u = new URL(url);
+    if (init.method === "POST") {
+      if (failInserts-- > 0) return new Response("down", { status: 503 });
+      assert.equal(u.searchParams.get("on_conflict"), "id");
+      assert.match(init.headers.prefer, /ignore-duplicates/);
+      for (const row of JSON.parse(init.body)) if (!table.has(row.id)) table.set(row.id, { ...row, ended_at: row.ended_at.replace("Z", "+00:00") });
+      return new Response(null, { status: 201 });
+    }
+    if (failLoads-- > 0) return new Response("down", { status: 503 });
+    const rows = [...table.values()].sort((a, b) => a.ended_at.localeCompare(b.ended_at) || a.id.localeCompare(b.id));
+    const offset = Number(u.searchParams.get("offset")), limit = Number(u.searchParams.get("limit"));
+    return new Response(JSON.stringify(rows.slice(offset, offset + limit)), { status: 200 });
+  };
+  return { table, calls, config: { url: "https://example.supabase.co", key: "sb_secret_test", fetch } };
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+test("supabase ledger: a recorded round survives a restart and is not double-counted", async () => {
+  const db = fakeSupabase();
+  let store = new RankingStore({ filePath: null, supabase: db.config });
+  await store.recordRound(round());
+  assert.deepEqual(await store.recordRound(round()), { id: "room:round:1", recorded: false });
+  assert.equal(db.table.size, 1);
+  store = new RankingStore({ filePath: null, supabase: db.config });
+  await settle();
+  assert.equal(store.getLeaderboard()[0].matches, 1);
+  assert.equal(store.getProfile("hash-a").last10[0].id, "room:round:1");
+  assert.equal(db.calls[0].init.headers.authorization, undefined, "sb_secret keys never go in Authorization");
+});
+
+test("supabase ledger: an existing rankings file is imported once on boot", async (t) => {
+  const filePath = disk(t);
+  const local = new RankingStore({ filePath });
+  await local.recordRound(round());
+  await local.close();
+  const db = fakeSupabase();
+  new RankingStore({ filePath, supabase: db.config });
+  await settle();
+  const store = new RankingStore({ filePath, supabase: db.config });
+  await settle();
+  assert.equal(db.table.size, 1);
+  assert.equal(store.getLeaderboard()[0].kills, 3);
+});
+
+test("supabase ledger: a failed write is not counted and the same round can be retried", async () => {
+  const db = fakeSupabase({ failInserts: 1 });
+  const store = new RankingStore({ filePath: null, supabase: db.config });
+  await assert.rejects(store.recordRound(round()), /HTTP 503/);
+  assert.deepEqual(store.getLeaderboard(), []);
+  assert.deepEqual(await store.recordRound(round()), { id: "room:round:1", recorded: true });
+  assert.equal(store.getLeaderboard()[0].matches, 1);
+});
+
+test("supabase ledger: an unreadable ledger serves nothing, then recovers", async () => {
+  const db = fakeSupabase({ failLoads: 1 });
+  const store = new RankingStore({ filePath: null, supabase: db.config });
+  await settle();
+  assert.throws(() => store.getLeaderboard(), /still loading/);
+  await settle();
+  assert.deepEqual(store.getLeaderboard(), []);
+});
+
+test("supabase ledger: reads page past PostgREST's 1000-row cap", async () => {
+  const db = fakeSupabase();
+  const seed = new RankingStore({ filePath: null, supabase: db.config });
+  for (let i = 0; i < 1001; i += 1) await seed.recordRound(round({ id: `r:${i}` }));
+  const store = new RankingStore({ filePath: null, supabase: db.config });
+  await settle();
+  assert.equal(store.getLeaderboard()[0].matches, 1001);
+});

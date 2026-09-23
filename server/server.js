@@ -44,6 +44,7 @@ function createGameServer({
   staticDir = path.join(__dirname, "../dist"),
   tick = true,
   rankingsFile = null,
+  rankingsSupabase = null,
   reconnectGraceMs = 30000,
   allowLegacyMaps = false,
   supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
@@ -179,7 +180,7 @@ function createGameServer({
       if (visible.length) io.sockets.sockets.get(id)?.emit("events", visible);
     }
   };
-  const rankings = new RankingStore({filePath:rankingsFile});
+  const rankings = new RankingStore({filePath:rankingsFile,supabase:rankingsSupabase});
   const pendingSaves = new Set();
   let rankingError = null;
   const profileKey = token => typeof token === "string" && /^[a-zA-Z0-9_-]{20,128}$/.test(token) ? createHash("sha256").update(token).digest("hex") : null;
@@ -716,7 +717,10 @@ function createGameServer({
   return { app, server, io, rooms, rankings, close };
 }
 if (require.main === module) {
-  const game = createGameServer({rankingsFile:process.env.RANKINGS_FILE || path.join(__dirname,"data/rankings.json")}),
+  // Only the real entrypoint talks to Supabase, so tests never write to the live ledger.
+  const rankingsSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY
+    ? { url: process.env.SUPABASE_URL, key: process.env.SUPABASE_SECRET_KEY } : null;
+  const game = createGameServer({rankingsFile:process.env.RANKINGS_FILE || path.join(__dirname,"data/rankings.json"),rankingsSupabase}),
     port = Number(process.env.PORT || 8080);
   game.server.listen(port, "0.0.0.0", () => {
     console.log(`SaucerJam is ready: http://localhost:${port}`);

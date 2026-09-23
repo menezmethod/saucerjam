@@ -56,7 +56,14 @@ async function main() {
       await page.waitForFunction(() => window.__qd);
     } catch (error) {
       // Without this, a page that never boots fails as a bare timeout.
-      console.error("page never booted:", JSON.stringify({ errors, console: consoleLines.slice(-15), html: (await page.content()).length }));
+      const state = await page.evaluate(() => ({
+        readyState: document.readyState,
+        lobbyStatus: document.getElementById("lobby-status")?.textContent,
+        resources: performance.getEntriesByType("resource").map((r) => `${r.name.replace(location.origin, "")} ${Math.round(r.duration)}ms ${r.responseStatus ?? ""}`),
+      })).catch((e) => ({ evaluateFailed: e.message }));
+      const t0 = Date.now();
+      const direct = await fetch(`${url}/api/config`, { signal: AbortSignal.timeout(5000) }).then((r) => `${r.status} in ${Date.now() - t0}ms`, (e) => `failed: ${e.message}`);
+      console.error("page never booted:", JSON.stringify({ errors, console: consoleLines.slice(-15), state, direct }));
       throw error;
     }
     return page;

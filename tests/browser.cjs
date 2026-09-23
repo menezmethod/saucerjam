@@ -56,7 +56,7 @@ async function main() {
       await page.waitForFunction(() => window.__qd);
     } catch (error) {
       // Without this, a page that never boots fails as a bare timeout.
-      error.message += `\npage errors: ${JSON.stringify(errors)}\nconsole: ${JSON.stringify(consoleLines.slice(-10))}`;
+      console.error("page never booted:", JSON.stringify({ errors, console: consoleLines.slice(-15), html: (await page.content()).length }));
       throw error;
     }
     return page;

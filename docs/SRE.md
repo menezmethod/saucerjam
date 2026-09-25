@@ -33,9 +33,9 @@ aggregate, non-PII counts). Implementation: `server/metrics.js`, wired in
 | `saucerjam_community_ingest_total{kind,proposal}` | counter | Fider items accepted by the AI queue |
 | `saucerjam_community_webhook_rejected_total{reason}` | counter | Rejected Fider webhooks |
 | `saucerjam_community_actions_total{action}` | counter | AI actions recorded |
-| `saucerjam_distinct_pilots_1d`, `_7d`, `_30d` | gauge | Distinct hashed pilot tokens in the trailing 24h / 7d / 30d (retention). The 7d gauge was the original; **1d and 30d ship with the next game deploy.** |
-| `saucerjam_session_seconds` | histogram | Play-session length (websocket connect → disconnect). **Next deploy.** |
-| `saucerjam_first_round_seconds` | histogram | Time from joining to finishing the first round (onboarding). **Next deploy.** |
+| `saucerjam_distinct_pilots_1d`, `_7d`, `_30d` | gauge | Distinct hashed pilot tokens in the trailing 24h / 7d / 30d (retention). These windows are **computed server-side**, so unlike the panel ranges they cannot follow the dashboard time picker. |
+| `saucerjam_session_seconds` | histogram | Play-session length (websocket connect → disconnect). |
+| `saucerjam_first_round_seconds` | histogram | Time from joining to finishing the first round (onboarding). |
 | `insight_events_total{event,device,platform}` | counter | Allow-listed client UX events (starts, reports, friction, `landing_view`, …); capped series, no identifiers |
 | `insight_sessions_total` | counter | Play sessions (one per websocket connection); the friction-ratio denominator |
 | `insight_friction_ratio{signal}` | gauge | Per-session share of a friction signal (`stuck_no_input`, `died_without_kill`, …) |
@@ -193,6 +193,14 @@ and `/metrics` (~99% of hits) so they can say something.
 Every panel carries an **(i) description** (what, why, threshold, what to do) and
 a **noValue** empty state, because at this traffic "empty" is the normal state
 and must not read as broken.
+
+**Time is dynamic, except where it is the definition.** Rate and total panels use
+Grafana's `$__rate_interval` / `$__range`, so they follow the dashboard time
+picker. The SLO panels use the **SLO window** variable (default `30d`), because
+an objective over "whatever range you happened to pick" is not an SLO. The
+burn-rate tiers stay pinned at 1h/6h on purpose — that pair is Google's
+multiwindow design. The retention gauges (1d/7d/30d) are computed server-side
+and are therefore fixed.
 
 Sources: [Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/),
 [Implementing SLOs](https://sre.google/workbook/implementing-slos/),

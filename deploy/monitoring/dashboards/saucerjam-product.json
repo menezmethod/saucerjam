@@ -39,6 +39,46 @@
       "targetBlank": true
     }
   ],
+  "templating": {
+    "list": [
+      {
+        "name": "slo_window",
+        "label": "SLO window",
+        "type": "custom",
+        "query": "1d,7d,14d,30d",
+        "current": {
+          "text": "30d",
+          "value": "30d"
+        },
+        "options": [
+          {
+            "text": "1d",
+            "value": "1d",
+            "selected": false
+          },
+          {
+            "text": "7d",
+            "value": "7d",
+            "selected": false
+          },
+          {
+            "text": "14d",
+            "value": "14d",
+            "selected": false
+          },
+          {
+            "text": "30d",
+            "value": "30d",
+            "selected": true
+          }
+        ],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
   "panels": [
     {
       "type": "text",
@@ -68,7 +108,7 @@
     },
     {
       "type": "stat",
-      "title": "Landing views (24h)",
+      "title": "Landing views (range)",
       "description": "Page loads that reported telemetry in the last 24h \u2014 the top of the funnel and the first sanity check that the beacon works.\nEmpty = no landing views reported yet (or the client that emits `landing_view` is not deployed).",
       "datasource": {
         "type": "prometheus",
@@ -93,7 +133,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total{event=\"landing_view\"}[24h]))",
+          "expr": "sum(increase(insight_events_total{event=\"landing_view\"}[$__range]))",
           "legendFormat": ""
         }
       ],
@@ -109,7 +149,7 @@
     },
     {
       "type": "stat",
-      "title": "Play sessions (24h)",
+      "title": "Play sessions (range)",
       "description": "One websocket connection = one play session. The denominator for the friction ratios and the session-length panels.\nEmpty/0 across a day you *know* people played means telemetry is blind, not that nobody played.",
       "datasource": {
         "type": "prometheus",
@@ -134,7 +174,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_sessions_total[24h]))",
+          "expr": "sum(increase(insight_sessions_total[$__range]))",
           "legendFormat": ""
         }
       ],
@@ -150,7 +190,7 @@
     },
     {
       "type": "stat",
-      "title": "Insight events (24h)",
+      "title": "Insight events (range)",
       "description": "Every UX event the client reported (starts, reports, friction, clicks) \u2014 the pipeline heartbeat.\n**A flat zero is not good news**: it means the telemetry is blind (beacon blocked, JS error, endpoint down).",
       "datasource": {
         "type": "prometheus",
@@ -173,7 +213,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total[24h])) or vector(0)",
+          "expr": "sum(increase(insight_events_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -212,7 +252,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total[1h]))",
+          "expr": "sum(rate(insight_events_total[$__rate_interval]) * 3600)",
           "legendFormat": "events"
         }
       ],
@@ -489,7 +529,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (map) (increase(saucerjam_rounds_completed_total[1h]))",
+          "expr": "sum by (map) (rate(saucerjam_rounds_completed_total[$__rate_interval]) * 3600)",
           "legendFormat": "{{map}}"
         }
       ],
@@ -545,7 +585,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total{event=~\"practice_start|online_start\"}[24h])) / clamp_min(sum(increase(insight_events_total{event=\"landing_view\"}[24h])), 1)",
+          "expr": "sum(increase(insight_events_total{event=~\"practice_start|online_start\"}[$__range])) / clamp_min(sum(increase(insight_events_total{event=\"landing_view\"}[$__range])), 1)",
           "legendFormat": ""
         }
       ],
@@ -562,7 +602,7 @@
     },
     {
       "type": "stat",
-      "title": "Join success (30d)",
+      "title": "Join success ($slo_window)",
       "description": "Players who pressed \"Play online\" and got into a match.\nRejections from `rate_limited`/`debounced` are excluded \u2014 the server protecting itself, not a failure a player feels.",
       "datasource": {
         "type": "prometheus",
@@ -588,7 +628,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_joins_total[30d])) / clamp_min(sum(increase(saucerjam_joins_total[30d])) + (sum(increase(saucerjam_join_failures_total{reason!~\"rate_limited|debounced\"}[30d])) or vector(0)), 1)",
+          "expr": "sum(increase(saucerjam_joins_total[$slo_window])) / clamp_min(sum(increase(saucerjam_joins_total[$slo_window])) + (sum(increase(saucerjam_join_failures_total{reason!~\"rate_limited|debounced\"}[$slo_window])) or vector(0)), 1)",
           "legendFormat": ""
         }
       ],
@@ -631,7 +671,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(sum(increase(insight_events_total{event=\"online_start\"}[24h])), 1)",
+          "expr": "sum(increase(saucerjam_rounds_completed_total[$__range])) / clamp_min(sum(increase(insight_events_total{event=\"online_start\"}[$__range])), 1)",
           "legendFormat": ""
         }
       ],
@@ -648,7 +688,7 @@
     },
     {
       "type": "stat",
-      "title": "Rounds finished (24h)",
+      "title": "Rounds finished (range)",
       "description": "Matches played to the end in the last day.",
       "datasource": {
         "type": "prometheus",
@@ -671,7 +711,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_rounds_completed_total[24h])) or vector(0)",
+          "expr": "sum(increase(saucerjam_rounds_completed_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -710,7 +750,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total{event=\"landing_view\"}[1h]))",
+          "expr": "sum(rate(insight_events_total{event=\"landing_view\"}[$__rate_interval])) * 3600",
           "legendFormat": "landing views"
         },
         {
@@ -719,7 +759,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(insight_events_total{event=~\"practice_start|online_start\"}[1h]))",
+          "expr": "sum(rate(insight_events_total{event=~\"practice_start|online_start\"}[$__rate_interval])) * 3600",
           "legendFormat": "game starts"
         },
         {
@@ -728,7 +768,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_joins_total[1h]))",
+          "expr": "sum(rate(saucerjam_joins_total[$__rate_interval]) * 3600)",
           "legendFormat": "joins"
         },
         {
@@ -737,7 +777,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_rounds_completed_total[1h]))",
+          "expr": "sum(rate(saucerjam_rounds_completed_total[$__rate_interval]) * 3600)",
           "legendFormat": "rounds finished"
         }
       ],
@@ -766,7 +806,7 @@
     },
     {
       "type": "stat",
-      "title": "Rounds per active pilot (24h)",
+      "title": "Rounds per active pilot",
       "description": "How many full matches the average active pilot played today. Rising = the core loop is holding attention.",
       "datasource": {
         "type": "prometheus",
@@ -791,7 +831,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_rounds_completed_total[24h])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))",
+          "expr": "sum(increase(saucerjam_rounds_completed_total[$__range])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))",
           "legendFormat": ""
         }
       ],
@@ -807,7 +847,7 @@
     },
     {
       "type": "stat",
-      "title": "Chat lines (24h)",
+      "title": "Chat lines (range)",
       "description": "Social signal: players talking to each other is an early sign of community.",
       "datasource": {
         "type": "prometheus",
@@ -830,7 +870,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_chat_messages_total[24h])) or vector(0)",
+          "expr": "sum(increase(saucerjam_chat_messages_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -872,7 +912,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_session_seconds_bucket[30m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_session_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p50"
         },
         {
@@ -881,7 +921,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_session_seconds_bucket[30m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_session_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p95"
         }
       ],
@@ -924,7 +964,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_first_round_seconds_bucket[30m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_first_round_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p50"
         },
         {
@@ -933,7 +973,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_first_round_seconds_bucket[30m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_first_round_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p95"
         }
       ],
@@ -973,7 +1013,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (type) (rate(saucerjam_game_events_total[5m])) * 60",
+          "expr": "sum by (type) (rate(saucerjam_game_events_total[$__rate_interval])) * 60",
           "legendFormat": "{{type}}"
         }
       ],
@@ -1067,7 +1107,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (device) (rate(insight_events_total{event=~\"died_without_kill|stuck_no_input|controls_struggle\"}[15m]))",
+          "expr": "sum by (device) (rate(insight_events_total{event=~\"died_without_kill|stuck_no_input|controls_struggle\"}[$__rate_interval]))",
           "legendFormat": "{{device}}"
         }
       ],
@@ -1107,7 +1147,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(insight_events_total{event=\"practice_start\"}[10m]))*60",
+          "expr": "sum(rate(insight_events_total{event=\"practice_start\"}[$__rate_interval]))*60",
           "legendFormat": "practice starts"
         },
         {
@@ -1116,7 +1156,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(insight_events_total{event=\"online_start\"}[10m]))*60",
+          "expr": "sum(rate(insight_events_total{event=\"online_start\"}[$__rate_interval]))*60",
           "legendFormat": "online starts"
         },
         {
@@ -1125,7 +1165,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(insight_events_total{event=\"report_opened\"}[10m]))*60",
+          "expr": "sum(rate(insight_events_total{event=\"report_opened\"}[$__rate_interval]))*60",
           "legendFormat": "reports opened"
         }
       ],
@@ -1165,7 +1205,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (event) (increase(insight_events_total[1h]))",
+          "expr": "sum by (event) (rate(insight_events_total[$__rate_interval]) * 3600)",
           "legendFormat": "{{event}}"
         }
       ],
@@ -1219,7 +1259,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (kind) (increase(saucerjam_community_ingest_total[1h]))",
+          "expr": "sum by (kind) (rate(saucerjam_community_ingest_total[$__rate_interval]) * 3600)",
           "legendFormat": "{{kind}}"
         }
       ],
@@ -1261,7 +1301,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (action) (increase(saucerjam_community_actions_total[1h]))",
+          "expr": "sum by (action) (rate(saucerjam_community_actions_total[$__rate_interval]) * 3600)",
           "legendFormat": "{{action}}"
         }
       ],
@@ -1303,7 +1343,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (reason) (increase(saucerjam_community_webhook_rejected_total[1h]))",
+          "expr": "sum by (reason) (rate(saucerjam_community_webhook_rejected_total[$__rate_interval]) * 3600)",
           "legendFormat": "rejected: {{reason}}"
         },
         {
@@ -1402,7 +1442,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[5m]))",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[$__rate_interval]))",
           "legendFormat": ""
         }
       ]

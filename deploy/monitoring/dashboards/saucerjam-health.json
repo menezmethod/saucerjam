@@ -38,6 +38,46 @@
       "targetBlank": true
     }
   ],
+  "templating": {
+    "list": [
+      {
+        "name": "slo_window",
+        "label": "SLO window",
+        "type": "custom",
+        "query": "1d,7d,14d,30d",
+        "current": {
+          "text": "30d",
+          "value": "30d"
+        },
+        "options": [
+          {
+            "text": "1d",
+            "value": "1d",
+            "selected": false
+          },
+          {
+            "text": "7d",
+            "value": "7d",
+            "selected": false
+          },
+          {
+            "text": "14d",
+            "value": "14d",
+            "selected": false
+          },
+          {
+            "text": "30d",
+            "value": "30d",
+            "selected": true
+          }
+        ],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
   "panels": [
     {
       "type": "text",
@@ -67,7 +107,7 @@
     },
     {
       "type": "stat",
-      "title": "Availability, 30d (SLO 99.5%)",
+      "title": "Availability ($slo_window, SLO 99.5%)",
       "description": "**SLI:** share of minutes a blackbox probe from outside reached `https://qd.menezmethod.com/health` through Cloudflare.\n**SLO: 99.5%**, about 3.6 hours of allowed downtime per month.\n**Blip-tolerant on purpose:** a minute counts as available if *any* 15s probe in it succeeded, so one transient network hiccup is not billed as an outage. Sustained failures still count in full.\n**Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not \"as high as possible\". Each extra nine costs about 10x more work.\n**Why a probe?** Too few players for request-based numbers to mean anything (the workbook's advice for low-traffic services).",
       "datasource": {
         "type": "prometheus",
@@ -108,7 +148,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "avg_over_time(saucerjam:sli_availability:up1m[30d])",
+          "expr": "avg_over_time(saucerjam:sli_availability:up1m[$slo_window])",
           "legendFormat": ""
         }
       ],
@@ -125,7 +165,7 @@
     },
     {
       "type": "stat",
-      "title": "Error budget left, 30d",
+      "title": "Error budget left ($slo_window)",
       "description": "**Error budget** = 100% minus SLO = 0.5% of the month we're allowed to be down. 100% = untouched, 0% = spent.\n**Read it with the coverage panel next door.** This is a 30-day window, so before the probe has run for 30 days the number is an extrapolation from the time covered so far \u2014 a couple of early failures look worse than they are, and it climbs back as clean minutes accumulate.\n**How to use it (Google's error-budget policy):** budget left \u2192 take risks, ship features, deploy on Fridays. Budget spent \u2192 freeze risky changes and fix reliability. When it drops, the **Error budget attribution** row says exactly what spent it.",
       "datasource": {
         "type": "prometheus",
@@ -171,7 +211,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - (1 - avg_over_time(saucerjam:sli_availability:up1m[30d])) / 0.0050000000000000044",
+          "expr": "1 - (1 - avg_over_time(saucerjam:sli_availability:up1m[$slo_window])) / 0.0050000000000000044",
           "legendFormat": ""
         }
       ],
@@ -187,7 +227,7 @@
     },
     {
       "type": "stat",
-      "title": "SLO window coverage, 30d",
+      "title": "SLO window coverage ($slo_window)",
       "description": "How much of the 30-day window actually has probe data.\n`100%` = a full month of history (only true ~30 days after monitoring started). Until then the error budget is an extrapolation, and this panel is the honesty check: **low coverage \u2192 treat the budget as provisional**, not as a monthly verdict.\nThe probe was added on 2026-09-25, so coverage reaches 100% around late October.",
       "datasource": {
         "type": "prometheus",
@@ -232,7 +272,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "count_over_time(saucerjam:sli_availability:up1m[30d]) / 172800",
+          "expr": "sum(count_over_time(saucerjam:sli_availability:up1m[$slo_window])) / scalar(count_over_time(up{job=\"saucerjam\"}[$slo_window]))",
           "legendFormat": ""
         }
       ],
@@ -423,7 +463,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "avg_over_time(saucerjam:sli_availability:up1m[1h])",
+          "expr": "avg_over_time(saucerjam:sli_availability:up1m[$__rate_interval])",
           "legendFormat": "availability"
         },
         {
@@ -449,7 +489,7 @@
     },
     {
       "type": "stat",
-      "title": "Join success, 30d (SLO 99%)",
+      "title": "Join success ($slo_window, SLO 99%)",
       "description": "**SLI for the most important player journey: pressing \"Play online\" and getting into a match.**\n= successful joins / (successful joins + joins rejected by the server).\nRejections by `rate_limited` or `debounced` are excluded: those are the server protecting itself from spam clicks, not failures a real player feels.\nMeasure **user journeys**, not servers (Google: \"SLIs should be as close to the user as possible\").\nEmpty = nobody tried to join in the window.",
       "datasource": {
         "type": "prometheus",
@@ -491,7 +531,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_joins_total[30d])) / (sum(increase(saucerjam_joins_total[30d])) + (sum(increase(saucerjam_join_failures_total{reason!~\"rate_limited|debounced\"}[30d])) or vector(0)) > 0)",
+          "expr": "sum(increase(saucerjam_joins_total[$slo_window])) / (sum(increase(saucerjam_joins_total[$slo_window])) + (sum(increase(saucerjam_join_failures_total{reason!~\"rate_limited|debounced\"}[$slo_window])) or vector(0)) > 0)",
           "legendFormat": ""
         }
       ],
@@ -507,7 +547,7 @@
     },
     {
       "type": "stat",
-      "title": "Request success, 30d (SLO 99.5%)",
+      "title": "Request success ($slo_window, SLO 99.5%)",
       "description": "**SLI:** share of real HTTP requests (health checks and /metrics excluded) that did *not* return a 5xx.\n**Only 5xx counts as bad.** A 404 from a scanner guessing URLs is the client's fault, not ours. Google counts errors the *service* causes.\nHealth checks are excluded because they're about 99% of all requests and would keep this number at 100% forever.",
       "datasource": {
         "type": "prometheus",
@@ -549,7 +589,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - ((sum(increase(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[30d])) or vector(0)) / (sum(increase(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[30d])) > 0))",
+          "expr": "1 - ((sum(increase(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[$slo_window])) or vector(0)) / (sum(increase(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[$slo_window])) > 0))",
           "legendFormat": ""
         }
       ],
@@ -565,7 +605,7 @@
     },
     {
       "type": "stat",
-      "title": "Fast requests, 30d (SLO 95% < 250ms)",
+      "title": "Fast requests ($slo_window, SLO 95% < 250ms)",
       "description": "**Latency SLI:** share of real HTTP requests answered in under **250ms**.\n**Why a threshold ratio and not \"average latency\"?** Averages hide pain: 99 fast requests and 1 ten-second one average out to \"fine\". Google recommends \"X% of requests faster than Y\", which also plugs straight into an error budget.\n250ms is one of the histogram's bucket edges, so this is exact, not interpolated.",
       "datasource": {
         "type": "prometheus",
@@ -607,7 +647,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_http_request_duration_seconds_bucket{le=\"0.25\",route!~\"/health|/metrics\"}[30d])) / (sum(increase(saucerjam_http_request_duration_seconds_count{route!~\"/health|/metrics\"}[30d])) > 0)",
+          "expr": "sum(increase(saucerjam_http_request_duration_seconds_bucket{le=\"0.25\",route!~\"/health|/metrics\"}[$slo_window])) / (sum(increase(saucerjam_http_request_duration_seconds_count{route!~\"/health|/metrics\"}[$slo_window])) > 0)",
           "legendFormat": ""
         }
       ],
@@ -623,7 +663,7 @@
     },
     {
       "type": "stat",
-      "title": "Smooth pings, 30d (SLO 90% < 150ms)",
+      "title": "Smooth pings ($slo_window, SLO 90% < 150ms)",
       "description": "**Game-feel SLI:** share of in-game pings (reported by players' browsers) that round-tripped in under **150ms**.\nFor a real-time shooter, this *is* the latency players feel. Above about 150ms, hits start to feel wrong.\nIt measures the player's network + Cloudflare + our server, so a bad number can be the player's Wi-Fi. That's fine: an SLI measures what the user experiences, whoever is at fault.\nEmpty = nobody played online in the window.",
       "datasource": {
         "type": "prometheus",
@@ -665,7 +705,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_ws_round_trip_seconds_bucket{le=\"0.15\"}[30d])) / (sum(increase(saucerjam_ws_round_trip_seconds_count[30d])) > 0)",
+          "expr": "sum(increase(saucerjam_ws_round_trip_seconds_bucket{le=\"0.15\"}[$slo_window])) / (sum(increase(saucerjam_ws_round_trip_seconds_count[$slo_window])) > 0)",
           "legendFormat": ""
         }
       ],
@@ -707,7 +747,7 @@
     },
     {
       "type": "stat",
-      "title": "Billed outage, 30d",
+      "title": "Billed outage ($slo_window)",
       "description": "Sustained downtime that actually spends the error budget: 15s per billed sample.\nRaw single-scrape blips are excluded here on purpose \u2014 they are not outages a player felt \u2014 but they are counted next door.",
       "datasource": {
         "type": "prometheus",
@@ -753,7 +793,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "(count_over_time(saucerjam:sli_availability:up1m[30d]) - sum_over_time(saucerjam:sli_availability:up1m[30d])) * 15",
+          "expr": "(count_over_time(saucerjam:sli_availability:up1m[$slo_window]) - sum_over_time(saucerjam:sli_availability:up1m[$slo_window])) * 15",
           "legendFormat": ""
         }
       ],
@@ -769,7 +809,7 @@
     },
     {
       "type": "stat",
-      "title": "Single-scrape blips, 30d (ignored)",
+      "title": "Single-scrape blips ($slo_window, ignored)",
       "description": "Raw probe failures too short to count as downtime \u2014 the ones that used to make the budget look spent.\nA handful is normal internet noise. A steady stream points at a flaky path (Cloudflare edge, DNS, or the VM's network).",
       "datasource": {
         "type": "prometheus",
@@ -814,7 +854,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "clamp_min((count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d])) - (count_over_time(saucerjam:sli_availability:up1m[30d]) - sum_over_time(saucerjam:sli_availability:up1m[30d])), 0)",
+          "expr": "clamp_min((count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[$slo_window]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[$slo_window])) - (count_over_time(saucerjam:sli_availability:up1m[$slo_window]) - sum_over_time(saucerjam:sli_availability:up1m[$slo_window])), 0)",
           "legendFormat": ""
         }
       ],
@@ -830,7 +870,7 @@
     },
     {
       "type": "stat",
-      "title": "Raw probe failures, 30d",
+      "title": "Raw probe failures ($slo_window)",
       "description": "Every failed 15s probe, billed or not. The union of the two panels to the left.",
       "datasource": {
         "type": "prometheus",
@@ -855,7 +895,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d])",
+          "expr": "count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[$slo_window]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[$slo_window])",
           "legendFormat": ""
         }
       ],
@@ -1097,7 +1137,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[$__rate_interval])))",
           "legendFormat": "p50"
         },
         {
@@ -1106,7 +1146,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[$__rate_interval])))",
           "legendFormat": "p95"
         },
         {
@@ -1115,7 +1155,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[$__rate_interval])))",
           "legendFormat": "p99"
         }
       ],
@@ -1157,7 +1197,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p50"
         },
         {
@@ -1166,7 +1206,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p95"
         }
       ],
@@ -1208,7 +1248,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[$__rate_interval])))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -1351,7 +1391,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(saucerjam_joins_total[5m])) * 60",
+          "expr": "sum(rate(saucerjam_joins_total[$__rate_interval])) * 60",
           "legendFormat": "joins"
         },
         {
@@ -1360,7 +1400,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (cause) (rate(saucerjam_leaves_total[5m])) * 60",
+          "expr": "sum by (cause) (rate(saucerjam_leaves_total[$__rate_interval])) * 60",
           "legendFormat": "leaves: {{cause}}"
         }
       ],
@@ -1402,7 +1442,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (route) (rate(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[5m]))",
+          "expr": "sum by (route) (rate(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[$__rate_interval]))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -1457,7 +1497,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (route) (rate(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[5m]))",
+          "expr": "sum by (route) (rate(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[$__rate_interval]))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -1500,7 +1540,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (reason) (rate(saucerjam_join_failures_total[5m]))",
+          "expr": "sum by (reason) (rate(saucerjam_join_failures_total[$__rate_interval]))",
           "legendFormat": "{{reason}}"
         }
       ],
@@ -1542,7 +1582,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_ranking_save_errors_total[5m]))",
+          "expr": "sum(increase(saucerjam_ranking_save_errors_total[$__rate_interval]))",
           "legendFormat": "failed saves"
         },
         {
@@ -1593,7 +1633,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (status) (rate(saucerjam_http_requests_total{status=~\"4..\",route!~\"/health|/metrics\"}[5m]))",
+          "expr": "sum by (status) (rate(saucerjam_http_requests_total{status=~\"4..\",route!~\"/health|/metrics\"}[$__rate_interval]))",
           "legendFormat": "{{status}}"
         }
       ],
@@ -1636,7 +1676,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (route) (rate(saucerjam_rate_limited_total[5m]))",
+          "expr": "sum by (route) (rate(saucerjam_rate_limited_total[$__rate_interval]))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -1874,7 +1914,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[5m]))",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[$__rate_interval]))",
           "legendFormat": ""
         }
       ]

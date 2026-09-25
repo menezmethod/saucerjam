@@ -804,7 +804,8 @@
           ]
         },
         "colorMode": "background",
-        "graphMode": "none"
+        "graphMode": "none",
+        "decimals": 0
       }
     },
     {
@@ -865,7 +866,8 @@
           ]
         },
         "colorMode": "background",
-        "graphMode": "none"
+        "graphMode": "none",
+        "decimals": 0
       }
     },
     {
@@ -906,7 +908,8 @@
           ]
         },
         "colorMode": "background",
-        "graphMode": "none"
+        "graphMode": "none",
+        "decimals": 0
       }
     },
     {

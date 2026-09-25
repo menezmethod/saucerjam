@@ -37,6 +37,12 @@ SLO_WINDOW_VAR = {
     "includeAll": False, "multi": False, "hide": 0, "skipUrlSync": False,
 }
 
+# Shared stat-panel display options.
+nod = {"options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}}
+# Counts are integers conceptually; increase()/resets() extrapolate, so round
+# the display to whole numbers instead of showing 3.03.
+nodint = {**nod, "options": {**nod["options"], "decimals": 0}}
+
 class Board:
     def __init__(self):
         self.panels, self.y, self.x, self.rowh = [], 0, 0, 0
@@ -172,14 +178,14 @@ When the budget drops, this row answers *what* did it. Two layers:
 Player-facing budgets (join, request, latency, ping) are attributed by the panels in the **Errors** row further down.""", h=8)
 b.add("stat", "Billed outage ($slo_window)", f"""Sustained downtime that actually spends the error budget: 15s per billed sample.
 Raw single-scrape blips are excluded here on purpose — they are not outages a player felt — but they are counted next door.""",
-      [(f'(count_over_time({SLI}[$slo_window]) - sum_over_time({SLI}[$slo_window])) * 15', "")], w=6, h=6, unit="s",
+      [(f'(count_over_time({SLI}[$slo_window]) - sum_over_time({SLI}[$slo_window])) * 15', "")], w=6, h=6, unit="s", extra=nodint,
       thresholds=[(None, "green"), (60, "orange"), (600, "red")], no_value="0 (no sustained outage)")
 b.add("stat", "Single-scrape blips ($slo_window, ignored)", """Raw probe failures too short to count as downtime — the ones that used to make the budget look spent.
 A handful is normal internet noise. A steady stream points at a flaky path (Cloudflare edge, DNS, or the VM's network).""",
-      [(f'clamp_min((count_over_time({PROBE}[$slo_window]) - sum_over_time({PROBE}[$slo_window])) - (count_over_time({SLI}[$slo_window]) - sum_over_time({SLI}[$slo_window])), 0)', "")], w=6, h=6,
+      [(f'clamp_min((count_over_time({PROBE}[$slo_window]) - sum_over_time({PROBE}[$slo_window])) - (count_over_time({SLI}[$slo_window]) - sum_over_time({SLI}[$slo_window])), 0)', "")], w=6, h=6, extra=nodint,
       thresholds=[(None, "green"), (1, "orange"), (10, "red")], no_value="0")
 b.add("stat", "Raw probe failures ($slo_window)", "Every failed 15s probe, billed or not. The union of the two panels to the left.",
-      [(f'count_over_time({PROBE}[$slo_window]) - sum_over_time({PROBE}[$slo_window])', "")], w=6, h=6, no_value="0")
+      [(f'count_over_time({PROBE}[$slo_window]) - sum_over_time({PROBE}[$slo_window])', "")], w=6, h=6, extra=nodint, no_value="0")
 b.add("stat", "TLS certificate expires in", """Days until the Cloudflare-served certificate for `qd.menezmethod.com` expires.
 A leading indicator: if it reaches 0 the probe fails with a TLS error and **players cannot connect either**.""",
       [('(probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) / 86400', "")], w=6, h=6, unit="d",
@@ -277,7 +283,6 @@ health = b.dump("saucerjam-health", "SaucerJam: Service health (SLOs)",
 # ---------------------------------------------------------------- Product & growth
 DB = 'container_label_com_docker_compose_service="supabase-db"'
 GAME = 'container_label_coolify_resourceName="saucerjam"'
-nod = {"options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}}
 
 b = Board()
 b.text("""### Product & growth: the business view
@@ -295,14 +300,14 @@ New product metrics start reporting as players play; an empty panel means nobody
 b.row("Pipeline health: is the data trustworthy?")
 b.add("stat", "Landing views (range)", """Page loads that reported telemetry in the last 24h — the top of the funnel and the first sanity check that the beacon works.
 Empty = no landing views reported yet (or the client that emits `landing_view` is not deployed).""",
-      [('sum(increase(insight_events_total{event="landing_view"}[$__range]))', "")], w=6, h=6, extra=nod,
+      [('sum(increase(insight_events_total{event="landing_view"}[$__range]))', "")], w=6, h=6, extra=nodint,
       no_value="no landing views yet")
 b.add("stat", "Play sessions (range)", """One websocket connection = one play session. The denominator for the friction ratios and the session-length panels.
 Empty/0 across a day you *know* people played means telemetry is blind, not that nobody played.""",
-      [("sum(increase(insight_sessions_total[$__range]))", "")], w=6, h=6, extra=nod, no_value="no sessions yet")
+      [("sum(increase(insight_sessions_total[$__range]))", "")], w=6, h=6, extra=nodint, no_value="no sessions yet")
 b.add("stat", "Insight events (range)", """Every UX event the client reported (starts, reports, friction, clicks) — the pipeline heartbeat.
 **A flat zero is not good news**: it means the telemetry is blind (beacon blocked, JS error, endpoint down).""",
-      [("sum(increase(insight_events_total[$__range])) or vector(0)", "")], w=6, h=6, extra=nod)
+      [("sum(increase(insight_events_total[$__range])) or vector(0)", "")], w=6, h=6, extra=nodint)
 b.add("timeseries", "Telemetry heartbeat (insight events per hour)", """The heartbeat over time. A gap is a period we cannot see player behaviour: usually a quiet spell (fine), occasionally a broken beacon (not fine).
 Cross-check with starts: quiet telemetry *and* no starts = genuinely nobody playing.""",
       [("sum(rate(insight_events_total[$__rate_interval]) * 3600)", "events")], w=6, h=6)
@@ -352,7 +357,7 @@ A low number = people bail mid-match; ask why in feedback (or check ping on Serv
       [("sum(increase(saucerjam_rounds_completed_total[$__range])) / clamp_min(sum(increase(insight_events_total{event=\"online_start\"}[$__range])), 1)", "")],
       w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="no online starts in window")
 b.add("stat", "Rounds finished (range)", "Matches played to the end in the last day.",
-      [("sum(increase(saucerjam_rounds_completed_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nod)
+      [("sum(increase(saucerjam_rounds_completed_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nodint)
 b.add("timeseries", "Funnel steps per hour", """The funnel in one picture: **landing views -> game starts -> joins -> finished rounds**.
 A widening gap between two steps is where you lose people. Landing views and starts are reported by the client.""",
       [('sum(rate(insight_events_total{event="landing_view"}[$__rate_interval])) * 3600', "landing views"),
@@ -362,9 +367,9 @@ A widening gap between two steps is where you lose people. Landing views and sta
 
 b.row("Engagement depth: how much are they playing?")
 b.add("stat", "Rounds per active pilot", "How many full matches the average active pilot played today. Rising = the core loop is holding attention.",
-      [("sum(increase(saucerjam_rounds_completed_total[$__range])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))", "")], w=6, h=5, extra=nod, no_value="no rounds yet")
+      [("sum(increase(saucerjam_rounds_completed_total[$__range])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))", "")], w=6, h=5, extra=nodint, no_value="no rounds yet")
 b.add("stat", "Chat lines (range)", "Social signal: players talking to each other is an early sign of community.",
-      [("sum(increase(saucerjam_chat_messages_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nod)
+      [("sum(increase(saucerjam_chat_messages_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nodint)
 b.add("timeseries", "Session length p50 / p95", """How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.
 Sessions shorter than a round suggest people bounce; watch this after onboarding changes.""",
       [(f'histogram_quantile({q}, sum by (le) (rate(saucerjam_session_seconds_bucket[$__rate_interval])))', f"p{int(q*100)}") for q in (0.5, 0.95)],
@@ -451,7 +456,7 @@ b.add("stat", "TLS cert expires in", "Days until the Cloudflare-served certifica
       [('(probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) / 86400', "")], w=4, h=5, unit="d", extra=nod,
       thresholds=[(None, "red"), (14, "orange"), (30, "green")])
 b.add("stat", "Game restarts (range)", "Process uptime resets in the last day: deploys or crashes. Every restart drops active matches.",
-      [("resets(saucerjam_process_uptime_seconds[$__range])", "")], w=4, h=5, extra=nod, no_value="0 restarts")
+      [("resets(saucerjam_process_uptime_seconds[$__range])", "")], w=4, h=5, extra=nodint, no_value="0 restarts")
 b.add("timeseries", "Dependency availability (1 = healthy)", "The three reachability signals on one axis: public path, app scrape, and Postgres.",
       [(f'{PROBE}', "public (Cloudflare)"), ('up{job="saucerjam"}', "app container"), ("pg_up", "postgres")], w=24, minv=0, maxv=1, unit="short")
 
@@ -460,7 +465,7 @@ b.add("stat", "Connections", "Backends connected to the `postgres` database righ
       [('pg_stat_database_numbackends{datname="postgres"}', "")], w=6, h=5, extra={**nod, "options": {**nod["options"], "decimals": 0}},
       thresholds=[(None, "green"), (70, "orange"), (90, "red")])
 b.add("stat", "Connection saturation", "Connections as a share of `max_connections` (100). Near 100% new requests queue or fail — a classic DB cliff.",
-      [('pg_stat_database_numbackends{datname="postgres"} / scalar(pg_settings_max_connections)', "")], w=6, h=5, unit="percentunit", maxv=1, extra=nod,
+      [('pg_stat_database_numbackends{datname="postgres"} / scalar(pg_settings_max_connections)', "")], w=6, h=5, unit="percentunit", maxv=1, extra=nodint,
       thresholds=[(None, "green"), (0.7, "orange"), (0.9, "red")])
 b.add("stat", "Database size", "Size of the `postgres` database. Growth here is the rankings ledger plus Supabase's own tables.",
       [('pg_database_size_bytes{datname="postgres"}', "")], w=6, h=5, unit="bytes", extra=nod)
@@ -469,13 +474,13 @@ Below ~95% the working set no longer fits in memory — usually the first sign t
       [('sum(rate(pg_stat_database_blks_hit{datname="postgres"}[$__rate_interval])) / clamp_min(sum(rate(pg_stat_database_blks_hit{datname="postgres"}[$__rate_interval])) + sum(rate(pg_stat_database_blks_read{datname="postgres"}[$__rate_interval])), 0.000001)', "")],
       w=6, h=5, unit="percentunit", maxv=1, extra=nod, thresholds=[(None, "red"), (0.95, "orange"), (0.99, "green")])
 b.add("stat", "Rollbacks (range)", "Transactions rolled back. A steady stream is normal; a spike means errors or contention.",
-      [('increase(pg_stat_database_xact_rollback{datname="postgres"}[$__range]) or vector(0)', "")], w=6, h=5, extra=nod, no_value="0 rollbacks")
+      [('increase(pg_stat_database_xact_rollback{datname="postgres"}[$__range]) or vector(0)', "")], w=6, h=5, extra=nodint, no_value="0 rollbacks")
 b.add("stat", "Deadlocks (range)", "Deadlocks detected. Anything above zero is worth a look — it means two writers blocked each other.",
-      [('increase(pg_stat_database_deadlocks{datname="postgres"}[$__range]) or vector(0)', "")], w=6, h=5, extra=nod,
+      [('increase(pg_stat_database_deadlocks{datname="postgres"}[$__range]) or vector(0)', "")], w=6, h=5, extra=nodint,
       thresholds=[(None, "green"), (1, "red")], no_value="0 deadlocks")
 b.add("stat", "Rounds failing to persist (range)", """The app's own view of the DB: rounds that could not be saved to Supabase.
 Silent to players in the moment, painful later — this is a *correctness* metric, not just a reliability one.""",
-      [("sum(increase(saucerjam_ranking_save_errors_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nod, no_value="0 failures")
+      [("sum(increase(saucerjam_ranking_save_errors_total[$__range])) or vector(0)", "")], w=6, h=5, extra=nodint, no_value="0 failures")
 b.add("stat", "DB container memory", "Resident memory of the Postgres container (cAdvisor). The largest single tenant on the free VM.",
       [(f'container_memory_working_set_bytes{{{DB}}}', "")], w=6, h=5, unit="bytes", extra=nod)
 b.add("timeseries", "Connections over time", "Connection count over time. A staircase up without more players usually means a connection leak.",
@@ -524,11 +529,11 @@ b.add("timeseries", "Server errors (5xx) by route", "Failures **we** caused. Fee
 
 b.row("Change & error correlation")
 b.add("stat", "Game restarts (range)", "Uptime resets in the last day. Each one ends active matches — correlate with any error spike.",
-      [("resets(saucerjam_process_uptime_seconds[$__range])", "")], w=8, h=5, extra=nod, no_value="0 restarts")
+      [("resets(saucerjam_process_uptime_seconds[$__range])", "")], w=8, h=5, extra=nodint, no_value="0 restarts")
 b.add("stat", "Public path scrape time", "How long the outside-in probe takes end to end. A jump with no code change usually means the network or Cloudflare.",
       [('scrape_duration_seconds{job="saucerjam"}', "")], w=8, h=5, unit="s", extra=nod)
 b.add("stat", "5xx in range", "Total server errors we caused, across all routes.",
-      [(f'sum(increase(saucerjam_http_requests_total{{status=~"5..",{U}}}[$__range])) or vector(0)', "")], w=8, h=5, extra=nod, no_value="0 server errors")
+      [(f'sum(increase(saucerjam_http_requests_total{{status=~"5..",{U}}}[$__range])) or vector(0)', "")], w=8, h=5, extra=nodint, no_value="0 server errors")
 b.add("timeseries", "Process uptime (drops = deploy or restart)", "A sawtooth here is a deploy; a sudden drop mid-run is a crash. Line it up with the 5xx panel to separate the two.",
       [("saucerjam_process_uptime_seconds", "uptime (s)")], w=24, unit="s")
 

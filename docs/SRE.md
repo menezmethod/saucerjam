@@ -238,25 +238,57 @@ succeeded) and `saucerjam:sli_availability:ratio_30d`. Prometheus evaluates all
 **17 rules** (`promtool check rules` → SUCCESS: 17 rules found) and, since
 2026-09-25, actually loads them via `rule_files` on Oracle.
 
-Grafana file-provisions the contact point `grafana-hermes`
-(`provisioning/alerting/contact-points.yaml`) and sets it as the root
-notification-policy receiver, replacing the previous `Telegram Alerts` route.
-Grafana posts to the relay `grafana-hermes-relay.service` on the Pi5 at
-`http://host.docker.internal:8787/`; the relay adds `X-Hub-Signature-256` (HMAC)
-and forwards to the Hermes gateway at
-`http://100.82.231.99:8644/webhooks/grafana-alerts` (subscription
-`grafana-alerts`), which triages and escalates to Telegram. Verified end to end
-on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Hermes
-`POST /webhooks/grafana-alerts → 200`. Details:
-`deploy/monitoring/grafana-alerts-contact-point.md`.
+**Alert path (live on Oracle, verified 2026-09-25).** Two delivery paths run in
+parallel for SaucerJam alerts, so a page never depends on the agent being awake:
 
-> **Migration status (2026-09-25):** the paragraph above describes the Pi5
-> stack, where it was verified. On Oracle the rules now load and evaluate (see
-> above), but **no alert reaches a human yet**: Grafana's root
-> notification policy is still the no-op `empty` receiver, and the Hermes relay
-> only runs on the Pi5. Wiring the receiver (and moving the relay to Oracle or
-> pointing at it over the tailnet) is the next migration step. Until then the
-> dashboards — including the §2.1 attribution row — are the working signal.
+```
+Prometheus ──▶ Alertmanager ──┬─▶ Telegram            (direct; the guaranteed page)
+   (route: service="saucerjam")│
+                              └─▶ relay :8787 ──HMAC──▶ Hermes webhook :8644
+                                   (obs-hermes-relay)     (subscription `grafana-alerts`)
+                                                             │
+                                                             ▼
+                                              triage → bounded heal / OpenCode fix
+                                                             │
+                                                             ▼
+                                                          Telegram
+```
+
+- **Alertmanager** (`obs-alertmanager`) routes `service="saucerjam"` to the
+  `saucerjam` receiver, which has both the Telegram config and a webhook to the
+  relay. Everything else still goes to Telegram only.
+- **Relay** `hermes-alert-relay.service` (host, `~/grafana-hermes-relay/`) holds
+  a static bearer token for Alertmanager and HMAC-signs each body for Hermes
+  (`X-Hub-Signature-256`). Alertmanager cannot do per-request HMAC, hence the
+  relay. It reaches Hermes on loopback and Hermes reaches it via the
+  observability gateway; the host firewall allows only `10.0.3.0/24 → tcp/8787`
+  (added to `netfilter-persistent`).
+- **Hermes** webhook platform on `:8644`, subscription `grafana-alerts`, events
+  `grafana-alert`, skill `opencode`, delivered to the Telegram chat. Its prompt
+  carries the guardrails below and works from the `~/saucerjam` checkout.
+
+**Guardrails in the subscription prompt** (enforced by instruction, matching §4):
+never deploy, never `POST /api/v1/deploy`, never `docker rm -f`, never touch
+DNS/TLS/env/secrets, never merge to `main`, never force-push; **one** autonomous
+attempt, then escalate. If the root cause is a code defect it may use OpenCode to
+open a PR on a new branch — but this host has **no GitHub push credential**, so
+in practice it keeps the branch local and reports the diff; add a deploy key/PAT
+to enable the automatic PR.
+
+Test the whole chain:
+
+```bash
+curl -s -X POST localhost:9093/api/v2/alerts -H 'Content-Type: application/json' \
+  -d '[{"labels":{"alertname":"SaucerJamE2ETest","service":"saucerjam","severity":"warning"},
+       "annotations":{"summary":"synthetic test"}}]'
+# expect: Alertmanager "Notify success" (telegram) + relay "POST / 200" +
+#         a Hermes agent run in ~/.hermes/logs/agent.log + a Telegram message
+```
+
+Also relevant: the older Grafana contact-point files
+(`provisioning/alerting/contact-points.yaml`) are kept for reference but are **not
+the live path** on Oracle.
+
 
 ## 4. AI authority (self-heal vs escalate)
 

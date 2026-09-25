@@ -270,10 +270,15 @@ Prometheus ──▶ Alertmanager ──┬─▶ Telegram            (direct; t
 **Guardrails in the subscription prompt** (enforced by instruction, matching §4):
 never deploy, never `POST /api/v1/deploy`, never `docker rm -f`, never touch
 DNS/TLS/env/secrets, never merge to `main`, never force-push; **one** autonomous
-attempt, then escalate. If the root cause is a code defect it may use OpenCode to
-open a PR on a new branch — but this host has **no GitHub push credential**, so
-in practice it keeps the branch local and reports the diff; add a deploy key/PAT
-to enable the automatic PR.
+attempt, then escalate.
+The Oracle host is authenticated to GitHub (`gh`, config at
+`~/.config/gh/hosts.yml`, git wired via `gh auth setup-git`). The credential
+spans the repositories the agent manages — it handles more than one — so
+`Contents`/`Pull requests` write across them is intentional. The hard backstop is
+branch protection on `main` (PR + review): the agent can open a PR but **cannot
+push to `main`**. Note the credential also carries the `workflow` scope, so an
+agent turn can edit GitHub Actions files; that is a deliberate trade-off — use a
+token without `workflow` if CI edits should never be automatic.
 
 Test the whole chain:
 

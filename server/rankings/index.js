@@ -188,7 +188,25 @@ class RankingStore {
 
   constructor({ filePath, supabase = null } = {}) {
     if (filePath !== null && (typeof filePath !== "string" || !filePath.trim())) throw new TypeError("Provide filePath or explicit null for memory mode");
-    const fileRounds = filePath === null ? [] : readLedger(path.resolve(filePath));
+    let fileRounds = [];
+    if (filePath !== null) {
+      const resolved = path.resolve(filePath);
+      if (supabase) {
+        // Supabase is the ledger; the local file is only a one-time import. A
+        // permissions mismatch on the mounted data dir must not stop the
+        // server from booting — and since this file is not the source of
+        // truth, skipping an unreadable import loses nothing.
+        try { fileRounds = readLedger(resolved); }
+        catch (error) {
+          if (error.code === "EACCES" || error.code === "EPERM") console.warn("Rankings import skipped (unreadable local ledger):", error.message);
+          else throw error;
+        }
+      } else {
+        // File mode: stay strict. Returning an empty ledger here would silently
+        // serve an empty leaderboard, which is worse than failing to boot.
+        fileRounds = readLedger(resolved);
+      }
+    }
     if (supabase) {
       // Supabase is the ledger. A leftover file is imported once (duplicates are
       // ignored), so switching an existing server over keeps its history.

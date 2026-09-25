@@ -239,6 +239,23 @@ test("supabase ledger: an existing rankings file is imported once on boot", asyn
   assert.equal(store.getLeaderboard()[0].kills, 3);
 });
 
+test("supabase ledger: an unreadable legacy file does not stop startup", { skip: typeof process.getuid === "function" && process.getuid() === 0 }, async (t) => {
+  const directory = fs.mkdtempSync(path.join(__dirname, ".test-"));
+  const filePath = path.join(directory, "rankings.json");
+  fs.writeFileSync(filePath, JSON.stringify({ version: 1, rounds: [] }));
+  fs.chmodSync(filePath, 0o000);
+  t.after(() => { fs.chmodSync(filePath, 0o600); fs.rmSync(directory, { recursive: true, force: true }); });
+  const db = fakeSupabase();
+  // A permissions mismatch on the mounted data dir (Coolify owns it as a
+  // different uid than the container's `node` user) used to crash the server on
+  // boot. Supabase is the ledger, so the unreadable import is skipped.
+  const store = new RankingStore({ filePath, supabase: db.config });
+  await settle();
+  assert.deepEqual(store.getLeaderboard(), []);
+  await store.recordRound(round());
+  assert.equal(db.table.size, 1);
+});
+
 test("supabase ledger: a failed write is not counted and the same round can be retried", async () => {
   const db = fakeSupabase({ failInserts: 1 });
   const store = new RankingStore({ filePath: null, supabase: db.config });

@@ -39,6 +39,9 @@
       "targetBlank": true
     }
   ],
+  "templating": {
+    "list": []
+  },
   "panels": [
     {
       "type": "text",
@@ -363,7 +366,7 @@
     },
     {
       "type": "stat",
-      "title": "Game restarts (24h)",
+      "title": "Game restarts (range)",
       "description": "Process uptime resets in the last day: deploys or crashes. Every restart drops active matches.",
       "datasource": {
         "type": "prometheus",
@@ -388,7 +391,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "resets(saucerjam_process_uptime_seconds[24h])",
+          "expr": "resets(saucerjam_process_uptime_seconds[$__range])",
           "legendFormat": ""
         }
       ],
@@ -688,7 +691,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(pg_stat_database_blks_hit{datname=\"postgres\"}[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit{datname=\"postgres\"}[5m])) + sum(rate(pg_stat_database_blks_read{datname=\"postgres\"}[5m])), 0.000001)",
+          "expr": "sum(rate(pg_stat_database_blks_hit{datname=\"postgres\"}[$__rate_interval])) / clamp_min(sum(rate(pg_stat_database_blks_hit{datname=\"postgres\"}[$__rate_interval])) + sum(rate(pg_stat_database_blks_read{datname=\"postgres\"}[$__rate_interval])), 0.000001)",
           "legendFormat": ""
         }
       ],
@@ -704,7 +707,7 @@
     },
     {
       "type": "stat",
-      "title": "Rollbacks (24h)",
+      "title": "Rollbacks (range)",
       "description": "Transactions rolled back. A steady stream is normal; a spike means errors or contention.",
       "datasource": {
         "type": "prometheus",
@@ -729,7 +732,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "increase(pg_stat_database_xact_rollback{datname=\"postgres\"}[24h]) or vector(0)",
+          "expr": "increase(pg_stat_database_xact_rollback{datname=\"postgres\"}[$__range]) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -745,7 +748,7 @@
     },
     {
       "type": "stat",
-      "title": "Deadlocks (24h)",
+      "title": "Deadlocks (range)",
       "description": "Deadlocks detected. Anything above zero is worth a look \u2014 it means two writers blocked each other.",
       "datasource": {
         "type": "prometheus",
@@ -786,7 +789,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "increase(pg_stat_database_deadlocks{datname=\"postgres\"}[24h]) or vector(0)",
+          "expr": "increase(pg_stat_database_deadlocks{datname=\"postgres\"}[$__range]) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -802,7 +805,7 @@
     },
     {
       "type": "stat",
-      "title": "Rounds failing to persist (24h)",
+      "title": "Rounds failing to persist (range)",
       "description": "The app's own view of the DB: rounds that could not be saved to Supabase.\nSilent to players in the moment, painful later \u2014 this is a *correctness* metric, not just a reliability one.",
       "datasource": {
         "type": "prometheus",
@@ -827,7 +830,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_ranking_save_errors_total[24h])) or vector(0)",
+          "expr": "sum(increase(saucerjam_ranking_save_errors_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ],
@@ -956,7 +959,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"postgres\"}[5m])) * 60",
+          "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"postgres\"}[$__rate_interval])) * 60",
           "legendFormat": "commits"
         },
         {
@@ -965,7 +968,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(pg_stat_database_xact_rollback{datname=\"postgres\"}[5m])) * 60",
+          "expr": "sum(rate(pg_stat_database_xact_rollback{datname=\"postgres\"}[$__rate_interval])) * 60",
           "legendFormat": "rollbacks"
         }
       ],
@@ -1007,7 +1010,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"supabase-db\"}[5m])",
+          "expr": "rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"supabase-db\"}[$__rate_interval])",
           "legendFormat": "cpu"
         }
       ],
@@ -1083,7 +1086,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[5m]))",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[$__rate_interval]))",
           "legendFormat": ""
         }
       ]
@@ -1276,7 +1279,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[5m]))",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[$__rate_interval]))",
           "legendFormat": "cpu busy"
         },
         {
@@ -1545,7 +1548,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(saucerjam_connections_total[5m]))",
+          "expr": "sum(rate(saucerjam_connections_total[$__rate_interval]))",
           "legendFormat": ""
         }
       ],
@@ -1623,7 +1626,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(rate(saucerjam_joins_total[5m])) * 60",
+          "expr": "sum(rate(saucerjam_joins_total[$__rate_interval])) * 60",
           "legendFormat": "joins"
         },
         {
@@ -1632,7 +1635,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (cause) (rate(saucerjam_leaves_total[5m])) * 60",
+          "expr": "sum by (cause) (rate(saucerjam_leaves_total[$__rate_interval])) * 60",
           "legendFormat": "leaves: {{cause}}"
         }
       ],
@@ -1675,7 +1678,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum by (route) (rate(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[5m]))",
+          "expr": "sum by (route) (rate(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[$__rate_interval]))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -1704,7 +1707,7 @@
     },
     {
       "type": "stat",
-      "title": "Game restarts (24h)",
+      "title": "Game restarts (range)",
       "description": "Uptime resets in the last day. Each one ends active matches \u2014 correlate with any error spike.",
       "datasource": {
         "type": "prometheus",
@@ -1729,7 +1732,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "resets(saucerjam_process_uptime_seconds[24h])",
+          "expr": "resets(saucerjam_process_uptime_seconds[$__range])",
           "legendFormat": ""
         }
       ],
@@ -1786,7 +1789,7 @@
     },
     {
       "type": "stat",
-      "title": "5xx in 24h",
+      "title": "5xx in range",
       "description": "Total server errors we caused, across all routes.",
       "datasource": {
         "type": "prometheus",
@@ -1811,7 +1814,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[24h])) or vector(0)",
+          "expr": "sum(increase(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ],

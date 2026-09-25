@@ -1,0 +1,16 @@
+# Grafana datasource provisioning: Prometheus on the observability host.
+# Deployed on the observability host (Oracle): /opt/observability/grafana/provisioning/datasources/prometheus.yaml
+#
+# The UID is pinned to `prom` because every panel in the generated dashboards
+# references it by UID. Changing it here breaks the dashboards; change
+# generate.py's DS constant in the same commit if you ever must.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prom
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 30s

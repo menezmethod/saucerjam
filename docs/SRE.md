@@ -1,9 +1,11 @@
 # SRE: metrics, alerts, and AI operations
 
-SaucerJam is monitored by the self-hosted **Prometheus + Grafana** stack on Pi5
-(`192.168.0.207`), and alerts are triaged by the **Hermes** agent. This document
-is the operational contract: what is measured, what fires, what the AI may do on
-its own, and what always needs a human.
+SaucerJam is monitored by the self-hosted **Prometheus + Grafana** stack on the
+Oracle free-tier host `free-arm-01` (Tailscale `100.72.3.78`), and alerts are
+triaged by the **Hermes** agent. The Pi5 no longer runs monitoring; it is
+reserved for Home Assistant. This document is the operational contract: what is
+measured, what fires, what the AI may do on its own, and what always needs a
+human.
 
 ## 1. What is measured
 
@@ -38,39 +40,90 @@ aggregate, non-PII counts). Implementation: `server/metrics.js`, wired in
 
 ## 2. Wiring (already applied)
 
-Pi5 Prometheus config: `/home/menez/docker/prometheus/prometheus.yml` — job
-`saucerjam` scrapes `https://qd.menezmethod.com/metrics` every 15s. Alert rules:
-`/home/menez/docker/prometheus/saucerjam.rules.yml` (loaded via `rule_files`).
-Repo copies live in `deploy/monitoring/`.
+The observability stack runs on the Oracle free-tier host `free-arm-01`
+(Tailscale `100.72.3.78`) under `/opt/observability`; the Pi5 was retired from
+monitoring on 2026-09-25 and now only runs Home Assistant. Four containers:
 
-To re-apply on a new host (never use `sed`; it corrupts multi-line YAML):
+| Container | Role |
+| --- | --- |
+| `obs-prometheus` | scrape + rule evaluation (`127.0.0.1:9090`) |
+| `obs-grafana` | dashboards and alerting UI (`:3001`) |
+| `obs-node-exporter` | host CPU / memory / disk (`:9100`) |
+| `obs-cadvisor` | per-container memory (the game's RSS panel) |
+
+Prometheus config `/opt/observability/prometheus/prometheus.yml` scrapes job
+`saucerjam` (`https://qd.menezmethod.com/metrics`, 15s), `oci-node`,
+`oci-cadvisor`, and the LAN hosts over Tailscale. Repo mirror:
+`deploy/monitoring/scrape.yml`.
+
+Grafana is **file-provisioned** from `/opt/observability/grafana/`, so the
+running dashboards match this repo and survive a container rebuild:
+
+| Path | Loads |
+| --- | --- |
+| `provisioning/datasources/prometheus.yaml` | Prometheus, UID pinned to `prom` |
+| `provisioning/dashboards/provider.yaml` | every JSON in `dashboards/`, into the **SaucerJam** folder, UI edits disabled |
+| `dashboards/saucerjam-{health,players}.json` | the two official dashboards (§2.1) |
+
+Repo mirrors: `deploy/monitoring/grafana-provisioning/` and
+`deploy/monitoring/dashboards/`. The JSON is **generated, not hand-written** —
+edit and re-run the generator (it takes the output directory as its argument):
 
 ```bash
-scp deploy/monitoring/scrape.yml deploy/monitoring/saucerjam.rules.yml menez@192.168.0.207:/tmp/
-ssh menez@192.168.0.207 'python3 - <<"PY"
-import yaml, shutil, time
-p="/home/menez/docker/prometheus/prometheus.yml"
-c=yaml.safe_load(open(p))
-c.setdefault("rule_files",[])
-if "/home/menez/docker/prometheus/saucerjam.rules.yml" not in c["rule_files"]:
-    c["rule_files"].append("/home/menez/docker/prometheus/saucerjam.rules.yml")
-c["scrape_configs"]=[j for j in c["scrape_configs"] if j.get("job_name")!="saucerjam"]
-c["scrape_configs"].append({"job_name":"saucerjam","scheme":"https","metrics_path":"/metrics","scrape_interval":"15s","static_configs":[{"targets":["qd.menezmethod.com"],"labels":{"service":"saucerjam","env":"production"}}]})
-shutil.copy(p,p+".bak."+time.strftime("%Y%m%d%H%M%S")); yaml.dump(c,open("/tmp/p.new","w"),sort_keys=False); shutil.copy("/tmp/p.new",p)
-PY
-cp /tmp/saucerjam.rules.yml /home/menez/docker/prometheus/saucerjam.rules.yml
-docker kill -s SIGHUP prometheus-prometheus-1'
+python3 deploy/monitoring/dashboards/generate.py deploy/monitoring/dashboards
+```
+
+The Grafana service in `/opt/observability/docker-compose.yml` bind-mounts the
+two directories read-only, so edits appear within 30s and UI edits are never
+persisted:
+
+```yaml
+volumes:
+  - grafana-data:/var/lib/grafana
+  - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+  - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+  - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
 ```
 
 Verify:
 
 ```bash
-curl -s 'http://192.168.0.207:9090/api/v1/targets' | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if t['labels'].get('job')=='saucerjam']"
+# Run on free-arm-01 (admin user/password live in /opt/observability/.env)
+curl -su admin "localhost:3001/api/dashboards/uid/saucerjam-health" \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d["meta"]["provisioned"], d["meta"]["folderTitle"])'
 ```
 
-Grafana dashboard **SaucerJam** (`/d/saucerjam-sre/saucerjam`) is file-provisioned
-from `/home/menez/docker/prometheus/grafana/provisioning/dashboards/saucerjam-dashboard.json`.
-Repo source: `deploy/monitoring/grafana-dashboard.json`.
+### 2.1 The official dashboards
+
+Two dashboards, split on purpose — Google keeps reliability and product metrics
+apart, because a quiet Tuesday is not an outage and nobody should be paged for
+it:
+
+| Dashboard | UID / URL | Question it answers |
+| --- | --- | --- |
+| Service health (SLOs) | `/d/saucerjam-health` | *Are players OK?* — SLOs and the four golden signals |
+| Players & game | `/d/saucerjam-players` | *What should we build next?* — engagement and friction |
+
+Every panel carries an **(i) description** explaining the metric, its threshold,
+and why it exists, and each board opens with a "how to read this" panel. The
+design follows Google SRE guidance:
+
+- the **four golden signals** — latency, traffic, errors, saturation (SRE book,
+  ch. 6) — ordered so symptoms (player-visible) sit above causes;
+- latency measured as **"X% of requests faster than Y"** on a histogram bucket,
+  never an average, so a slow tail cannot hide inside a good mean;
+- **error-budget burn rate** over 1h and 6h windows: the numbers a mature
+  multi-window, multi-burn-rate alert would page on;
+- a **synthetic-probe SLI** for availability (`up{job="saucerjam"}`) that stays
+  populated with zero players — the workbook's advice for low-traffic services;
+- request SLOs **exclude `/health` and `/metrics`** (about 99% of all hits),
+  which would otherwise pin the success rate at 100% forever.
+
+Sources: [Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/),
+[Implementing SLOs](https://sre.google/workbook/implementing-slos/),
+[Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/),
+[Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre),
+[SRE Weekly](https://sreweekly.com/).
 
 ## 3. Alerts
 
@@ -102,6 +155,15 @@ and forwards to the Hermes gateway at
 on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Hermes
 `POST /webhooks/grafana-alerts → 200`. Details:
 `deploy/monitoring/grafana-alerts-contact-point.md`.
+
+> **Migration status (2026-09-25):** the paragraph above describes the Pi5
+> stack, where it was verified. On the Oracle host the `saucerjam` job is
+> scraping (that is what feeds the §2.1 dashboards), but two pieces of the alert
+> path are **not wired yet**: Prometheus has no `rule_files` entry, so the nine
+> rules are not evaluated, and Grafana's root notification policy is still the
+> no-op `empty` receiver, so nothing reaches Hermes. Until both are fixed **no
+> alert fires** and the dashboards are the only live signal. Wiring the alert
+> path (including moving the relay off the Pi5) is the next migration step.
 
 ## 4. AI authority (self-heal vs escalate)
 

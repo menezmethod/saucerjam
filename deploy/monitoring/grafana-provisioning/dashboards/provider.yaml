@@ -1,0 +1,21 @@
+# Grafana dashboard provisioning: loads the official SaucerJam dashboards.
+# Deployed on the observability host (Oracle): /opt/observability/grafana/provisioning/dashboards/provider.yaml
+# Dashboard JSON is the generator's output (deploy/monitoring/dashboards/generate.py),
+# mounted read-only at /var/lib/grafana/dashboards.
+#
+# allowUiUpdates is false on purpose: these are the *official* dashboards, so the
+# source of truth is the generator + committed JSON, not someone's browser. To
+# change a panel, edit generate.py, re-run it, and re-deploy.
+apiVersion: 1
+providers:
+  - name: saucerjam
+    orgId: 1
+    folder: SaucerJam
+    folderUid: saucerjam
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

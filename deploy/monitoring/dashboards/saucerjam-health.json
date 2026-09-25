@@ -1,0 +1,1546 @@
+{
+  "uid": "saucerjam-health",
+  "title": "SaucerJam: Service health (SLOs)",
+  "description": "Official SaucerJam reliability dashboard: SLOs + four golden signals, following Google SRE guidance.",
+  "tags": [
+    "saucerjam",
+    "sre",
+    "official"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "editable": true,
+  "links": [
+    {
+      "title": "Service health (SLOs)",
+      "type": "link",
+      "url": "/d/saucerjam-health"
+    },
+    {
+      "title": "Players & game",
+      "type": "link",
+      "url": "/d/saucerjam-players"
+    },
+    {
+      "title": "Runbooks (docs/SRE.md)",
+      "type": "link",
+      "url": "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md",
+      "targetBlank": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### How to read this dashboard\nRead it **top to bottom**, the way Google SREs triage a page.\n\n1. **SLOs (top row):** *are players OK?* An SLO (Service Level Objective) is the reliability target we promise, e.g. \"up 99.5% of the time\". The **error budget** is the 0.5% we're *allowed* to fail. Budget left \u2192 ship features. Budget gone \u2192 fix reliability first.\n2. **The four golden signals** (Google SRE book, ch. 6): **Latency** (how slow), **Traffic** (how much), **Errors** (how often it fails), **Saturation** (how full). If you can only watch four things, watch these.\n3. Rule of thumb: **alert on symptoms players feel** (top rows), **debug with causes** (bottom rows). A full CPU nobody notices is not an emergency; a failed join is.\n\n**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty (\"no players in window\" is normal). That's why the headline availability uses a **synthetic probe**: Prometheus fetches `qd.menezmethod.com/metrics` through Cloudflare every 15s, like a robot player. The SRE workbook recommends this for low-traffic services.\nSources: [SRE book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) \u00b7 [Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/) \u00b7 [Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) \u00b7 [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre) \u00b7 [SRE Weekly](https://sreweekly.com/)"
+      }
+    },
+    {
+      "type": "row",
+      "title": "SLOs: are players OK? (30-day window)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Availability (probe), 30d",
+      "description": "**SLI:** share of 15s probes (Prometheus scraping the public URL through Cloudflare) that succeeded.\n**SLO: 99.5%**, about 3.6 hours of allowed downtime per month.\n**Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not \"as high as possible\". Each extra nine costs about 10x more work.\n**Why a probe?** Too few players for request-based numbers to mean anything (see the workbook's advice for low-traffic services).\nNote: this job was added to Oracle Prometheus on 2026-09-25, so \"30d\" covers less history until late October.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.995
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "avg_over_time(up{job=\"saucerjam\"}[30d])",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 3
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error budget left, 30d",
+      "description": "**Error budget** = 100% minus SLO = 0.5% of the month we're allowed to be down.\nThis panel shows how much of that allowance is left. 100% = untouched, 0% = spent.\n**How to use it (Google's error-budget policy):** budget left \u2192 take risks, ship features, deploy on Fridays. Budget spent \u2192 freeze risky changes and fix reliability. It turns \"is it reliable enough?\" from an argument into a number.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "1 - (1 - avg_over_time(up{job=\"saucerjam\"}[30d])) / 0.0050000000000000044",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate, 1h",
+      "description": "**Burn rate** = how fast we're spending the error budget. 1 = exactly on pace to use it all in 30 days. 14.4 = the whole month's budget gone in about 2 days.\nGoogle's **multi-window, multi-burn-rate** alerting pages a human when the 1h burn rate is above **14.4** (2% of the monthly budget in one hour) *and* the 5m burn rate confirms it's still happening.\nWe don't page on this yet (too little traffic, see docs/SRE.md), but this is the number a mature setup would page on.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "x",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 6
+              },
+              {
+                "color": "red",
+                "value": 14.4
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "(1 - avg_over_time(up{job=\"saucerjam\"}[1h])) / 0.0050000000000000044",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate, 6h",
+      "description": "Same idea over 6 hours. The workbook's second paging tier: burn rate above **6** over 6h (5% of the monthly budget) means a slower but real problem.\nTwo windows catch both kinds of failure: sudden outages (1h) and slow leaks (6h).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "x",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 6
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "(1 - avg_over_time(up{job=\"saucerjam\"}[6h])) / 0.0050000000000000044",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Join success, 30d (SLO 99%)",
+      "description": "**SLI for the most important player journey: pressing \"Play online\" and getting into a match.**\n= successful joins / (successful joins + joins rejected by the server).\nRejections by `rate_limited` or `debounced` are excluded: those are the server protecting itself from spam clicks, not failures a real player feels.\nMeasure **user journeys**, not servers (Google: \"SLIs should be as close to the user as possible\").\nEmpty = nobody tried to join in the window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no joins in window",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(increase(saucerjam_joins_total[30d])) / (sum(increase(saucerjam_joins_total[30d])) + (sum(increase(saucerjam_join_failures_total{reason!~\"rate_limited|debounced\"}[30d])) or vector(0)) > 0)",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Request success, 30d (SLO 99.5%)",
+      "description": "**SLI:** share of real HTTP requests (health checks and /metrics excluded) that did *not* return a 5xx.\n**Only 5xx counts as bad.** A 404 from a scanner guessing URLs is the client's fault, not ours. Google counts errors the *service* causes.\nHealth checks are excluded because they're about 99% of all requests and would keep this number at 100% forever.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 16,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no requests in window",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.995
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "1 - ((sum(increase(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[30d])) or vector(0)) / (sum(increase(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[30d])) > 0))",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fast requests, 30d (SLO 95% < 250ms)",
+      "description": "**Latency SLI:** share of real HTTP requests answered in under **250ms**.\n**Why a threshold ratio and not \"average latency\"?** Averages hide pain: 99 fast requests and 1 ten-second one average out to \"fine\". Google recommends \"X% of requests faster than Y\", which also plugs straight into an error budget.\n250ms is one of the histogram's bucket edges, so this is exact, not interpolated.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no requests in window",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(increase(saucerjam_http_request_duration_seconds_bucket{le=\"0.25\",route!~\"/health|/metrics\"}[30d])) / (sum(increase(saucerjam_http_request_duration_seconds_count{route!~\"/health|/metrics\"}[30d])) > 0)",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Smooth pings, 30d (SLO 90% < 150ms)",
+      "description": "**Game-feel SLI:** share of in-game pings (reported by players' browsers) that round-tripped in under **150ms**.\nFor a real-time shooter, this *is* the latency players feel. Above about 150ms, hits start to feel wrong.\nIt measures the player's network + Cloudflare + our server, so a bad number can be the player's Wi-Fi. That's fine: an SLI measures what the user experiences, whoever is at fault.\nEmpty = nobody played online in the window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 16,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "no online play in window",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(increase(saucerjam_ws_round_trip_seconds_bucket{le=\"0.15\"}[30d])) / (sum(increase(saucerjam_ws_round_trip_seconds_count[30d])) > 0)",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Availability (probe), hourly vs SLO",
+      "description": "Hourly probe success rate. Any dip below the dashed line is budget being spent.\nLook for **patterns**: dips at the same time every day usually mean a cron job, backup or deploy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SLO target"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "avg_over_time(up{job=\"saucerjam\"}[1h])",
+          "legendFormat": "availability"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "0.995",
+          "legendFormat": "SLO target"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Golden signal 1: Latency (how slow?)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency p50 / p95 / p99 (real requests)",
+      "description": "**Percentiles, not averages.** p95 = 95% of requests were faster than this line. p99 = the unlucky 1%.\nTail latency (p99) is what your worst-off players feel, and with many requests per session, most players hit the tail eventually.\nHealth checks excluded. Gaps = no requests.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "In-game ping p50 / p95 (player-reported)",
+      "description": "Round trip from the player's browser to the game server and back.\nRising p95 with flat server latency = network or Cloudflare problem, not our code. This split is how you find where time goes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(saucerjam_ws_round_trip_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency by route",
+      "description": "Which endpoint is slow? Once the top panel says *something* is slow, this panel says *what*.\nRoutes are templates (e.g. `/api/statistics`), never raw URLs. Raw URLs would let anyone create unlimited series (cardinality explosion).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(saucerjam_http_request_duration_seconds_bucket{route!~\"/health|/metrics\"}[5m])))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Probe latency (outside-in)",
+      "description": "How long Prometheus takes to fetch /metrics through Cloudflare.\nAlways has data, even with zero players, so it's the **low-traffic stand-in** for user latency. A jump here with no code change usually means the network or the Oracle VM.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "scrape_duration_seconds{job=\"saucerjam\"}",
+          "legendFormat": "probe"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Golden signal 2: Traffic (how much demand?)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Pilots online: humans vs bots",
+      "description": "**Traffic** for a game = people playing, not HTTP hits.\nBots fill rooms so a lone player still has opponents. Humans going up while bots go down is the healthy pattern.\nAlso gives context to every other panel: an error spike with 0 humans online hurt nobody.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_players",
+          "legendFormat": "humans"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_bots",
+          "legendFormat": "bots"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Joins / leaves per minute",
+      "description": "Demand at the door. Leaves split by cause:\n- **client**: the player chose to leave (normal)\n- **transport**: the connection dropped (bad: network, deploy restart, or crash)\nMany transport leaves at once = everyone got kicked. Check for a deploy at that time.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 44,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(rate(saucerjam_joins_total[5m])) * 60",
+          "legendFormat": "joins"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (cause) (rate(saucerjam_leaves_total[5m])) * 60",
+          "legendFormat": "leaves: {{cause}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP requests/s by route (real requests)",
+      "description": "Page loads and API calls from players. `unmatched` 200s are static game files (the page itself).\nHealth checks and /metrics are hidden: they're robots, and at about 99% of all hits they'd flatten everything else.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 44,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (route) (rate(saucerjam_http_requests_total{route!~\"/health|/metrics\"}[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Golden signal 3: Errors (how often does it fail?)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Server errors (5xx) by route",
+      "description": "Failures **we** caused. Feeds the \"Request success\" SLO above.\nZero is the normal state. Any sustained line here deserves a look at the container logs in Coolify.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0 server errors"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (route) (rate(saucerjam_http_requests_total{status=~\"5..\",route!~\"/health|/metrics\"}[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Join rejections by reason",
+      "description": "Why players couldn't get into a match:\n- `rooms_full`: all 8 arenas busy (**capacity** problem, see Saturation)\n- `room_not_found`: bad invite code or the room just closed\n- `rate_limited` / `debounced`: spam clicks, the server protecting itself (excluded from the SLO)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 52,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0 rejections"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (reason) (rate(saucerjam_join_failures_total[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Leaderboard saves failing",
+      "description": "Round results that failed to save to Supabase. The game keeps working, but that match's rankings are lost.\n`rankings degraded` = 1 means the last save failed. It usually means Supabase is paused, down, or the key rotated.\nThis is a **correctness** error: silent to players in the moment, painful later.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 52,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0 failures"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(increase(saucerjam_ranking_save_errors_total[5m]))",
+          "legendFormat": "failed saves"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_rankings_status{status=\"degraded\"}",
+          "legendFormat": "rankings degraded"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Client errors (4xx), not counted against us",
+      "description": "Shown for contrast with 5xx. Mostly scanners probing random URLs (`unmatched` 404) and cached files (304 isn't even an error).\nA sudden **429** spike means the rate limiter is rejecting a real client, or someone is hammering the API.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (status) (rate(saucerjam_http_requests_total{status=~\"4..\",route!~\"/health|/metrics\"}[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Rate-limited by route",
+      "description": "Requests the server refused to protect itself (`chat` = chat flood control, `/api` = shared API bucket).\nOccasional = working as designed. Constant = either an abuser or limits too tight for real players.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0 rejected"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum by (route) (rate(saucerjam_rate_limited_total[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Golden signal 4: Saturation (how full are we?)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Game memory vs 512 MiB limit",
+      "description": "How close the game container is to its memory cap. At 100% Docker kills it and every match drops.\nSaturation is a **leading** indicator: it warns *before* players feel it. Google suggests acting well before 100%, since latency usually degrades first.\nSteady climb over days without more players = memory leak.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_process_resident_memory_bytes / (512 * 1024 * 1024)",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Arenas in use (of 8)",
+      "description": "Rooms open / MAX_ROOMS (8). At 100% new \"Play online\" joins get `rooms_full`.\nThis is the game's real capacity limit, and it will hit long before CPU or memory does. It's the first dial to watch if a post goes viral.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 67,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_rooms / 8",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Oracle VM memory used",
+      "description": "The whole free server (12 GB), shared with Coolify, Fider, gimenez.dev, XamQuiz and this monitoring.\nA noisy neighbour can starve the game. That's the trade-off of one shared box.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 67,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "1 - node_memory_MemAvailable_bytes{job=\"oci-node\"} / node_memory_MemTotal_bytes{job=\"oci-node\"}",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Oracle VM CPU busy",
+      "description": "Share of the 2 free ARM cores in use (5-min average).\nThe game simulates every match on the server (authoritative), so CPU grows with **active matches**, not page views.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 67,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"oci-node\",mode=\"idle\"}[5m]))",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Game process memory (RSS vs JS heap)",
+      "description": "RSS = total memory the process holds. Heap = memory used by JavaScript objects.\nBoth climbing = leak in game code (e.g. rooms never cleaned up). RSS climbing alone = native/buffer growth.\nResets to low after each deploy (process restart).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 74,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_process_resident_memory_bytes",
+          "legendFormat": "RSS"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_process_heap_bytes",
+          "legendFormat": "JS heap"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load average vs cores",
+      "description": "1-minute load average. Above the core count (2) = work is queuing and ticks will be late (players feel lag).\n`saucerjam_system_load1` is reported by the game itself, `node` is the host view. They should match.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 74,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_system_load1",
+          "legendFormat": "load1 (game)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "node_load1{job=\"oci-node\"}",
+          "legendFormat": "load1 (node)"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "2",
+          "legendFormat": "cores"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}

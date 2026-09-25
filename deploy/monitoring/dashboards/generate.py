@@ -307,18 +307,33 @@ b.add("timeseries", "Telemetry heartbeat (insight events per hour)", """The hear
 Cross-check with starts: quiet telemetry *and* no starts = genuinely nobody playing.""",
       [("sum(rate(insight_events_total[$__rate_interval]) * 3600)", "events")], w=6, h=6)
 
+b.row("Playing right now: is anyone on?")
+b.add("stat", "Humans playing now", """Live human pilots connected this instant. This is the only row here that is **now**, not a window.
+`0` humans + `0` bots = genuinely empty; `0` humans + bots > 0 = arenas are up but only bots are flying.""",
+      [("saucerjam_players", "")], w=6, h=6, extra={**nod, "options": {**nod["options"], "decimals": 0}})
+b.add("stat", "Bots filling rooms", "Server-controlled opponents that keep arenas alive when humans are sparse.",
+      [("saucerjam_bots", "")], w=6, h=6, extra={**nod, "options": {**nod["options"], "decimals": 0}})
+b.add("stat", "Arenas open", "Rooms with at least one human. At 8 (MAX_ROOMS) new joins get `rooms_full`.",
+      [("saucerjam_rooms", "")], w=6, h=6, extra={**nod, "options": {**nod["options"], "decimals": 0}})
+b.add("stat", "Joined (last 15m)", """Fresh joins in a deliberately short, **fixed** window — the closest thing to "is someone playing right now" when traffic is sparse.
+Unlike the panels above it, this one does not follow the time picker: liveness wants a short window.""",
+      [("sum(increase(saucerjam_joins_total[15m])) or vector(0)", "")], w=6, h=6, extra={**nod, "options": {**nod["options"], "decimals": 0}})
+b.add("timeseries", "Online right now (humans vs bots)", """Live concurrency. A human line above zero is a real person in an arena; bots fill the gap.
+This is the same population the landing page's "N pilots flying now" reads.""",
+      [("saucerjam_players", "humans"), ("saucerjam_bots", "bots")], w=24, minv=0)
+
 b.row("Audience & retention: are people playing and coming back?")
-b.add("stat", "Active pilots (24h)", "Distinct hashed pilot tokens that joined in the last 24h. *Needs deploy.*",
+b.add("stat", "Active pilots (24h)", "Distinct hashed pilot tokens that joined in the last 24h, computed **server-side** over a trailing window.\nIt **resets when the game process restarts**, and the 24h/7d/30d windows are nested — so right after a deploy all three read the same number until the process has run longer than a day.",
       [("saucerjam_distinct_pilots_1d", "")], w=6, h=5, extra=nod, no_value="no data yet")
 b.add("stat", "Active pilots (7d)", "Distinct pilots in the last 7 days — the single best 'is this game alive?' number.",
       [("saucerjam_distinct_pilots_7d", "")], w=6, h=5, extra=nod)
-b.add("stat", "Active pilots (30d)", "Distinct pilots in the last 30 days. The bigger the gap to the 7d number, the more casual the audience. *Needs deploy.*",
+b.add("stat", "Active pilots (30d)", "Distinct pilots in the last 30 days, computed **server-side**. The bigger the gap to the 7d number, the more casual the audience. Resets on restart, like the other windows.",
       [("saucerjam_distinct_pilots_30d", "")], w=6, h=5, extra=nod, no_value="no data yet")
-b.add("stat", "Stickiness (24h / 30d)", """**DAU/MAU**: of everyone who played this month, what share played today?
-A rising line = a habit forming. A high one-off spike = a launch you did not retain.""",
+b.add("stat", "Stickiness (24h / 30d)", """**DAU/MAU**: of everyone who played this month, what share played today? A rising value = a habit forming.
+**Reads 100% until the windows differ**: right after a restart the 24h and 30d windows cover the same tokens, so the ratio is 1 by construction.""",
       [("saucerjam_distinct_pilots_1d / clamp_min(saucerjam_distinct_pilots_30d, 1)", "")], w=6, h=5, unit="percentunit",
       extra={**nod, "options": {**nod["options"], "decimals": 0}}, maxv=1, no_value="no active pilots yet")
-b.add("timeseries", "Active pilots by window (24h / 7d / 30d)", """The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.""",
+b.add("timeseries", "Active pilots by window (24h / 7d / 30d)", """The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.\nThese are computed server-side and reset on process restart, so they do not follow the time picker.""",
       [("saucerjam_distinct_pilots_1d", "24h"), ("saucerjam_distinct_pilots_7d", "7d"), ("saucerjam_distinct_pilots_30d", "30d")], w=12)
 b.add("timeseries", "Rounds finished by map", "Which maps get played to the end. A map nobody finishes is a candidate for a redesign.",
       [("sum by (map) (rate(saucerjam_rounds_completed_total[$__rate_interval]) * 3600)", "{{map}}")], w=12, no_value="no rounds in window")

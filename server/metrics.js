@@ -21,6 +21,11 @@ class Metrics {
     // Default application-relevant buckets (seconds): sub-ms auth to multi-second round saves.
     this.httpDuration = this.histogram("saucerjam_http_request_duration_seconds", "HTTP request duration in seconds", [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5]);
     this.wsRtt = this.histogram("saucerjam_ws_round_trip_seconds", "Client-reported websocket ping in seconds", [0.02, 0.05, 0.09, 0.15, 0.25, 0.5, 1]);
+    // Product/business metrics (see docs/SRE.md): how long people stay and how
+    // long it takes them to finish their first round. Used by the Product &
+    // growth dashboard; a session is one websocket connection.
+    this.sessionDuration = this.histogram("saucerjam_session_seconds", "Play session duration in seconds", [10, 30, 60, 120, 300, 600, 1800, 3600, 7200]);
+    this.firstRound = this.histogram("saucerjam_first_round_seconds", "Seconds from joining to the first completed round", [30, 60, 120, 300, 600, 1200, 3600]);
   }
   counter(name, help, type = "counter") {
     if (!this.counters.has(name)) this.counters.set(name, { help, type, values: new Map() });
@@ -61,9 +66,18 @@ class Metrics {
     this.tokens.set(createHash("sha256").update(token).digest("hex"), Date.now());
   }
   distinctTokens(windowMs = 7 * 24 * 60 * 60_000) {
-    const cutoff = Date.now() - windowMs;
+    const now = Date.now();
+    const cutoff = now - windowMs;
+    // Expire only tokens older than the LONGEST window we report (30d),
+    // regardless of which window was asked for. Deleting by the queried window
+    // would let a call for `_1d` garbage-collect the data the 7d/30d gauges
+    // still need.
+    const retention = now - 30 * 24 * 60 * 60_000;
     let n = 0;
-    for (const [hash, at] of this.tokens) { if (at >= cutoff) n++; else if (this.tokens.size > 50_000) this.tokens.delete(hash); }
+    for (const [hash, at] of this.tokens) {
+      if (at >= cutoff) n++;
+      else if (at < retention) this.tokens.delete(hash);
+    }
     return n;
   }
   render({ extraGauges = [] } = {}) {
@@ -101,8 +115,12 @@ class Metrics {
       `saucerjam_process_heap_bytes ${mem.heapUsed}`,
       "# HELP saucerjam_system_load1 One-minute load average", "# TYPE saucerjam_system_load1 gauge",
       `saucerjam_system_load1 ${os.loadavg()[0]}`,
+      "# HELP saucerjam_distinct_pilots_1d Distinct pilot tokens seen in trailing 24h", "# TYPE saucerjam_distinct_pilots_1d gauge",
+      `saucerjam_distinct_pilots_1d ${this.distinctTokens(24 * 60 * 60_000)}`,
       "# HELP saucerjam_distinct_pilots_7d Distinct pilot tokens seen in trailing 7 days", "# TYPE saucerjam_distinct_pilots_7d gauge",
-      `saucerjam_distinct_pilots_7d ${this.distinctTokens()}`,
+      `saucerjam_distinct_pilots_7d ${this.distinctTokens(7 * 24 * 60 * 60_000)}`,
+      "# HELP saucerjam_distinct_pilots_30d Distinct pilot tokens seen in trailing 30 days", "# TYPE saucerjam_distinct_pilots_30d gauge",
+      `saucerjam_distinct_pilots_30d ${this.distinctTokens(30 * 24 * 60 * 60_000)}`,
     );
     return lines.join("\n") + "\n";
   }

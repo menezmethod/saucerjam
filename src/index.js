@@ -98,6 +98,9 @@ class Game {
     this.updateSound();
     this.loadCareer();
     this.loadPopulation();
+    // Funnel top: one landing view per page load, so the Product & growth board
+    // can show landing -> play -> join -> finish.
+    this.track("landing_view");
     // Read-only diagnostics for support and end-to-end verification.
     window.__qd = Object.freeze({
       ...(new URLSearchParams(location.search).has("showcase") ? {showcase: config => this.stageShowcase(config)} : {}),

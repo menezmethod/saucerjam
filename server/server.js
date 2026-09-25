@@ -550,6 +550,11 @@ function createGameServer({
     } else fillBots(room);
   }
   io.on("connection", (socket) => {
+    // One websocket connection is one play session: it is the denominator for
+    // the friction ratios and the sample for session-duration and retention
+    // metrics on the Product & growth dashboard.
+    insights.beginSession();
+    socket.data.connectedAt = Date.now();
     let windowStart = Date.now(),
       packets = 0,
       lastJoin = 0,
@@ -622,6 +627,8 @@ function createGameServer({
       room.humans.add(socket.id);
       mJoins.add({ mode: mode === "quick" || mode === "create" || mode === "join" ? mode : "unknown", map: getMap(requestedMap).id });
       if (request.profileToken) metrics.seeToken(request.profileToken);
+      // First successful join of this session; the clock for time-to-first-round.
+      if (!socket.data.joinedAt) socket.data.joinedAt = Date.now();
       // Remove a filling bot before choosing a color and a safe player spawn.
       fillBots(room);
       const prior=[...room.sim.departed.values()].find(p=>p.profileId===profileId);
@@ -674,7 +681,12 @@ function createGameServer({
       if (typeof ack === "function") ack();
     });
     socket.on("leave", () => leave(socket));
-    socket.on("disconnect", reason => { releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect"); });
+    socket.on("disconnect", reason => {
+      // Product metric: how long did this play session last?
+      const secs = socket.data.connectedAt ? (Date.now() - socket.data.connectedAt) / 1000 : 0;
+      if (secs > 0) metrics.sessionDuration.observe({}, secs);
+      releaseIp(socket); leave(socket, reason !== "client namespace disconnect" && reason !== "server namespace disconnect");
+    });
   });
   let previous = performance.now(),
     accumulator = 0;
@@ -692,6 +704,14 @@ function createGameServer({
           if (event.type === "mapChanged") io.to(room.code).emit("map", event.map);
           if (event.type === "roundEnd") {
             mRounds.add({ map: room.sim.map.id });
+            // Time-to-first-round per pilot (product metric).
+            for (const id of room.humans) {
+              const s = io.sockets.sockets.get(id);
+              if (s && !s.data.firstRoundObserved && s.data.joinedAt) {
+                s.data.firstRoundObserved = true;
+                metrics.firstRound.observe({}, (Date.now() - s.data.joinedAt) / 1000);
+              }
+            }
             event.recap.recordId=room.matchId+":"+room.sim.round;
             const record={id:event.recap.recordId,mapId:room.sim.map.id,players:event.recap.players,winnerId:event.recap.winnerId};
             const save=Promise.resolve().then(()=>rankings.recordRound(record)).then(()=>{rankingError=null;io.to(room.code).emit("careerUpdated");}).catch(error=>{rankingError="Last round records could not be saved.";mRankingErrors.add({});console.error("Ranking save failed:",error.message);io.to(room.code).emit("rankingsError",rankingError);}).finally(()=>pendingSaves.delete(save));

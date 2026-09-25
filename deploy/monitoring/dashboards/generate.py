@@ -337,7 +337,7 @@ A widening gap between two steps is where you lose people. Landing views and sta
 
 b.row("Engagement depth: how much are they playing?")
 b.add("stat", "Rounds per active pilot (24h)", "How many full matches the average active pilot played today. Rising = the core loop is holding attention. *Needs deploy.*",
-      [("sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(saucerjam_distinct_pilots_1d, 1)", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+      [("sum(increase(saucerjam_rounds_completed_total[24h])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))", "")], w=6, h=5, extra=nod, no_value="needs deploy")
 b.add("stat", "Chat lines (24h)", "Social signal: players talking to each other is an early sign of community.",
       [("sum(increase(saucerjam_chat_messages_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod)
 b.add("timeseries", "Session length p50 / p95", """How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.
@@ -435,7 +435,7 @@ b.add("stat", "Connections", "Backends connected to the `postgres` database righ
       [('pg_stat_database_numbackends{datname="postgres"}', "")], w=6, h=5, extra={**nod, "options": {**nod["options"], "decimals": 0}},
       thresholds=[(None, "green"), (70, "orange"), (90, "red")])
 b.add("stat", "Connection saturation", "Connections as a share of `max_connections` (100). Near 100% new requests queue or fail — a classic DB cliff.",
-      [('pg_stat_database_numbackends{datname="postgres"} / pg_settings_max_connections', "")], w=6, h=5, unit="percentunit", maxv=1, extra=nod,
+      [('pg_stat_database_numbackends{datname="postgres"} / scalar(pg_settings_max_connections)', "")], w=6, h=5, unit="percentunit", maxv=1, extra=nod,
       thresholds=[(None, "green"), (0.7, "orange"), (0.9, "red")])
 b.add("stat", "Database size", "Size of the `postgres` database. Growth here is the rankings ledger plus Supabase's own tables.",
       [('pg_database_size_bytes{datname="postgres"}', "")], w=6, h=5, unit="bytes", extra=nod)

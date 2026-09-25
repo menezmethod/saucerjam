@@ -791,7 +791,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(saucerjam_distinct_pilots_1d, 1)",
+          "expr": "sum(increase(saucerjam_rounds_completed_total[24h])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))",
           "legendFormat": ""
         }
       ],

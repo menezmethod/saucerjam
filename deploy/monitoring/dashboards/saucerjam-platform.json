@@ -585,7 +585,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "pg_stat_database_numbackends{datname=\"postgres\"} / pg_settings_max_connections",
+          "expr": "pg_stat_database_numbackends{datname=\"postgres\"} / scalar(pg_settings_max_connections)",
           "legendFormat": ""
         }
       ],

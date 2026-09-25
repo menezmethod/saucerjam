@@ -580,8 +580,13 @@ function createGameServer({
       const requestedMap = typeof request.mapId === "string" && allowLegacyMaps && LEGACY_MAPS.some(map=>map.id===request.mapId) ? request.mapId : allowLegacyMaps ? "classic" : "confluence";
       let room;
       if (mode === "quick") {
+        // Testing: ONE shared public arena. Every quick-play lands in the same
+        // PUBLIC room regardless of the map each client picked, so friends who
+        // hit "Play online" actually meet. Private rooms (create / join by
+        // code) are unchanged. Only the player cap can spill into a second
+        // public room.
         room = [...rooms.values()].find(
-          (r) => r.code.startsWith("PUBLIC") && r.humans.size < maxPlayersPerRoom && r.sim.map.id === getMap(requestedMap).id,
+          (r) => r.code.startsWith("PUBLIC") && r.humans.size < maxPlayersPerRoom,
         );
         if (!room) {
           if (rooms.size >= maxRooms) { mJoinFailures.add({ reason: "rooms_full" }); return ack({
@@ -625,7 +630,7 @@ function createGameServer({
       socket.data.profileId = profileId;
       clearTimeout(room.expiry);room.expiry=null;
       room.humans.add(socket.id);
-      mJoins.add({ mode: mode === "quick" || mode === "create" || mode === "join" ? mode : "unknown", map: getMap(requestedMap).id });
+      mJoins.add({ mode: mode === "quick" || mode === "create" || mode === "join" ? mode : "unknown", map: room.sim.map.id });
       if (request.profileToken) metrics.seeToken(request.profileToken);
       // First successful join of this session; the clock for time-to-first-round.
       if (!socket.data.joinedAt) socket.data.joinedAt = Date.now();

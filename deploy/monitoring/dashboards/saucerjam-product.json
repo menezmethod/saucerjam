@@ -51,7 +51,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### Product & growth: the business view\nFor a VP/product reader: **are people playing, coming back, and is it worth investing in?**\nThis board is deliberately **separate from reliability** (Google's advice): a quiet Tuesday is not an outage and nobody gets paged for it. Reliability lives on **Service health**; the machinery underneath lives on **Platform & dependencies**.\n\n**Read it as a funnel, top to bottom:** is the data trustworthy -> audience -> retention -> funnel -> depth -> experience -> community -> cost.\nAct on the **shape over weeks**, not the last minute.\n\n**Low-traffic caveat:** with a handful of players most panels are **empty or a single spike** at any moment \u2014 normal, not broken. Empty means \"nobody did this in the window\". Widen the range before concluding; 5m/1h rates at this scale are mostly noise.\n\n**Blind vs calm:** a flat line can mean the telemetry stopped, not that players are happy. **Pipeline health** (row 1) is the heartbeat.\nMetrics marked *needs deploy* appear after the next game deploy."
+        "content": "### Product & growth: the business view\nFor a VP/product reader: **are people playing, coming back, and is it worth investing in?**\nThis board is deliberately **separate from reliability** (Google's advice): a quiet Tuesday is not an outage and nobody gets paged for it. Reliability lives on **Service health**; the machinery underneath lives on **Platform & dependencies**.\n\n**Read it as a funnel, top to bottom:** is the data trustworthy -> audience -> retention -> funnel -> depth -> experience -> community -> cost.\nAct on the **shape over weeks**, not the last minute.\n\n**Low-traffic caveat:** with a handful of players most panels are **empty or a single spike** at any moment \u2014 normal, not broken. Empty means \"nobody did this in the window\". Widen the range before concluding; 5m/1h rates at this scale are mostly noise.\n\n**Blind vs calm:** a flat line can mean the telemetry stopped, not that players are happy. **Pipeline health** (row 1) is the heartbeat.\nNew product metrics start reporting as players play; an empty panel means nobody did this yet, not a broken one."
       }
     },
     {
@@ -255,7 +255,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "needs deploy"
+          "noValue": "no data yet"
         },
         "overrides": []
       },
@@ -335,7 +335,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "needs deploy"
+          "noValue": "no data yet"
         },
         "overrides": []
       },
@@ -377,7 +377,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "noValue": "needs deploy",
+          "noValue": "no active pilots yet",
           "max": 1
         },
         "overrides": []
@@ -519,7 +519,7 @@
     {
       "type": "stat",
       "title": "Landing -> play",
-      "description": "Share of landing views that started a game (practice or online). The top-of-funnel conversion.\n*Needs deploy.* Empty until `landing_view` is reported.",
+      "description": "Share of landing views that started a game (practice or online). The top-of-funnel conversion.\nEmpty until a landing view is reported.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -533,7 +533,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "noValue": "needs deploy",
+          "noValue": "no landing views in window",
           "max": 1
         },
         "overrides": []
@@ -619,7 +619,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "noValue": "needs deploy",
+          "noValue": "no online starts in window",
           "max": 1
         },
         "overrides": []
@@ -688,7 +688,7 @@
     {
       "type": "timeseries",
       "title": "Funnel steps per hour",
-      "description": "The funnel in one picture: **landing views -> game starts -> joins -> finished rounds**.\nA widening gap between two steps is where you lose people. Landing views and starts *need deploy*.",
+      "description": "The funnel in one picture: **landing views -> game starts -> joins -> finished rounds**.\nA widening gap between two steps is where you lose people. Landing views and starts are reported by the client.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -767,7 +767,7 @@
     {
       "type": "stat",
       "title": "Rounds per active pilot (24h)",
-      "description": "How many full matches the average active pilot played today. Rising = the core loop is holding attention. *Needs deploy.*",
+      "description": "How many full matches the average active pilot played today. Rising = the core loop is holding attention.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -780,7 +780,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "needs deploy"
+          "noValue": "no rounds yet"
         },
         "overrides": []
       },
@@ -847,7 +847,7 @@
     {
       "type": "timeseries",
       "title": "Session length p50 / p95",
-      "description": "How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.\nSessions shorter than a round suggest people bounce; watch this after onboarding changes. *Needs deploy.*",
+      "description": "How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.\nSessions shorter than a round suggest people bounce; watch this after onboarding changes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -861,7 +861,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "needs deploy"
+          "noValue": "no sessions yet"
         },
         "overrides": []
       },
@@ -899,7 +899,7 @@
     {
       "type": "timeseries",
       "title": "Time to first round p50 / p95",
-      "description": "From joining to finishing the first round. The single best onboarding number: if it is long, new pilots are wandering before they play. *Needs deploy.*",
+      "description": "From joining to finishing the first round. The single best onboarding number: if it is long, new pilots are wandering before they play.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -913,7 +913,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "needs deploy"
+          "noValue": "no completed rounds yet"
         },
         "overrides": []
       },

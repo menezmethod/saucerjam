@@ -1,0 +1,19 @@
+# Blackbox exporter modules for the SaucerJam public-availability probe.
+#
+# Deployed on the observability host (Oracle): /opt/observability/blackbox/blackbox.yml
+# Prometheus scrapes it with job `blackbox-http` (see deploy/monitoring/scrape.yml).
+#
+# Why: a direct prometheus scrape of /metrics only records `up{job="saucerjam"}`
+# 0/1 — it cannot say *why* a probe failed. The blackbox exporter performs the
+# request itself and exposes the phase it reached (`probe_dns_lookup_time_seconds`,
+# `probe_connect_seconds`, `probe_tls_...`, `probe_http_status_code`), so an
+# error budget that gets spent can be attributed to DNS, TCP, TLS, or HTTP.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      follow_redirects: true

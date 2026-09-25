@@ -1,5 +1,12 @@
-# Add this block to /home/menez/docker/prometheus/prometheus.yml on Pi5
-# (192.168.0.207). Do NOT use sed; edit with the SSH+python snippet in docs/SRE.md.
+# Scrape jobs for SaucerJam, merged into the observability host's
+# prometheus.yml (/opt/observability/prometheus/prometheus.yml on Oracle).
+# Do NOT use sed; edit with the SSH+python snippet described in docs/SRE.md.
+#
+# Two jobs:
+#   saucerjam     - the game's own Prometheus metrics (what the app exports)
+#   blackbox-http - an outside-in probe of the public URL, run by the blackbox
+#                   exporter so a failure records WHY (DNS/TCP/TLS/HTTP), not
+#                   just that it failed. Feeds the availability SLI.
 - job_name: "saucerjam"
   scheme: https
   metrics_path: /metrics
@@ -10,3 +17,22 @@
         env: production
         service: saucerjam
         app: saucerjam
+
+- job_name: "blackbox-http"
+  metrics_path: /probe
+  scrape_interval: 15s
+  params:
+    module: [http_2xx]
+  static_configs:
+    - targets: ["https://qd.menezmethod.com/health"]
+      labels:
+        service: saucerjam
+        env: production
+        probe: public
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: blackbox-exporter:9115

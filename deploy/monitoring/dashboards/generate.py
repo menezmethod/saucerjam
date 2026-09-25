@@ -280,7 +280,7 @@ Act on the **shape over weeks**, not the last minute.
 **Low-traffic caveat:** with a handful of players most panels are **empty or a single spike** at any moment — normal, not broken. Empty means "nobody did this in the window". Widen the range before concluding; 5m/1h rates at this scale are mostly noise.
 
 **Blind vs calm:** a flat line can mean the telemetry stopped, not that players are happy. **Pipeline health** (row 1) is the heartbeat.
-Metrics marked *needs deploy* appear after the next game deploy.""", h=10)
+New product metrics start reporting as players play; an empty panel means nobody did this yet, not a broken one.""", h=10)
 
 b.row("Pipeline health: is the data trustworthy?")
 b.add("stat", "Landing views (24h)", """Page loads that reported telemetry in the last 24h — the top of the funnel and the first sanity check that the beacon works.
@@ -299,15 +299,15 @@ Cross-check with starts: quiet telemetry *and* no starts = genuinely nobody play
 
 b.row("Audience & retention: are people playing and coming back?")
 b.add("stat", "Active pilots (24h)", "Distinct hashed pilot tokens that joined in the last 24h. *Needs deploy.*",
-      [("saucerjam_distinct_pilots_1d", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+      [("saucerjam_distinct_pilots_1d", "")], w=6, h=5, extra=nod, no_value="no data yet")
 b.add("stat", "Active pilots (7d)", "Distinct pilots in the last 7 days — the single best 'is this game alive?' number.",
       [("saucerjam_distinct_pilots_7d", "")], w=6, h=5, extra=nod)
 b.add("stat", "Active pilots (30d)", "Distinct pilots in the last 30 days. The bigger the gap to the 7d number, the more casual the audience. *Needs deploy.*",
-      [("saucerjam_distinct_pilots_30d", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+      [("saucerjam_distinct_pilots_30d", "")], w=6, h=5, extra=nod, no_value="no data yet")
 b.add("stat", "Stickiness (24h / 30d)", """**DAU/MAU**: of everyone who played this month, what share played today?
 A rising line = a habit forming. A high one-off spike = a launch you did not retain.""",
       [("saucerjam_distinct_pilots_1d / clamp_min(saucerjam_distinct_pilots_30d, 1)", "")], w=6, h=5, unit="percentunit",
-      extra={**nod, "options": {**nod["options"], "decimals": 0}}, maxv=1, no_value="needs deploy")
+      extra={**nod, "options": {**nod["options"], "decimals": 0}}, maxv=1, no_value="no active pilots yet")
 b.add("timeseries", "Active pilots by window (24h / 7d / 30d)", """The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.""",
       [("saucerjam_distinct_pilots_1d", "24h"), ("saucerjam_distinct_pilots_7d", "7d"), ("saucerjam_distinct_pilots_30d", "30d")], w=12)
 b.add("timeseries", "Rounds finished by map", "Which maps get played to the end. A map nobody finishes is a candidate for a redesign.",
@@ -315,9 +315,9 @@ b.add("timeseries", "Rounds finished by map", "Which maps get played to the end.
 
 b.row("Funnel: landing -> play -> finish")
 b.add("stat", "Landing -> play", """Share of landing views that started a game (practice or online). The top-of-funnel conversion.
-*Needs deploy.* Empty until `landing_view` is reported.""",
+Empty until a landing view is reported.""",
       [('sum(increase(insight_events_total{event=~"practice_start|online_start"}[24h])) / clamp_min(sum(increase(insight_events_total{event="landing_view"}[24h])), 1)', "")],
-      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="needs deploy")
+      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="no landing views in window")
 b.add("stat", "Join success (30d)", """Players who pressed "Play online" and got into a match.
 Rejections from `rate_limited`/`debounced` are excluded — the server protecting itself, not a failure a player feels.""",
       [('sum(increase(saucerjam_joins_total[30d])) / clamp_min(sum(increase(saucerjam_joins_total[30d])) + (sum(increase(saucerjam_join_failures_total{reason!~"rate_limited|debounced"}[30d])) or vector(0)), 1)', "")],
@@ -325,28 +325,28 @@ Rejections from `rate_limited`/`debounced` are excluded — the server protectin
 b.add("stat", "Online start -> finished round", """Of the players who started an online match, how many played it to the end.
 A low number = people bail mid-match; ask why in feedback (or check ping on Service health).""",
       [("sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(sum(increase(insight_events_total{event=\"online_start\"}[24h])), 1)", "")],
-      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="needs deploy")
+      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="no online starts in window")
 b.add("stat", "Rounds finished (24h)", "Matches played to the end in the last day.",
       [("sum(increase(saucerjam_rounds_completed_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod)
 b.add("timeseries", "Funnel steps per hour", """The funnel in one picture: **landing views -> game starts -> joins -> finished rounds**.
-A widening gap between two steps is where you lose people. Landing views and starts *need deploy*.""",
+A widening gap between two steps is where you lose people. Landing views and starts are reported by the client.""",
       [('sum(increase(insight_events_total{event="landing_view"}[1h]))', "landing views"),
        ('sum(increase(insight_events_total{event=~"practice_start|online_start"}[1h]))', "game starts"),
        ("sum(increase(saucerjam_joins_total[1h]))", "joins"),
        ("sum(increase(saucerjam_rounds_completed_total[1h]))", "rounds finished")], w=24)
 
 b.row("Engagement depth: how much are they playing?")
-b.add("stat", "Rounds per active pilot (24h)", "How many full matches the average active pilot played today. Rising = the core loop is holding attention. *Needs deploy.*",
-      [("sum(increase(saucerjam_rounds_completed_total[24h])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+b.add("stat", "Rounds per active pilot (24h)", "How many full matches the average active pilot played today. Rising = the core loop is holding attention.",
+      [("sum(increase(saucerjam_rounds_completed_total[24h])) / sum(clamp_min(saucerjam_distinct_pilots_1d, 1))", "")], w=6, h=5, extra=nod, no_value="no rounds yet")
 b.add("stat", "Chat lines (24h)", "Social signal: players talking to each other is an early sign of community.",
       [("sum(increase(saucerjam_chat_messages_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod)
 b.add("timeseries", "Session length p50 / p95", """How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.
-Sessions shorter than a round suggest people bounce; watch this after onboarding changes. *Needs deploy.*""",
+Sessions shorter than a round suggest people bounce; watch this after onboarding changes.""",
       [(f'histogram_quantile({q}, sum by (le) (rate(saucerjam_session_seconds_bucket[30m])))', f"p{int(q*100)}") for q in (0.5, 0.95)],
-      w=12, unit="s", no_value="needs deploy")
-b.add("timeseries", "Time to first round p50 / p95", """From joining to finishing the first round. The single best onboarding number: if it is long, new pilots are wandering before they play. *Needs deploy.*""",
+      w=12, unit="s", no_value="no sessions yet")
+b.add("timeseries", "Time to first round p50 / p95", """From joining to finishing the first round. The single best onboarding number: if it is long, new pilots are wandering before they play.""",
       [(f'histogram_quantile({q}, sum by (le) (rate(saucerjam_first_round_seconds_bucket[30m])))', f"p{int(q*100)}") for q in (0.5, 0.95)],
-      w=12, unit="s", no_value="needs deploy")
+      w=12, unit="s", no_value="no completed rounds yet")
 b.add("timeseries", "Game events by type (per min)", """What happens inside matches: fire, hit, kill, portal use, pickups.
 Ratios tell a design story: hits/fire = accuracy (too low = aiming is frustrating), kills/hit = how tanky players are.""",
       [("sum by (type) (rate(saucerjam_game_events_total[5m])) * 60", "{{type}}")], w=24)

@@ -33,30 +33,38 @@ aggregate, non-PII counts). Implementation: `server/metrics.js`, wired in
 | `saucerjam_community_ingest_total{kind,proposal}` | counter | Fider items accepted by the AI queue |
 | `saucerjam_community_webhook_rejected_total{reason}` | counter | Rejected Fider webhooks |
 | `saucerjam_community_actions_total{action}` | counter | AI actions recorded |
-| `saucerjam_distinct_pilots_7d` | gauge | Distinct hashed pilot tokens, trailing 7 days (retention) |
+| `saucerjam_distinct_pilots_1d`, `_7d`, `_30d` | gauge | Distinct hashed pilot tokens in the trailing 24h / 7d / 30d (retention). The 7d gauge was the original; **1d and 30d ship with the next game deploy.** |
+| `saucerjam_session_seconds` | histogram | Play-session length (websocket connect → disconnect). **Next deploy.** |
+| `saucerjam_first_round_seconds` | histogram | Time from joining to finishing the first round (onboarding). **Next deploy.** |
+| `insight_events_total{event,device,platform}` | counter | Allow-listed client UX events (starts, reports, friction, `landing_view`, …); capped series, no identifiers |
+| `insight_sessions_total` | counter | Play sessions (one per websocket connection); the friction-ratio denominator |
+| `insight_friction_ratio{signal}` | gauge | Per-session share of a friction signal (`stuck_no_input`, `died_without_kill`, …) |
 | `saucerjam_process_uptime_seconds`, `_resident_memory_bytes`, `_heap_bytes`, `saucerjam_system_load1` | gauge | Process/runtime health |
 
 `GET /health` remains the coarse liveness probe: `{status, rankings, rooms, players}`.
+
+**Not from the app:** the **database** is measured by `postgres_exporter` (§2), and the **public path** by the blackbox probe. Nothing on the game is exposed for those.
 
 ## 2. Wiring (already applied)
 
 The observability stack runs on the Oracle free-tier host `free-arm-01`
 (Tailscale `100.72.3.78`) under `/opt/observability`; the Pi5 was retired from
-monitoring on 2026-09-25 and now only runs Home Assistant. Four containers:
+monitoring on 2026-09-25 and now only runs Home Assistant. Six containers:
 
 | Container | Role |
 | --- | --- |
 | `obs-prometheus` | scrape + rule evaluation (`127.0.0.1:9090`) |
 | `obs-grafana` | dashboards and alerting UI (`:3001`) |
 | `obs-blackbox` | outside-in HTTP probe of the public URL (internal `:9115`) |
+| `obs-postgres` | Postgres metrics for the Supabase database (internal `:9187`) |
 | `obs-node-exporter` | host CPU / memory / disk (`:9100`) |
-| `obs-cadvisor` | per-container memory (the game's RSS panel) |
+| `obs-cadvisor` | per-container CPU/memory (the game and DB panels) |
 
-Prometheus config `/opt/observability/prometheus/prometheus.yml` scrapes job
+Prometheus config `/opt/observability/prometheus/prometheus.yml` scrapes jobs
 `saucerjam` (`https://qd.menezmethod.com/metrics`, 15s), `blackbox-http`,
-`oci-node`, `oci-cadvisor`, and the LAN hosts over Tailscale. It also loads
-`/etc/prometheus/saucerjam.rules.yml` via `rule_files` (SLI recording rules and
-alerts). Repo mirrors: `deploy/monitoring/scrape.yml`,
+`postgres`, `oci-node`, `oci-cadvisor`, and the LAN hosts over Tailscale. It also
+loads `/etc/prometheus/saucerjam.rules.yml` via `rule_files` (SLI recording
+rules and alerts). Repo mirrors: `deploy/monitoring/scrape.yml`,
 `deploy/monitoring/saucerjam.rules.yml`.
 
 The **blackbox exporter** (`obs-blackbox`, config
@@ -78,6 +86,37 @@ blackbox-exporter:
   expose: ['9115']
 ```
 
+The **postgres exporter** (`obs-postgres`) is the database's own view —
+`pg_up`, connections vs `max_connections`, size, cache hit ratio, transactions,
+rollbacks and deadlocks — as opposed to the app's `saucerjam_rankings_*`. It
+joins the Supabase Compose network to reach `supabase-db:5432` and connects as a
+**read-only** role (`saucerjam_monitor`, `pg_monitor` + `CONNECT` only). Its DSN
+lives in `/opt/observability/.env` (mode 600), never in the repo:
+
+```yaml
+# /opt/observability/docker-compose.yml
+postgres-exporter:
+  image: prometheuscommunity/postgres-exporter:latest
+  container_name: obs-postgres
+  restart: unless-stopped
+  environment:
+    DATA_SOURCE_NAME: ${PG_EXPORTER_DSN}
+  networks: [default, supabase_db]
+  expose: ['9187']
+networks:
+  supabase_db:
+    external: true
+    name: kh4i0pgyd5rmn72haex4mrh2   # the Supabase service network
+```
+
+To recreate the monitoring role (idempotent; run against the DB):
+
+```sql
+CREATE ROLE saucerjam_monitor LOGIN PASSWORD '<generated>' CONNECTION LIMIT 4;
+GRANT pg_monitor TO saucerjam_monitor;
+GRANT CONNECT ON DATABASE postgres TO saucerjam_monitor;
+```
+
 
 Grafana is **file-provisioned** from `/opt/observability/grafana/`, so the
 running dashboards match this repo and survive a container rebuild:
@@ -86,7 +125,7 @@ running dashboards match this repo and survive a container rebuild:
 | --- | --- |
 | `provisioning/datasources/prometheus.yaml` | Prometheus, UID pinned to `prom` |
 | `provisioning/dashboards/provider.yaml` | every JSON in `dashboards/`, into the **SaucerJam** folder, UI edits disabled |
-| `dashboards/saucerjam-{health,players}.json` | the two official dashboards (§2.1) |
+| `dashboards/saucerjam-{health,product,platform}.json` | the three official dashboards (§2.1) |
 
 Repo mirrors: `deploy/monitoring/grafana-provisioning/` and
 `deploy/monitoring/dashboards/`. The JSON is **generated, not hand-written** —
@@ -118,35 +157,42 @@ curl -su admin "localhost:3001/api/dashboards/uid/saucerjam-health" \
 
 ### 2.1 The official dashboards
 
-Two dashboards, split on purpose — Google keeps reliability and product metrics
-apart, because a quiet Tuesday is not an outage and nobody should be paged for
-it:
+Three dashboards, one story, one reader each. They are deliberately **separate**:
+Google's guidance is to never page on product metrics, and a principal debugging
+a limit is not the same person as a VP deciding what to build.
 
-| Dashboard | UID / URL | Question it answers |
-| --- | --- | --- |
-| Service health (SLOs) | `/d/saucerjam-health` | *Are players OK?* — SLOs and the four golden signals |
-| Players & game | `/d/saucerjam-players` | *What should we build next?* — engagement and friction |
+| Dashboard | UID / URL | Reader | Question |
+| --- | --- | --- | --- |
+| Product & growth | `/d/saucerjam-product` | VP / product | *Are people playing, staying, and is it growing?* |
+| Platform & dependencies | `/d/saucerjam-platform` | Principal | *What is it built on, where are the limits, what breaks next?* |
+| Service health (SLOs) | `/d/saucerjam-health` | On-call / SRE | *Is it OK now, and if not, what is spending the budget?* |
 
-Every panel carries an **(i) description** explaining the metric, its threshold,
-and why it exists, and each board opens with a "how to read this" panel. The
-design follows Google SRE guidance:
+The arc descends from business → system → incident, so a reader can drill in:
+product numbers are the "so what", platform explains the machinery, and service
+health is the "right now". Each board links to the others in its header.
 
-- the **four golden signals** — latency, traffic, errors, saturation (SRE book,
-  ch. 6) — ordered so symptoms (player-visible) sit above causes;
-- latency measured as **"X% of requests faster than Y"** on a histogram bucket,
-  never an average, so a slow tail cannot hide inside a good mean;
-- **error-budget burn rate** over 1h and 6h windows: the numbers a mature
-  multi-window, multi-burn-rate alert would page on;
-- a **synthetic-probe SLI** for availability (the blackbox probe of
-  `https://qd.menezmethod.com/health`) that stays populated with zero players —
-  the workbook's advice for low-traffic services;
-- availability is **blip-tolerant**: a minute counts as up if any probe in it
-  succeeded, so one failed 15s scrape is not billed as downtime;
-- an **error-budget attribution row** that separates raw probe failures from
-  *billed* outages and shows whether a failure was HTTP, TLS, TCP or DNS, so a
-  budget drop is always traceable to a cause;
-- request SLOs **exclude `/health` and `/metrics`** (about 99% of all hits),
-  which would otherwise pin the success rate at 100% forever.
+**Product & growth** is a funnel read top to bottom: is the data trustworthy
+(pipeline heartbeat) → audience & retention (1d/7d/30d, DAU/MAU stickiness) →
+funnel (landing → play → join → finish) → engagement depth (session length,
+time-to-first-round) → experience quality (friction, by device) → the community
+loop → **cost & efficiency** (all-free tier headroom).
+
+**Platform & dependencies** is: dependency health (Cloudflare, app, Postgres,
+Fider, TLS) → the **data plane** (self-hosted Supabase Postgres) → host and game
+capacity/saturation → change & error correlation. Every panel answers "what
+limit is this, and what happens at 100%?".
+
+**Service health** keeps the SLO model: the four golden signals (SRE book ch. 6)
+ordered symptoms-first, latency as **"X% of requests faster than Y"** (never an
+average), **error-budget burn rate** over 1h/6h, a **blip-tolerant synthetic
+probe SLI** for low traffic (a minute is up if any probe in it succeeded), and
+an **attribution row** that separates raw probe failures from billed outages and
+says whether a failure was HTTP, TLS, TCP or DNS. Request SLOs exclude `/health`
+and `/metrics` (~99% of hits) so they can say something.
+
+Every panel carries an **(i) description** (what, why, threshold, what to do) and
+a **noValue** empty state, because at this traffic "empty" is the normal state
+and must not read as broken.
 
 Sources: [Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/),
 [Implementing SLOs](https://sre.google/workbook/implementing-slos/),
@@ -164,8 +210,11 @@ pointing at a section below.
 | --- | --- | --- |
 | `SaucerJamDown` | critical | `up{job="saucerjam"} == 0` for 2m |
 | `SaucerJamPublicProbeFailing` | critical | outside-in blackbox probe fails for 2m |
+| `SaucerJamDatabaseDown` | critical | `pg_up == 0` for 2m (Supabase Postgres unreachable) |
 | `SaucerJamTlsCertExpiring` | warning | public TLS cert expires within 14 days |
 | `SaucerJamHealthDegraded` | warning | rankings persistence degraded for 5m |
+| `SaucerJamDatabaseConnectionsHigh` | warning | backends > 85% of `max_connections` for 10m |
+| `SaucerJamDiskFillingUp` | warning | free-tier root disk > 90% for 30m |
 | `SaucerJamRoomsSaturated` | warning | `saucerjam_rooms >= 8` for 5m |
 | `SaucerJamJoinFailureSpike` | warning | join failures > 0.5/s for 5m |
 | `SaucerJamManyHumansPerRoom` | warning | pilots/room > 24 for 5m |
@@ -173,11 +222,12 @@ pointing at a section below.
 | `SaucerJamRankingSaveErrors` | warning | any round save error in 15m |
 | `SaucerJamRateLimitStorm` | warning | limiter rejections > 5/s for 5m |
 | `SaucerJamPlayersStuck` | warning | `insight_friction_ratio{signal="stuck_no_input_per_session"} > 0.15` for 30m |
+| `SaucerJamWebhookRejecting` | warning | Fider webhook deliveries rejected (`reason!~"degraded_parse\|disallowed_action"`) in 1h |
 
 The file also holds the **SLI recording rules** (`saucerjam-sli` group):
 `saucerjam:sli_availability:up1m` (1 if any blackbox probe in the last minute
 succeeded) and `saucerjam:sli_availability:ratio_30d`. Prometheus evaluates all
-**14 rules** (`promtool check rules` → SUCCESS: 14 rules found) and, since
+**17 rules** (`promtool check rules` → SUCCESS: 17 rules found) and, since
 2026-09-25, actually loads them via `rule_files` on Oracle.
 
 Grafana file-provisions the contact point `grafana-hermes`
@@ -234,10 +284,21 @@ human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 3. Check RSS before restart — if it was OOM, capture the value for the incident.
 4. Restart via Coolify; re-run `live.cjs`. If it stays down, escalate.
 
+### Runbook: DatabaseDown
+1. `pg_up` on **Platform & dependencies**; `docker ps | grep supabase-db` on free-arm-01.
+2. `saucerjam_rankings_status{status="degraded"} == 1` and a rising
+   `saucerjam_ranking_save_errors_total` confirm the app sees it too.
+3. Check the exporter's own view: `docker logs obs-postgres` (connection refused
+   vs auth failure).
+4. Do **not** restart `supabase-db` blindly — check free-tier **disk** and
+   **memory** first; a crash loop is usually one of those.
+
 ### Runbook: RankingsDegraded
 1. `saucerjam_ranking_save_errors_total` / `saucerjam_rankings_status{status="degraded"}`.
-2. SSH to the host; verify the rankings volume is mounted and writable.
-3. Do **not** delete `rankings.json`; back it up before any manual edit.
+2. Confirm the database: `pg_up` and the **Data plane** row on Platform & dependencies.
+3. Rankings persist to **Supabase (PostgREST)**, not a local file; a
+   `rankings.json` import happens once on boot only. Never delete DB rows; back
+   up before any manual edit.
 
 ### Runbook: RoomsSaturated
 1. `saucerjam_rooms` at `MAX_ROOMS` — verify the value in Coolify env.

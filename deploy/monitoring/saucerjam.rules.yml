@@ -157,6 +157,45 @@ groups:
           description: "Share of sessions stuck in the lobby without input above 0.15 for 30m; onboarding or control-binding problem, not automatically fixable."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE-INSIGHTS.md"
 
+  # Dependencies SaucerJam does not control: the Postgres behind Supabase and
+  # the free-tier disk. These are principal-level failure modes — a DB outage
+  # loses rounds silently even while the game keeps running.
+  - name: saucerjam-dependencies
+    interval: 30s
+    rules:
+      - alert: SaucerJamDatabaseDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam database is unreachable"
+          description: "postgres_exporter has failed to reach the Supabase Postgres for 2m. Round results cannot be saved; the game keeps running but rankings are lost. Check the supabase-db container and credentials."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-databasedown"
+
+      - alert: SaucerJamDatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends{datname="postgres"} / pg_settings_max_connections > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam database connections near the limit"
+          description: "Backends are above 85% of max_connections for 10m; new requests will start failing. Look for a connection leak or an unbounded pool."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-databasedown"
+
+      - alert: SaucerJamDiskFillingUp
+        expr: (1 - node_filesystem_avail_bytes{job="oci-node",mountpoint="/"} / node_filesystem_size_bytes{job="oci-node",mountpoint="/"}) > 0.9
+        for: 30m
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "Free-tier disk above 90%"
+          description: "Root filesystem on free-arm-01 is above 90% used. The Prometheus 30-day TSDB, container images and Supabase all share it; prune or resize before it fills."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-databasedown"
+
   # The community loop is silent when healthy, so a silent failure looks exactly
   # like a healthy one. This is the one counter that distinguishes them.
   # NOTE: a webhook that Fider has disabled cannot be seen from here — no

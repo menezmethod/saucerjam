@@ -4,8 +4,10 @@
 Usage:
     python3 deploy/monitoring/dashboards/generate.py deploy/monitoring/dashboards
 
-Writes ``saucerjam-health.json`` (SLOs + the four golden signals) and
-``saucerjam-players.json`` (product/engagement). The JSON is committed and
+Writes ``saucerjam-product.json`` (business/VP), ``saucerjam-platform.json``
+(principal: dependencies, DB, capacity) and ``saucerjam-health.json`` (SRE: SLOs
++ the four golden signals). The three share one story — business -> system ->
+incident — and cross-link in their headers. The JSON is committed and
 file-provisioned into Grafana, so edit this script and re-run it rather than
 editing the JSON by hand. Every panel carries a ``description`` (the (i) icon)
 explaining what it measures and why, following Google SRE guidance; the sources
@@ -69,8 +71,9 @@ class Board:
                 "refresh": "1m", "time": {"from": "now-24h", "to": "now"}, "editable": True, "links": links, "panels": self.panels}
 
 LINKS = [
+    {"title": "Product & growth", "type": "link", "url": "/d/saucerjam-product"},
+    {"title": "Platform & dependencies", "type": "link", "url": "/d/saucerjam-platform"},
     {"title": "Service health (SLOs)", "type": "link", "url": "/d/saucerjam-health"},
-    {"title": "Players & game", "type": "link", "url": "/d/saucerjam-players"},
     {"title": "Runbooks (docs/SRE.md)", "type": "link", "url": "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md", "targetBlank": True},
 ]
 
@@ -261,56 +264,253 @@ health = b.dump("saucerjam-health", "SaucerJam: Service health (SLOs)",
                 "Official SaucerJam reliability dashboard: SLOs + four golden signals, following Google SRE guidance.",
                 ["saucerjam", "sre", "official"], LINKS)
 
-# ---------------------------------------------------------------- Players & game
+# ---------------------------------------------------------------- Product & growth
+DB = 'container_label_com_docker_compose_service="supabase-db"'
+GAME = 'container_label_coolify_resourceName="saucerjam"'
+nod = {"options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}}
+
 b = Board()
-b.text("""### Players & game: product health, not reliability
-These are **business/product metrics**: are people playing, coming back, struggling?
-Google keeps these **separate from SLOs** on purpose: a quiet Tuesday isn't an outage, and you should never get paged because fewer people played.
-Use this board to decide **what to build next**. Use the Service health board to decide **what to fix now**.""", h=4)
-b.row("Engagement: are people playing and coming back?")
-b.add("stat", "Distinct pilots (7d)", """Unique players (hashed tokens, no personal data) seen in the last 7 days.
-The best single "is this game alive?" number. It's the retention signal the Start Here checklist asks about: do people come back next week?""",
-      [("saucerjam_distinct_pilots_7d", "")], w=6, h=5)
-b.add("stat", "Pilots online now", "Human players connected right now.", [("saucerjam_players", "")], w=6, h=5)
-b.add("stat", "Rounds finished (24h)", """Matches played to the end. Joins without finished rounds = people bail mid-match. Worth asking why in feedback.""",
-      [("sum(increase(saucerjam_rounds_completed_total[24h])) or vector(0)", "")], w=6, h=5)
-b.add("stat", "Chat lines (24h)", "Social signal: players talking to each other is an early sign of community.",
-      [("sum(increase(saucerjam_chat_messages_total[24h])) or vector(0)", "")], w=6, h=5)
+b.text("""### Product & growth: the business view
+For a VP/product reader: **are people playing, coming back, and is it worth investing in?**
+This board is deliberately **separate from reliability** (Google's advice): a quiet Tuesday is not an outage and nobody gets paged for it. Reliability lives on **Service health**; the machinery underneath lives on **Platform & dependencies**.
+
+**Read it as a funnel, top to bottom:** is the data trustworthy -> audience -> retention -> funnel -> depth -> experience -> community -> cost.
+Act on the **shape over weeks**, not the last minute.
+
+**Low-traffic caveat:** with a handful of players most panels are **empty or a single spike** at any moment — normal, not broken. Empty means "nobody did this in the window". Widen the range before concluding; 5m/1h rates at this scale are mostly noise.
+
+**Blind vs calm:** a flat line can mean the telemetry stopped, not that players are happy. **Pipeline health** (row 1) is the heartbeat.
+Metrics marked *needs deploy* appear after the next game deploy.""", h=10)
+
+b.row("Pipeline health: is the data trustworthy?")
+b.add("stat", "Landing views (24h)", """Page loads that reported telemetry in the last 24h — the top of the funnel and the first sanity check that the beacon works.
+Empty = no landing views reported yet (or the client that emits `landing_view` is not deployed).""",
+      [('sum(increase(insight_events_total{event="landing_view"}[24h]))', "")], w=6, h=6, extra=nod,
+      no_value="no landing views yet")
+b.add("stat", "Play sessions (24h)", """One websocket connection = one play session. The denominator for the friction ratios and the session-length panels.
+Empty/0 across a day you *know* people played means telemetry is blind, not that nobody played.""",
+      [("sum(increase(insight_sessions_total[24h]))", "")], w=6, h=6, extra=nod, no_value="no sessions yet")
+b.add("stat", "Insight events (24h)", """Every UX event the client reported (starts, reports, friction, clicks) — the pipeline heartbeat.
+**A flat zero is not good news**: it means the telemetry is blind (beacon blocked, JS error, endpoint down).""",
+      [("sum(increase(insight_events_total[24h])) or vector(0)", "")], w=6, h=6, extra=nod)
+b.add("timeseries", "Telemetry heartbeat (insight events per hour)", """The heartbeat over time. A gap is a period we cannot see player behaviour: usually a quiet spell (fine), occasionally a broken beacon (not fine).
+Cross-check with starts: quiet telemetry *and* no starts = genuinely nobody playing.""",
+      [("sum(increase(insight_events_total[1h]))", "events")], w=6, h=6)
+
+b.row("Audience & retention: are people playing and coming back?")
+b.add("stat", "Active pilots (24h)", "Distinct hashed pilot tokens that joined in the last 24h. *Needs deploy.*",
+      [("saucerjam_distinct_pilots_1d", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+b.add("stat", "Active pilots (7d)", "Distinct pilots in the last 7 days — the single best 'is this game alive?' number.",
+      [("saucerjam_distinct_pilots_7d", "")], w=6, h=5, extra=nod)
+b.add("stat", "Active pilots (30d)", "Distinct pilots in the last 30 days. The bigger the gap to the 7d number, the more casual the audience. *Needs deploy.*",
+      [("saucerjam_distinct_pilots_30d", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+b.add("stat", "Stickiness (24h / 30d)", """**DAU/MAU**: of everyone who played this month, what share played today?
+A rising line = a habit forming. A high one-off spike = a launch you did not retain.""",
+      [("saucerjam_distinct_pilots_1d / clamp_min(saucerjam_distinct_pilots_30d, 1)", "")], w=6, h=5, unit="percentunit",
+      extra={**nod, "options": {**nod["options"], "decimals": 0}}, maxv=1, no_value="needs deploy")
+b.add("timeseries", "Active pilots by window (24h / 7d / 30d)", """The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.""",
+      [("saucerjam_distinct_pilots_1d", "24h"), ("saucerjam_distinct_pilots_7d", "7d"), ("saucerjam_distinct_pilots_30d", "30d")], w=12)
 b.add("timeseries", "Rounds finished by map", "Which maps get played to the end. A map nobody finishes is a candidate for a redesign.",
-      [("sum by (map) (increase(saucerjam_rounds_completed_total[1h]))", "{{map}}")], w=12)
+      [("sum by (map) (increase(saucerjam_rounds_completed_total[1h]))", "{{map}}")], w=12, no_value="no rounds in window")
+
+b.row("Funnel: landing -> play -> finish")
+b.add("stat", "Landing -> play", """Share of landing views that started a game (practice or online). The top-of-funnel conversion.
+*Needs deploy.* Empty until `landing_view` is reported.""",
+      [('sum(increase(insight_events_total{event=~"practice_start|online_start"}[24h])) / clamp_min(sum(increase(insight_events_total{event="landing_view"}[24h])), 1)', "")],
+      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="needs deploy")
+b.add("stat", "Join success (30d)", """Players who pressed "Play online" and got into a match.
+Rejections from `rate_limited`/`debounced` are excluded — the server protecting itself, not a failure a player feels.""",
+      [('sum(increase(saucerjam_joins_total[30d])) / clamp_min(sum(increase(saucerjam_joins_total[30d])) + (sum(increase(saucerjam_join_failures_total{reason!~"rate_limited|debounced"}[30d])) or vector(0)), 1)', "")],
+      w=6, h=5, unit="percentunit", no_value="no joins in window")
+b.add("stat", "Online start -> finished round", """Of the players who started an online match, how many played it to the end.
+A low number = people bail mid-match; ask why in feedback (or check ping on Service health).""",
+      [("sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(sum(increase(insight_events_total{event=\"online_start\"}[24h])), 1)", "")],
+      w=6, h=5, unit="percentunit", maxv=1, extra={**nod, "options": {**nod["options"], "decimals": 0}}, no_value="needs deploy")
+b.add("stat", "Rounds finished (24h)", "Matches played to the end in the last day.",
+      [("sum(increase(saucerjam_rounds_completed_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod)
+b.add("timeseries", "Funnel steps per hour", """The funnel in one picture: **landing views -> game starts -> joins -> finished rounds**.
+A widening gap between two steps is where you lose people. Landing views and starts *need deploy*.""",
+      [('sum(increase(insight_events_total{event="landing_view"}[1h]))', "landing views"),
+       ('sum(increase(insight_events_total{event=~"practice_start|online_start"}[1h]))', "game starts"),
+       ("sum(increase(saucerjam_joins_total[1h]))", "joins"),
+       ("sum(increase(saucerjam_rounds_completed_total[1h]))", "rounds finished")], w=24)
+
+b.row("Engagement depth: how much are they playing?")
+b.add("stat", "Rounds per active pilot (24h)", "How many full matches the average active pilot played today. Rising = the core loop is holding attention. *Needs deploy.*",
+      [("sum(increase(saucerjam_rounds_completed_total[24h])) / clamp_min(saucerjam_distinct_pilots_1d, 1)", "")], w=6, h=5, extra=nod, no_value="needs deploy")
+b.add("stat", "Chat lines (24h)", "Social signal: players talking to each other is an early sign of community.",
+      [("sum(increase(saucerjam_chat_messages_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod)
+b.add("timeseries", "Session length p50 / p95", """How long a play session lasts, from websocket connect to disconnect. p95 is the marathon session.
+Sessions shorter than a round suggest people bounce; watch this after onboarding changes. *Needs deploy.*""",
+      [(f'histogram_quantile({q}, sum by (le) (rate(saucerjam_session_seconds_bucket[30m])))', f"p{int(q*100)}") for q in (0.5, 0.95)],
+      w=12, unit="s", no_value="needs deploy")
+b.add("timeseries", "Time to first round p50 / p95", """From joining to finishing the first round. The single best onboarding number: if it is long, new pilots are wandering before they play. *Needs deploy.*""",
+      [(f'histogram_quantile({q}, sum by (le) (rate(saucerjam_first_round_seconds_bucket[30m])))', f"p{int(q*100)}") for q in (0.5, 0.95)],
+      w=12, unit="s", no_value="needs deploy")
 b.add("timeseries", "Game events by type (per min)", """What happens inside matches: fire, hit, kill, portal use, pickups.
 Ratios tell a design story: hits/fire = accuracy (too low = aiming is frustrating), kills/hit = how tanky players are.""",
-      [("sum by (type) (rate(saucerjam_game_events_total[5m])) * 60", "{{type}}")], w=12)
-b.row("Player experience: where do they struggle?")
-b.add("timeseries", "Starts vs feedback opened (per min)", """Practice vs online starts, and how often players open the report form.
-Reports rising faster than starts = something new is annoying people (often right after a deploy).""",
-      [('sum(rate(insight_events_total{event="practice_start"}[10m]))*60', "practice starts"),
-       ('sum(rate(insight_events_total{event="online_start"}[10m]))*60', "online starts"),
-       ('sum(rate(insight_events_total{event="report_opened"}[10m]))*60', "reports opened")], w=12)
+      [("sum by (type) (rate(saucerjam_game_events_total[5m])) * 60", "{{type}}")], w=24)
+
+b.row("Experience quality: where do they struggle?")
 b.add("timeseries", "Friction signals (share of sessions)", """Behaviour hints that a player is confused, computed per session:
 - `stuck_no_input`: sat there not pressing anything
 - `died_without_kill`: never scored
 - `no_aim_fire`: firing without aiming
 - `menu_repeat`: bouncing around menus
-These are UX smoke alarms, not errors.""",
+These are UX smoke alarms, not errors. Rising after a deploy = something changed.""",
       [("insight_friction_ratio", "{{signal}}")], w=12, unit="percentunit")
 b.add("timeseries", "Struggle by device", "Same friction signals split by device. If touch struggles far more than desktop, the mobile controls need work.",
       [('sum by (device) (rate(insight_events_total{event=~"died_without_kill|stuck_no_input|controls_struggle"}[15m]))', "{{device}}")], w=12)
+b.add("timeseries", "Starts vs feedback opened (per min)", """Practice vs online starts, and how often players open the report form.
+Reports rising faster than starts = something new is annoying people (often right after a deploy).""",
+      [('sum(rate(insight_events_total{event="practice_start"}[10m]))*60', "practice starts"),
+       ('sum(rate(insight_events_total{event="online_start"}[10m]))*60', "online starts"),
+       ('sum(rate(insight_events_total{event="report_opened"}[10m]))*60', "reports opened")], w=12)
 b.add("timeseries", "Most-used actions (per hour)", "What players actually click. Features nobody uses are candidates to cut.",
       [("sum by (event) (increase(insight_events_total[1h]))", "{{event}}")], w=12)
-b.row("Community → AI loop (Fider feedback pipeline)")
-b.add("timeseries", "Feedback ingested by kind", "Fider posts accepted into the AI queue (bug / idea). This is the input side of the automation loop.",
-      [("sum by (kind) (increase(saucerjam_community_ingest_total[1h]))", "{{kind}}")], w=8)
-b.add("timeseries", "AI actions recorded", "What the automation did with feedback (triage, PR opened, and so on). Ingest without actions = the loop is stuck.",
-      [("sum by (action) (increase(saucerjam_community_actions_total[1h]))", "{{action}}")], w=8)
+
+b.row("Community -> AI loop (Fider feedback pipeline)")
+b.add("timeseries", "Feedback ingested by kind", """Fider posts accepted into the AI queue (bug / idea) — the input side of the automation loop.
+Empty = no feedback in the window (normal until someone posts).""",
+      [("sum by (kind) (increase(saucerjam_community_ingest_total[1h]))", "{{kind}}")], w=8, no_value="no feedback in window")
+b.add("timeseries", "AI actions recorded", """What the automation did with feedback (triage, PR opened, ...).
+**Ingest without actions = the loop is stuck.** Empty on both is a quiet pipeline; empty here *while* ingest is non-zero is the failure.""",
+      [("sum by (action) (increase(saucerjam_community_actions_total[1h]))", "{{action}}")], w=8, no_value="no actions in window")
 b.add("timeseries", "Webhooks rejected / Fider errors", """Rejected Fider webhooks by reason (bad signature, rate limit), plus `fider_last_error` = 1 when the last call to Fider failed.
-Rejections from unknown sources are expected (the endpoint is public). A bad-signature rejection from Fider itself means the shared secret drifted.""",
-      [("sum by (reason) (increase(saucerjam_community_webhook_rejected_total[1h]))", "rejected: {{reason}}"), ("saucerjam_fider_last_error", "fider last call failed")], w=8)
+Rejections from unknown sources are expected (the endpoint is public). Empty = the healthy state.""",
+      [("sum by (reason) (increase(saucerjam_community_webhook_rejected_total[1h]))", "rejected: {{reason}}"), ("saucerjam_fider_last_error", "fider last call failed")], w=8, no_value="no rejections, no errors")
 
-players = b.dump("saucerjam-players", "SaucerJam: Players & game",
-                 "Official SaucerJam product dashboard: engagement, player friction, and the community to AI loop.",
-                 ["saucerjam", "product", "official"], LINKS)
+b.row("Cost & efficiency (Oracle Always Free)")
+b.text("""SaucerJam runs entirely on the **Oracle Always Free** shape (2 ARM cores, 12 GB RAM, 200 GB disk): **$0/month**. There is no billing metric to graph, so the number that matters is **headroom** below.
+If utilisation approaches the free shape, the decision is *scale up or move* — and that belongs on this board, because it is a business call, not an incident. Sources: [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre).""", h=4)
+b.add("gauge", "Host CPU busy", "Share of the 2 free ARM cores in use (5-min average). The game simulates every match server-side, so CPU tracks active matches, not page views.",
+      [('1 - avg(rate(node_cpu_seconds_total{job="oci-node",mode="idle"}[5m]))', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.7, "orange"), (0.9, "red")])
+b.add("gauge", "Host memory used", """The whole free VM (12 GB), shared with the game, Supabase, Fider and monitoring.
+The database is the largest tenant — see Platform & dependencies.""",
+      [('1 - node_memory_MemAvailable_bytes{job="oci-node"} / node_memory_MemTotal_bytes{job="oci-node"}', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.8, "orange"), (0.9, "red")])
+b.add("gauge", "Disk used (of 200 GB)", "Block-storage headroom on the free tier. Supabase, container images and the Prometheus 30-day TSDB all live here.",
+      [('1 - node_filesystem_avail_bytes{job="oci-node",mountpoint="/"} / node_filesystem_size_bytes{job="oci-node",mountpoint="/"}', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.8, "orange"), (0.9, "red")])
+b.add("stat", "Free disk left", "Absolute headroom left on the free tier before you must pay or prune.",
+      [('node_filesystem_avail_bytes{job="oci-node",mountpoint="/"} / 1024 / 1024 / 1024', "")], w=6, h=6, unit="decgbytes", extra=nod)
 
-for name, d in (("saucerjam-health", health), ("saucerjam-players", players)):
+product = b.dump("saucerjam-product", "SaucerJam: Product & growth",
+                 "Official SaucerJam business dashboard: audience, retention, funnel, engagement, and the cost of running it.",
+                 ["saucerjam", "product", "business", "official"], LINKS)
+
+# ---------------------------------------------------------------- Platform & dependencies
+b = Board()
+b.text("""### Platform & dependencies: the principal view
+What this system is made of, where its limits are, and what will break first.
+Read it when a symptom on **Service health** needs a *cause*, or before a capacity decision.
+
+**Dependencies** (row 1) are things SaucerJam needs but does not control: Cloudflare, the Postgres behind Supabase, Fider, and the Oracle host.
+**Data plane** (row 2) is the database; **capacity** (rows 3-4) is how full each layer is; **change correlation** (row 5) ties errors to deploys.
+
+**Rule of thumb (Google SRE):** saturation is a *leading* indicator — act before 100%, because latency degrades first and players feel it before a graph turns red.""", h=9)
+
+b.row("Dependency health: can we reach the things we depend on?")
+b.add("stat", "Public path (Cloudflare)", """The outside-in blackbox probe of `https://qd.menezmethod.com/health`. 1 = reachable end to end.
+This is the same signal the availability SLO uses — see Service health for the error budget.""",
+      [(f'{PROBE}', "")], w=4, h=5, minv=0, maxv=1, extra=nod, thresholds=[(None, "red"), (1, "green")])
+b.add("stat", "App container", "Prometheus scraping the game's own /metrics. 0 = the process is down or unreachable from the observatory.",
+      [('up{job="saucerjam"}', "")], w=4, h=5, minv=0, maxv=1, extra=nod, thresholds=[(None, "red"), (1, "green")])
+b.add("stat", "Postgres", """`pg_up` from postgres_exporter against the self-hosted Supabase database.
+0 = the exporter cannot open a connection: the DB is down, overloaded, or credentials changed.""",
+      [("pg_up", "")], w=4, h=5, minv=0, maxv=1, extra=nod, thresholds=[(None, "red"), (1, "green")], no_value="exporter down")
+b.add("stat", "Fider API", "1 = the last call to Fider succeeded; 0 = it failed. Feedback depends on it, gameplay does not.",
+      [("1 - saucerjam_fider_last_error", "")], w=4, h=5, minv=0, maxv=1, extra=nod, thresholds=[(None, "red"), (1, "green")], no_value="no Fider calls yet")
+b.add("stat", "TLS cert expires in", "Days until the Cloudflare-served certificate expires. A leading indicator: 0 means the probe *and* players fail TLS.",
+      [('(probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) / 86400', "")], w=4, h=5, unit="d", extra=nod,
+      thresholds=[(None, "red"), (14, "orange"), (30, "green")])
+b.add("stat", "Game restarts (24h)", "Process uptime resets in the last day: deploys or crashes. Every restart drops active matches.",
+      [("resets(saucerjam_process_uptime_seconds[24h])", "")], w=4, h=5, extra=nod, no_value="0 restarts")
+b.add("timeseries", "Dependency availability (1 = healthy)", "The three reachability signals on one axis: public path, app scrape, and Postgres.",
+      [(f'{PROBE}', "public (Cloudflare)"), ('up{job="saucerjam"}', "app container"), ("pg_up", "postgres")], w=24, minv=0, maxv=1, unit="short")
+
+b.row("Data plane: self-hosted Supabase Postgres")
+b.add("stat", "Connections", "Backends connected to the `postgres` database right now.",
+      [('pg_stat_database_numbackends{datname="postgres"}', "")], w=6, h=5, extra={**nod, "options": {**nod["options"], "decimals": 0}},
+      thresholds=[(None, "green"), (70, "orange"), (90, "red")])
+b.add("stat", "Connection saturation", "Connections as a share of `max_connections` (100). Near 100% new requests queue or fail — a classic DB cliff.",
+      [('pg_stat_database_numbackends{datname="postgres"} / pg_settings_max_connections', "")], w=6, h=5, unit="percentunit", maxv=1, extra=nod,
+      thresholds=[(None, "green"), (0.7, "orange"), (0.9, "red")])
+b.add("stat", "Database size", "Size of the `postgres` database. Growth here is the rankings ledger plus Supabase's own tables.",
+      [('pg_database_size_bytes{datname="postgres"}', "")], w=6, h=5, unit="bytes", extra=nod)
+b.add("stat", "Cache hit ratio", """Share of block reads served from shared buffers (not disk) in the last 5m.
+Below ~95% the working set no longer fits in memory — usually the first sign the DB needs more RAM.""",
+      [('sum(rate(pg_stat_database_blks_hit{datname="postgres"}[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit{datname="postgres"}[5m])) + sum(rate(pg_stat_database_blks_read{datname="postgres"}[5m])), 0.000001)', "")],
+      w=6, h=5, unit="percentunit", maxv=1, extra=nod, thresholds=[(None, "red"), (0.95, "orange"), (0.99, "green")])
+b.add("stat", "Rollbacks (24h)", "Transactions rolled back. A steady stream is normal; a spike means errors or contention.",
+      [('increase(pg_stat_database_xact_rollback{datname="postgres"}[24h]) or vector(0)', "")], w=6, h=5, extra=nod, no_value="0 rollbacks")
+b.add("stat", "Deadlocks (24h)", "Deadlocks detected. Anything above zero is worth a look — it means two writers blocked each other.",
+      [('increase(pg_stat_database_deadlocks{datname="postgres"}[24h]) or vector(0)', "")], w=6, h=5, extra=nod,
+      thresholds=[(None, "green"), (1, "red")], no_value="0 deadlocks")
+b.add("stat", "Rounds failing to persist (24h)", """The app's own view of the DB: rounds that could not be saved to Supabase.
+Silent to players in the moment, painful later — this is a *correctness* metric, not just a reliability one.""",
+      [("sum(increase(saucerjam_ranking_save_errors_total[24h])) or vector(0)", "")], w=6, h=5, extra=nod, no_value="0 failures")
+b.add("stat", "DB container memory", "Resident memory of the Postgres container (cAdvisor). The largest single tenant on the free VM.",
+      [(f'container_memory_working_set_bytes{{{DB}}}', "")], w=6, h=5, unit="bytes", extra=nod)
+b.add("timeseries", "Connections over time", "Connection count over time. A staircase up without more players usually means a connection leak.",
+      [('pg_stat_database_numbackends{datname="postgres"}', "connections"), ("pg_settings_max_connections", "max")], w=12)
+b.add("timeseries", "Transactions per minute (commit vs rollback)", "Write load on the rankings ledger. Rollbacks climbing while commits are flat = the app is retrying failures.",
+      [('sum(rate(pg_stat_database_xact_commit{datname="postgres"}[5m])) * 60', "commits"), ("sum(rate(pg_stat_database_xact_rollback{datname=\"postgres\"}[5m])) * 60", "rollbacks")], w=12)
+b.add("timeseries", "DB container CPU (cores)", "CPU used by the Postgres container. Spikes during heavy write bursts are expected; a sustained rise is not.",
+      [(f'rate(container_cpu_usage_seconds_total{{{DB}}}[5m])', "cpu")], w=24, unit="short")
+
+b.row("Host capacity & saturation (free-arm-01: 2 cores / 12 GB / 200 GB)")
+b.add("gauge", "CPU busy", "Share of the 2 free ARM cores in use (5-min average).",
+      [('1 - avg(rate(node_cpu_seconds_total{job="oci-node",mode="idle"}[5m]))', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.7, "orange"), (0.9, "red")])
+b.add("gauge", "Memory used", "Share of the 12 GB free VM in use, across every tenant.",
+      [('1 - node_memory_MemAvailable_bytes{job="oci-node"} / node_memory_MemTotal_bytes{job="oci-node"}', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.8, "orange"), (0.9, "red")])
+b.add("gauge", "Disk used", "Share of the 200 GB free block storage in use.",
+      [('1 - node_filesystem_avail_bytes{job="oci-node",mountpoint="/"} / node_filesystem_size_bytes{job="oci-node",mountpoint="/"}', "")], w=6, h=6, unit="percentunit", minv=0, maxv=1,
+      thresholds=[(None, "green"), (0.8, "orange"), (0.9, "red")])
+b.add("gauge", "Load1 vs 2 cores", "1-minute load average against the core count. Above 2 = work is queuing and game ticks will be late (players feel lag).",
+      [("saucerjam_system_load1", "")], w=6, h=6, maxv=4,
+      thresholds=[(None, "green"), (2, "orange"), (3, "red")])
+b.add("timeseries", "Host CPU & memory over time", "Both saturation signals on one axis; watch for a slow climb that tracks container growth rather than players.",
+      [('1 - avg(rate(node_cpu_seconds_total{job="oci-node",mode="idle"}[5m]))', "cpu busy"),
+       ('1 - node_memory_MemAvailable_bytes{job="oci-node"} / node_memory_MemTotal_bytes{job="oci-node"}', "memory used")], w=12, unit="percentunit", maxv=1)
+b.add("timeseries", "Top containers by memory", "The noisiest neighbours on the shared box. If a tenant crowds out the game, this is where it shows.",
+      [('topk(6, container_memory_working_set_bytes{name=~".+"})', "{{name}}")], w=12, unit="bytes")
+b.add("timeseries", "Load1 (game-reported vs host)", "Two views of the same load. They should match; a gap means the observatory is measuring a different moment.",
+      [("saucerjam_system_load1", "load1 (game)"), ('node_load1{job="oci-node"}', "load1 (host)"), ("2", "cores")], w=24)
+
+b.row("Game capacity")
+b.add("gauge", "Arenas in use (of 8)", "Rooms open / MAX_ROOMS. At 100% new joins get `rooms_full`. This limit is hit long before CPU or memory.",
+      [("saucerjam_rooms / 8", "")], w=6, h=6, unit="percentunit", minv=0, maxv=1, thresholds=[(None, "green"), (0.75, "orange"), (1, "red")])
+b.add("gauge", "Pilots per arena", "Average humans per room. The server simulates all players, so this drives CPU.",
+      [("saucerjam_players / clamp_min(saucerjam_rooms, 1)", "")], w=6, h=6, maxv=32,
+      thresholds=[(None, "green"), (24, "orange"), (32, "red")])
+b.add("stat", "Connections/s", "New websocket connections per second — the demand at the door.",
+      [("sum(rate(saucerjam_connections_total[5m]))", "")], w=6, h=6, unit="reqps", extra=nod)
+b.add("stat", "Pilots online now", "Human players connected right now (bots are added to fill rooms and are not counted here).",
+      [("saucerjam_players", "")], w=6, h=6, extra=nod)
+b.add("timeseries", "Joins / leaves per minute", """Demand and churn. Leaves split by cause: **client** = the player chose to leave (normal); **transport** = the connection dropped (network, deploy restart, or crash).
+Many transport leaves at once = everyone got kicked — check the restarts panel.""",
+      [("sum(rate(saucerjam_joins_total[5m])) * 60", "joins"), ('sum by (cause) (rate(saucerjam_leaves_total[5m])) * 60', "leaves: {{cause}}")], w=12)
+b.add("timeseries", "Server errors (5xx) by route", "Failures **we** caused. Feeds the request SLO on Service health; here it is the *cause* view next to capacity.",
+      [(f'sum by (route) (rate(saucerjam_http_requests_total{{status=~"5..",{U}}}[5m]))', "{{route}}")], w=12, unit="reqps", no_value="0 server errors")
+
+b.row("Change & error correlation")
+b.add("stat", "Game restarts (24h)", "Uptime resets in the last day. Each one ends active matches — correlate with any error spike.",
+      [("resets(saucerjam_process_uptime_seconds[24h])", "")], w=8, h=5, extra=nod, no_value="0 restarts")
+b.add("stat", "Public path scrape time", "How long the outside-in probe takes end to end. A jump with no code change usually means the network or Cloudflare.",
+      [('scrape_duration_seconds{job="saucerjam"}', "")], w=8, h=5, unit="s", extra=nod)
+b.add("stat", "5xx in 24h", "Total server errors we caused, across all routes.",
+      [(f'sum(increase(saucerjam_http_requests_total{{status=~"5..",{U}}}[24h])) or vector(0)', "")], w=8, h=5, extra=nod, no_value="0 server errors")
+b.add("timeseries", "Process uptime (drops = deploy or restart)", "A sawtooth here is a deploy; a sudden drop mid-run is a crash. Line it up with the 5xx panel to separate the two.",
+      [("saucerjam_process_uptime_seconds", "uptime (s)")], w=24, unit="s")
+
+platform = b.dump("saucerjam-platform", "SaucerJam: Platform & dependencies",
+                  "Principal view of SaucerJam: dependencies, the self-hosted Postgres data plane, host and game capacity, and change correlation.",
+                  ["saucerjam", "platform", "principal", "official"], LINKS)
+
+for name, d in (("saucerjam-health", health), ("saucerjam-product", product), ("saucerjam-platform", platform)):
     json.dump(d, open(f"{OUT}/{name}.json", "w"), indent=2)
 print("ok")

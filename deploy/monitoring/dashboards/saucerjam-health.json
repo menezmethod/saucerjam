@@ -17,14 +17,19 @@
   "editable": true,
   "links": [
     {
+      "title": "Product & growth",
+      "type": "link",
+      "url": "/d/saucerjam-product"
+    },
+    {
+      "title": "Platform & dependencies",
+      "type": "link",
+      "url": "/d/saucerjam-platform"
+    },
+    {
       "title": "Service health (SLOs)",
       "type": "link",
       "url": "/d/saucerjam-health"
-    },
-    {
-      "title": "Players & game",
-      "type": "link",
-      "url": "/d/saucerjam-players"
     },
     {
       "title": "Runbooks (docs/SRE.md)",

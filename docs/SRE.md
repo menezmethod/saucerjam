@@ -48,13 +48,36 @@ monitoring on 2026-09-25 and now only runs Home Assistant. Four containers:
 | --- | --- |
 | `obs-prometheus` | scrape + rule evaluation (`127.0.0.1:9090`) |
 | `obs-grafana` | dashboards and alerting UI (`:3001`) |
+| `obs-blackbox` | outside-in HTTP probe of the public URL (internal `:9115`) |
 | `obs-node-exporter` | host CPU / memory / disk (`:9100`) |
 | `obs-cadvisor` | per-container memory (the game's RSS panel) |
 
 Prometheus config `/opt/observability/prometheus/prometheus.yml` scrapes job
-`saucerjam` (`https://qd.menezmethod.com/metrics`, 15s), `oci-node`,
-`oci-cadvisor`, and the LAN hosts over Tailscale. Repo mirror:
-`deploy/monitoring/scrape.yml`.
+`saucerjam` (`https://qd.menezmethod.com/metrics`, 15s), `blackbox-http`,
+`oci-node`, `oci-cadvisor`, and the LAN hosts over Tailscale. It also loads
+`/etc/prometheus/saucerjam.rules.yml` via `rule_files` (SLI recording rules and
+alerts). Repo mirrors: `deploy/monitoring/scrape.yml`,
+`deploy/monitoring/saucerjam.rules.yml`.
+
+The **blackbox exporter** (`obs-blackbox`, config
+`/opt/observability/blackbox/blackbox.yml`, repo mirror
+`deploy/monitoring/blackbox/blackbox.yml`) probes
+`https://qd.menezmethod.com/health` from outside. Unlike a plain scrape, it
+records *why* a request failed — `probe_http_status_code`, the per-phase
+`probe_http_duration_seconds`, and TLS expiry — which is what makes an error
+budget attributable. Its service block:
+
+```yaml
+# /opt/observability/docker-compose.yml
+blackbox-exporter:
+  image: prom/blackbox-exporter:latest
+  container_name: obs-blackbox
+  restart: unless-stopped
+  command: ['--config.file=/etc/blackbox_exporter/blackbox.yml']
+  volumes: ['./blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro']
+  expose: ['9115']
+```
+
 
 Grafana is **file-provisioned** from `/opt/observability/grafana/`, so the
 running dashboards match this repo and survive a container rebuild:
@@ -114,8 +137,14 @@ design follows Google SRE guidance:
   never an average, so a slow tail cannot hide inside a good mean;
 - **error-budget burn rate** over 1h and 6h windows: the numbers a mature
   multi-window, multi-burn-rate alert would page on;
-- a **synthetic-probe SLI** for availability (`up{job="saucerjam"}`) that stays
-  populated with zero players — the workbook's advice for low-traffic services;
+- a **synthetic-probe SLI** for availability (the blackbox probe of
+  `https://qd.menezmethod.com/health`) that stays populated with zero players —
+  the workbook's advice for low-traffic services;
+- availability is **blip-tolerant**: a minute counts as up if any probe in it
+  succeeded, so one failed 15s scrape is not billed as downtime;
+- an **error-budget attribution row** that separates raw probe failures from
+  *billed* outages and shows whether a failure was HTTP, TLS, TCP or DNS, so a
+  budget drop is always traceable to a cause;
 - request SLOs **exclude `/health` and `/metrics`** (about 99% of all hits),
   which would otherwise pin the success rate at 100% forever.
 
@@ -134,6 +163,8 @@ pointing at a section below.
 | Alert | Severity | Fires when |
 | --- | --- | --- |
 | `SaucerJamDown` | critical | `up{job="saucerjam"} == 0` for 2m |
+| `SaucerJamPublicProbeFailing` | critical | outside-in blackbox probe fails for 2m |
+| `SaucerJamTlsCertExpiring` | warning | public TLS cert expires within 14 days |
 | `SaucerJamHealthDegraded` | warning | rankings persistence degraded for 5m |
 | `SaucerJamRoomsSaturated` | warning | `saucerjam_rooms >= 8` for 5m |
 | `SaucerJamJoinFailureSpike` | warning | join failures > 0.5/s for 5m |
@@ -143,8 +174,13 @@ pointing at a section below.
 | `SaucerJamRateLimitStorm` | warning | limiter rejections > 5/s for 5m |
 | `SaucerJamPlayersStuck` | warning | `insight_friction_ratio{signal="stuck_no_input_per_session"} > 0.15` for 30m |
 
-All 9 rules load into Prometheus (`promtool check rules` → SUCCESS: 9 rules
-found). Grafana file-provisions the contact point `grafana-hermes`
+The file also holds the **SLI recording rules** (`saucerjam-sli` group):
+`saucerjam:sli_availability:up1m` (1 if any blackbox probe in the last minute
+succeeded) and `saucerjam:sli_availability:ratio_30d`. Prometheus evaluates all
+**14 rules** (`promtool check rules` → SUCCESS: 14 rules found) and, since
+2026-09-25, actually loads them via `rule_files` on Oracle.
+
+Grafana file-provisions the contact point `grafana-hermes`
 (`provisioning/alerting/contact-points.yaml`) and sets it as the root
 notification-policy receiver, replacing the previous `Telegram Alerts` route.
 Grafana posts to the relay `grafana-hermes-relay.service` on the Pi5 at
@@ -157,13 +193,12 @@ on 2026-09-19: a Grafana-evaluated rule produced relay `POST / → 200` and Herm
 `deploy/monitoring/grafana-alerts-contact-point.md`.
 
 > **Migration status (2026-09-25):** the paragraph above describes the Pi5
-> stack, where it was verified. On the Oracle host the `saucerjam` job is
-> scraping (that is what feeds the §2.1 dashboards), but two pieces of the alert
-> path are **not wired yet**: Prometheus has no `rule_files` entry, so the nine
-> rules are not evaluated, and Grafana's root notification policy is still the
-> no-op `empty` receiver, so nothing reaches Hermes. Until both are fixed **no
-> alert fires** and the dashboards are the only live signal. Wiring the alert
-> path (including moving the relay off the Pi5) is the next migration step.
+> stack, where it was verified. On Oracle the rules now load and evaluate (see
+> above), but **no alert reaches a human yet**: Grafana's root
+> notification policy is still the no-op `empty` receiver, and the Hermes relay
+> only runs on the Pi5. Wiring the receiver (and moving the relay to Oracle or
+> pointing at it over the tailnet) is the next migration step. Until then the
+> dashboards — including the §2.1 attribution row — are the working signal.
 
 ## 4. AI authority (self-heal vs escalate)
 

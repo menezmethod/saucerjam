@@ -19,6 +19,12 @@ OUT = sys.argv[1]
 DS = {"type": "prometheus", "uid": "prom"}
 U = 'route!~"/health|/metrics"'  # probes are ~99% of requests; users are what we measure
 SLO_AVAIL = 0.995
+# Blip-tolerant availability SLI, recorded by saucerjam.rules.yml: 1 if any
+# blackbox probe in the last minute succeeded, so one failed 15s scrape is not
+# billed as downtime. Raw blips are surfaced in the attribution row instead.
+SLI = 'saucerjam:sli_availability:up1m'
+PROBE = 'probe_success{job="blackbox-http",service="saucerjam"}'
+EXPECTED_30D = 30 * 24 * 60 * 4  # 15s samples in 30 days = 172800
 
 class Board:
     def __init__(self):
@@ -82,31 +88,42 @@ Read it **top to bottom**, the way Google SREs triage a page.
 2. **The four golden signals** (Google SRE book, ch. 6): **Latency** (how slow), **Traffic** (how much), **Errors** (how often it fails), **Saturation** (how full). If you can only watch four things, watch these.
 3. Rule of thumb: **alert on symptoms players feel** (top rows), **debug with causes** (bottom rows). A full CPU nobody notices is not an emergency; a failed join is.
 
-**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty ("no players in window" is normal). That's why the headline availability uses a **synthetic probe**: Prometheus fetches `qd.menezmethod.com/metrics` through Cloudflare every 15s, like a robot player. The SRE workbook recommends this for low-traffic services.
+**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty ("no players in window" is normal). That's why the headline availability uses a **synthetic probe**: the blackbox exporter fetches `qd.menezmethod.com/health` through Cloudflare every 15s, like a robot player, and records *why* it failed when it does. The SRE workbook recommends this for low-traffic services.
+
+**One failed probe is not an outage.** The availability SLI counts a minute as up if *any* probe in it succeeded, so a single transient network blip does not spend error budget — only a sustained outage does. Every raw failure is still shown in **Error budget attribution**, so nothing is hidden.
 Sources: [SRE book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) · [Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/) · [Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) · [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre) · [SRE Weekly](https://sreweekly.com/)""", h=10)
 
 b.row("SLOs: are players OK? (30-day window)")
-b.add("stat", "Availability (probe), 30d", f"""**SLI:** share of 15s probes (Prometheus scraping the public URL through Cloudflare) that succeeded.
+b.add("stat", "Availability, 30d (SLO 99.5%)", f"""**SLI:** share of minutes a blackbox probe from outside reached `https://qd.menezmethod.com/health` through Cloudflare.
 **SLO: {SLO_AVAIL:.1%}**, about 3.6 hours of allowed downtime per month.
+**Blip-tolerant on purpose:** a minute counts as available if *any* 15s probe in it succeeded, so one transient network hiccup is not billed as an outage. Sustained failures still count in full.
 **Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not "as high as possible". Each extra nine costs about 10x more work.
-**Why a probe?** Too few players for request-based numbers to mean anything (see the workbook's advice for low-traffic services).
-Note: this job was added to Oracle Prometheus on 2026-09-25, so "30d" covers less history until late October.""",
-      [(f'avg_over_time(up{{job="saucerjam"}}[30d])', "")], w=6, h=5, unit="percentunit",
+**Why a probe?** Too few players for request-based numbers to mean anything (the workbook's advice for low-traffic services).""",
+      [(f'avg_over_time({SLI}[30d])', "")], w=6, h=6, unit="percentunit",
       thresholds=[(None, "red"), (SLO_AVAIL, "green")], extra={"options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "decimals": 3}})
-b.add("stat", "Error budget left, 30d", f"""**Error budget** = 100% minus SLO = {1-SLO_AVAIL:.1%} of the month we're allowed to be down.
-This panel shows how much of that allowance is left. 100% = untouched, 0% = spent.
-**How to use it (Google's error-budget policy):** budget left → take risks, ship features, deploy on Fridays. Budget spent → freeze risky changes and fix reliability. It turns "is it reliable enough?" from an argument into a number.""",
-      [(f'1 - (1 - avg_over_time(up{{job="saucerjam"}}[30d])) / {1-SLO_AVAIL}', "")], w=6, h=5, unit="percentunit",
+b.add("stat", "Error budget left, 30d", f"""**Error budget** = 100% minus SLO = {1-SLO_AVAIL:.1%} of the month we're allowed to be down. 100% = untouched, 0% = spent.
+**Read it with the coverage panel next door.** This is a 30-day window, so before the probe has run for 30 days the number is an extrapolation from the time covered so far — a couple of early failures look worse than they are, and it climbs back as clean minutes accumulate.
+**How to use it (Google's error-budget policy):** budget left → take risks, ship features, deploy on Fridays. Budget spent → freeze risky changes and fix reliability. When it drops, the **Error budget attribution** row says exactly what spent it.""",
+      [(f'1 - (1 - avg_over_time({SLI}[30d])) / {1-SLO_AVAIL}', "")], w=6, h=6, unit="percentunit",
       thresholds=[(None, "red"), (0.25, "orange"), (0.5, "green")], minv=0)
+b.add("stat", "SLO window coverage, 30d", f"""How much of the 30-day window actually has probe data.
+`100%` = a full month of history (only true ~30 days after monitoring started). Until then the error budget is an extrapolation, and this panel is the honesty check: **low coverage → treat the budget as provisional**, not as a monthly verdict.
+The probe was added on 2026-09-25, so coverage reaches 100% around late October.""",
+      [(f'count_over_time({SLI}[30d]) / {EXPECTED_30D}', "")], w=6, h=6, unit="percentunit",
+      thresholds=[(None, "red"), (0.5, "orange"), (0.9, "green")], extra={"options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "decimals": 1}})
 b.add("stat", "Burn rate, 1h", f"""**Burn rate** = how fast we're spending the error budget. 1 = exactly on pace to use it all in 30 days. 14.4 = the whole month's budget gone in about 2 days.
 Google's **multi-window, multi-burn-rate** alerting pages a human when the 1h burn rate is above **14.4** (2% of the monthly budget in one hour) *and* the 5m burn rate confirms it's still happening.
-We don't page on this yet (too little traffic, see docs/SRE.md), but this is the number a mature setup would page on.""",
-      [(f'(1 - avg_over_time(up{{job="saucerjam"}}[1h])) / {1-SLO_AVAIL}', "")], w=6, h=5, unit="x",
+This is the number a mature setup would page on.""",
+      [(f'(1 - avg_over_time({SLI}[1h])) / {1-SLO_AVAIL}', "")], w=6, h=6, unit="x",
       thresholds=[(None, "green"), (6, "orange"), (14.4, "red")])
 b.add("stat", "Burn rate, 6h", """Same idea over 6 hours. The workbook's second paging tier: burn rate above **6** over 6h (5% of the monthly budget) means a slower but real problem.
 Two windows catch both kinds of failure: sudden outages (1h) and slow leaks (6h).""",
-      [(f'(1 - avg_over_time(up{{job="saucerjam"}}[6h])) / {1-SLO_AVAIL}', "")], w=6, h=5, unit="x",
+      [(f'(1 - avg_over_time({SLI}[6h])) / {1-SLO_AVAIL}', "")], w=6, h=7, unit="x",
       thresholds=[(None, "green"), (1, "orange"), (6, "red")])
+b.add("timeseries", "Availability, hourly vs SLO (sustained)", """Hourly availability on the blip-tolerant SLI. Any dip below the dashed line is budget being spent.
+Look for **patterns**: dips at the same time every day usually mean a cron job, backup or deploy.""",
+      [(f'avg_over_time({SLI}[1h])', "availability"), (str(SLO_AVAIL), "SLO target")], w=18, h=7, unit="percentunit", maxv=1,
+      extra={"fieldConfig": {"defaults": {"unit": "percentunit", "max": 1}, "overrides": [ratio_line(SLO_AVAIL)]}})
 
 b.add("stat", "Join success, 30d (SLO 99%)", """**SLI for the most important player journey: pressing "Play online" and getting into a match.**
 = successful joins / (successful joins + joins rejected by the server).
@@ -132,10 +149,37 @@ Empty = nobody played online in the window.""",
       [('sum(increase(saucerjam_ws_round_trip_seconds_bucket{le="0.15"}[30d])) / (sum(increase(saucerjam_ws_round_trip_seconds_count[30d])) > 0)', "")],
       w=6, h=5, unit="percentunit", no_value="no online play in window", thresholds=[(None, "red"), (0.9, "green")])
 
-b.add("timeseries", "Availability (probe), hourly vs SLO", """Hourly probe success rate. Any dip below the dashed line is budget being spent.
-Look for **patterns**: dips at the same time every day usually mean a cron job, backup or deploy.""",
-      [('avg_over_time(up{job="saucerjam"}[1h])', "availability"), (str(SLO_AVAIL), "SLO target")], w=24, h=7, unit="percentunit", maxv=1,
-      extra={"fieldConfig": {"defaults": {"unit": "percentunit", "max": 1}, "overrides": [ratio_line(SLO_AVAIL)]}})
+b.row("Error budget attribution: who spent it?")
+b.text("""### Reading attribution
+When the budget drops, this row answers *what* did it. Two layers:
+
+1. **Raw vs billed.** Every failed 15s probe is a *raw* failure. A *billed* outage is one that lasted a full minute (see the intro). Most blips are raw-only and cost nothing.
+2. **Cause.** The blackbox probe records how far the request got. If `probe_http_status_code` is present, the connection worked and **Cloudflare or the app returned a bad status**. If it is absent while the phase timings stop, the failure was **DNS, TCP or TLS** — i.e. below our app.
+
+Player-facing budgets (join, request, latency, ping) are attributed by the panels in the **Errors** row further down.""", h=8)
+b.add("stat", "Billed outage, 30d", f"""Sustained downtime that actually spends the error budget: 15s per billed sample.
+Raw single-scrape blips are excluded here on purpose — they are not outages a player felt — but they are counted next door.""",
+      [(f'(count_over_time({SLI}[30d]) - sum_over_time({SLI}[30d])) * 15', "")], w=6, h=6, unit="s",
+      thresholds=[(None, "green"), (60, "orange"), (600, "red")], no_value="0 (no sustained outage)")
+b.add("stat", "Single-scrape blips, 30d (ignored)", """Raw probe failures too short to count as downtime — the ones that used to make the budget look spent.
+A handful is normal internet noise. A steady stream points at a flaky path (Cloudflare edge, DNS, or the VM's network).""",
+      [(f'clamp_min((count_over_time({PROBE}[30d]) - sum_over_time({PROBE}[30d])) - (count_over_time({SLI}[30d]) - sum_over_time({SLI}[30d])), 0)', "")], w=6, h=6,
+      thresholds=[(None, "green"), (1, "orange"), (10, "red")], no_value="0")
+b.add("stat", "Raw probe failures, 30d", "Every failed 15s probe, billed or not. The union of the two panels to the left.",
+      [(f'count_over_time({PROBE}[30d]) - sum_over_time({PROBE}[30d])', "")], w=6, h=6, no_value="0")
+b.add("stat", "TLS certificate expires in", """Days until the Cloudflare-served certificate for `qd.menezmethod.com` expires.
+A leading indicator: if it reaches 0 the probe fails with a TLS error and **players cannot connect either**.""",
+      [('(probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) / 86400', "")], w=6, h=6, unit="d",
+      thresholds=[(None, "red"), (14, "orange"), (30, "green")])
+b.add("timeseries", "Probe success (each step down = a failure)", """The probe result over time. `0` is a failure. Most dips are a single scrape; a sustained line at 0 is a real outage.
+Cross-reference with the panels to the right to see whether it was HTTP, TLS, TCP or DNS.""",
+      [(f'{PROBE}', "probe success")], w=12, unit="short", minv=0, maxv=1)
+b.add("timeseries", "Probe HTTP status code (200 = healthy)", """The status the probe received. A non-200 here means the connection succeeded and the failure was **above** DNS/TCP/TLS: a Cloudflare error page (5xx), a redirect, or the app returning an error.
+If this line *disappears* during a failure, the request never got a response — look at the timing panel below.""",
+      [('probe_http_status_code{job="blackbox-http",service="saucerjam"}', "status")], w=12, unit="short")
+b.add("timeseries", "Probe time by phase (where it failed)", """How long each phase took: `resolve` (DNS), `connect` (TCP), `tls` (handshake), `processing` (server), `transfer` (body).
+On a failure, whichever phase **stops appearing** is where it broke. A spike in one phase before a failure is your early warning.""",
+      [('probe_http_duration_seconds{job="blackbox-http",service="saucerjam"}', "{{phase}}")], w=24, unit="s")
 
 b.row("Golden signal 1: Latency (how slow?)")
 b.add("timeseries", "HTTP latency p50 / p95 / p99 (real requests)", """**Percentiles, not averages.** p95 = 95% of requests were faster than this line. p99 = the unlucky 1%.

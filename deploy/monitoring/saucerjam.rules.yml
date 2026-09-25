@@ -2,6 +2,25 @@
 # Every alert matches the Grafana -> Hermes "grafana-alerts" webhook contract
 # (see deploy/monitoring/grafana-alerts-contact-point.md and docs/SRE.md).
 groups:
+  # --- SLI recording rules -------------------------------------------------
+  # The public availability SLI is deliberately blip-tolerant. Prometheus
+  # scrapes every 15s and a single failed scrape is usually a transient network
+  # hiccup, not an outage a player felt; the earlier direct-scrape SLI
+  # (`up{job="saucerjam"}`) treated each one as a full black mark, so two
+  # isolated blips looked like ~60% of the monthly budget gone.
+  #
+  # `sli_availability:up1m` is 1 if ANY probe in the last minute succeeded, so
+  # only a sustained (>=1 minute) outage spends error budget. The raw blips are
+  # still recorded and shown on the Service health dashboard under "Error budget
+  # attribution", so nothing is hidden — it is just not billed as downtime.
+  - name: saucerjam-sli
+    interval: 15s
+    rules:
+      - record: saucerjam:sli_availability:up1m
+        expr: max_over_time(probe_success{job="blackbox-http",service="saucerjam"}[1m])
+      - record: saucerjam:sli_availability:ratio_30d
+        expr: avg_over_time(saucerjam:sli_availability:up1m[30d])
+
   - name: saucerjam-availability
     interval: 30s
     rules:
@@ -14,6 +33,31 @@ groups:
         annotations:
           summary: "SaucerJam is unreachable"
           description: "Prometheus has failed to scrape qd.menezmethod.com/metrics for 2m."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
+
+      # The public-path probe (blackbox) is the player-facing counterpart to
+      # `up`: it reports WHY the public URL failed (DNS/TCP/TLS/HTTP), so a
+      # page can say what is actually wrong.
+      - alert: SaucerJamPublicProbeFailing
+        expr: probe_success{job="blackbox-http",service="saucerjam"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam is unreachable from outside"
+          description: "The blackbox probe of https://qd.menezmethod.com/health has failed for 2m. Check probe_http_status_code (HTTP vs TLS/DNS/TCP) on the Service health dashboard."
+          runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
+
+      - alert: SaucerJamTlsCertExpiring
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) < 14 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+          service: saucerjam
+        annotations:
+          summary: "SaucerJam TLS certificate expires within 14 days"
+          description: "Cloudflare serves the certificate for qd.menezmethod.com; renew/reissue before expiry or the probe (and players) will start failing TLS."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
 
       - alert: SaucerJamHealthDegraded

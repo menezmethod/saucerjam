@@ -45,7 +45,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### How to read this dashboard\nRead it **top to bottom**, the way Google SREs triage a page.\n\n1. **SLOs (top row):** *are players OK?* An SLO (Service Level Objective) is the reliability target we promise, e.g. \"up 99.5% of the time\". The **error budget** is the 0.5% we're *allowed* to fail. Budget left \u2192 ship features. Budget gone \u2192 fix reliability first.\n2. **The four golden signals** (Google SRE book, ch. 6): **Latency** (how slow), **Traffic** (how much), **Errors** (how often it fails), **Saturation** (how full). If you can only watch four things, watch these.\n3. Rule of thumb: **alert on symptoms players feel** (top rows), **debug with causes** (bottom rows). A full CPU nobody notices is not an emergency; a failed join is.\n\n**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty (\"no players in window\" is normal). That's why the headline availability uses a **synthetic probe**: Prometheus fetches `qd.menezmethod.com/metrics` through Cloudflare every 15s, like a robot player. The SRE workbook recommends this for low-traffic services.\nSources: [SRE book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) \u00b7 [Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/) \u00b7 [Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) \u00b7 [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre) \u00b7 [SRE Weekly](https://sreweekly.com/)"
+        "content": "### How to read this dashboard\nRead it **top to bottom**, the way Google SREs triage a page.\n\n1. **SLOs (top row):** *are players OK?* An SLO (Service Level Objective) is the reliability target we promise, e.g. \"up 99.5% of the time\". The **error budget** is the 0.5% we're *allowed* to fail. Budget left \u2192 ship features. Budget gone \u2192 fix reliability first.\n2. **The four golden signals** (Google SRE book, ch. 6): **Latency** (how slow), **Traffic** (how much), **Errors** (how often it fails), **Saturation** (how full). If you can only watch four things, watch these.\n3. Rule of thumb: **alert on symptoms players feel** (top rows), **debug with causes** (bottom rows). A full CPU nobody notices is not an emergency; a failed join is.\n\n**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty (\"no players in window\" is normal). That's why the headline availability uses a **synthetic probe**: the blackbox exporter fetches `qd.menezmethod.com/health` through Cloudflare every 15s, like a robot player, and records *why* it failed when it does. The SRE workbook recommends this for low-traffic services.\n\n**One failed probe is not an outage.** The availability SLI counts a minute as up if *any* probe in it succeeded, so a single transient network blip does not spend error budget \u2014 only a sustained outage does. Every raw failure is still shown in **Error budget attribution**, so nothing is hidden.\nSources: [SRE book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) \u00b7 [Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/) \u00b7 [Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) \u00b7 [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre) \u00b7 [SRE Weekly](https://sreweekly.com/)"
       }
     },
     {
@@ -62,8 +62,8 @@
     },
     {
       "type": "stat",
-      "title": "Availability (probe), 30d",
-      "description": "**SLI:** share of 15s probes (Prometheus scraping the public URL through Cloudflare) that succeeded.\n**SLO: 99.5%**, about 3.6 hours of allowed downtime per month.\n**Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not \"as high as possible\". Each extra nine costs about 10x more work.\n**Why a probe?** Too few players for request-based numbers to mean anything (see the workbook's advice for low-traffic services).\nNote: this job was added to Oracle Prometheus on 2026-09-25, so \"30d\" covers less history until late October.",
+      "title": "Availability, 30d (SLO 99.5%)",
+      "description": "**SLI:** share of minutes a blackbox probe from outside reached `https://qd.menezmethod.com/health` through Cloudflare.\n**SLO: 99.5%**, about 3.6 hours of allowed downtime per month.\n**Blip-tolerant on purpose:** a minute counts as available if *any* 15s probe in it succeeded, so one transient network hiccup is not billed as an outage. Sustained failures still count in full.\n**Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not \"as high as possible\". Each extra nine costs about 10x more work.\n**Why a probe?** Too few players for request-based numbers to mean anything (the workbook's advice for low-traffic services).",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -72,7 +72,7 @@
         "x": 0,
         "y": 11,
         "w": 6,
-        "h": 5
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -103,7 +103,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "avg_over_time(up{job=\"saucerjam\"}[30d])",
+          "expr": "avg_over_time(saucerjam:sli_availability:up1m[30d])",
           "legendFormat": ""
         }
       ],
@@ -121,7 +121,7 @@
     {
       "type": "stat",
       "title": "Error budget left, 30d",
-      "description": "**Error budget** = 100% minus SLO = 0.5% of the month we're allowed to be down.\nThis panel shows how much of that allowance is left. 100% = untouched, 0% = spent.\n**How to use it (Google's error-budget policy):** budget left \u2192 take risks, ship features, deploy on Fridays. Budget spent \u2192 freeze risky changes and fix reliability. It turns \"is it reliable enough?\" from an argument into a number.",
+      "description": "**Error budget** = 100% minus SLO = 0.5% of the month we're allowed to be down. 100% = untouched, 0% = spent.\n**Read it with the coverage panel next door.** This is a 30-day window, so before the probe has run for 30 days the number is an extrapolation from the time covered so far \u2014 a couple of early failures look worse than they are, and it climbs back as clean minutes accumulate.\n**How to use it (Google's error-budget policy):** budget left \u2192 take risks, ship features, deploy on Fridays. Budget spent \u2192 freeze risky changes and fix reliability. When it drops, the **Error budget attribution** row says exactly what spent it.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -130,7 +130,7 @@
         "x": 6,
         "y": 11,
         "w": 6,
-        "h": 5
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -166,7 +166,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "1 - (1 - avg_over_time(up{job=\"saucerjam\"}[30d])) / 0.0050000000000000044",
+          "expr": "1 - (1 - avg_over_time(saucerjam:sli_availability:up1m[30d])) / 0.0050000000000000044",
           "legendFormat": ""
         }
       ],
@@ -182,8 +182,8 @@
     },
     {
       "type": "stat",
-      "title": "Burn rate, 1h",
-      "description": "**Burn rate** = how fast we're spending the error budget. 1 = exactly on pace to use it all in 30 days. 14.4 = the whole month's budget gone in about 2 days.\nGoogle's **multi-window, multi-burn-rate** alerting pages a human when the 1h burn rate is above **14.4** (2% of the monthly budget in one hour) *and* the 5m burn rate confirms it's still happening.\nWe don't page on this yet (too little traffic, see docs/SRE.md), but this is the number a mature setup would page on.",
+      "title": "SLO window coverage, 30d",
+      "description": "How much of the 30-day window actually has probe data.\n`100%` = a full month of history (only true ~30 days after monitoring started). Until then the error budget is an extrapolation, and this panel is the honesty check: **low coverage \u2192 treat the budget as provisional**, not as a monthly verdict.\nThe probe was added on 2026-09-25, so coverage reaches 100% around late October.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -192,7 +192,69 @@
         "x": 12,
         "y": 11,
         "w": 6,
-        "h": 5
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "count_over_time(saucerjam:sli_availability:up1m[30d]) / 172800",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Burn rate, 1h",
+      "description": "**Burn rate** = how fast we're spending the error budget. 1 = exactly on pace to use it all in 30 days. 14.4 = the whole month's budget gone in about 2 days.\nGoogle's **multi-window, multi-burn-rate** alerting pages a human when the 1h burn rate is above **14.4** (2% of the monthly budget in one hour) *and* the 5m burn rate confirms it's still happening.\nThis is the number a mature setup would page on.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -227,7 +289,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "(1 - avg_over_time(up{job=\"saucerjam\"}[1h])) / 0.0050000000000000044",
+          "expr": "(1 - avg_over_time(saucerjam:sli_availability:up1m[1h])) / 0.0050000000000000044",
           "legendFormat": ""
         }
       ],
@@ -250,10 +312,10 @@
         "uid": "prom"
       },
       "gridPos": {
-        "x": 18,
-        "y": 11,
+        "x": 0,
+        "y": 17,
         "w": 6,
-        "h": 5
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -288,7 +350,7 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "(1 - avg_over_time(up{job=\"saucerjam\"}[6h])) / 0.0050000000000000044",
+          "expr": "(1 - avg_over_time(saucerjam:sli_availability:up1m[6h])) / 0.0050000000000000044",
           "legendFormat": ""
         }
       ],
@@ -303,6 +365,84 @@
       }
     },
     {
+      "type": "timeseries",
+      "title": "Availability, hourly vs SLO (sustained)",
+      "description": "Hourly availability on the blip-tolerant SLI. Any dip below the dashed line is budget being spent.\nLook for **patterns**: dips at the same time every day usually mean a cron job, backup or deploy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 17,
+        "w": 18,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SLO target"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "avg_over_time(saucerjam:sli_availability:up1m[1h])",
+          "legendFormat": "availability"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "0.995",
+          "legendFormat": "SLO target"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
       "type": "stat",
       "title": "Join success, 30d (SLO 99%)",
       "description": "**SLI for the most important player journey: pressing \"Play online\" and getting into a match.**\n= successful joins / (successful joins + joins rejected by the server).\nRejections by `rate_limited` or `debounced` are excluded: those are the server protecting itself from spam clicks, not failures a real player feels.\nMeasure **user journeys**, not servers (Google: \"SLIs should be as close to the user as possible\").\nEmpty = nobody tried to join in the window.",
@@ -312,7 +452,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 24,
         "w": 6,
         "h": 5
       },
@@ -370,7 +510,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 16,
+        "y": 24,
         "w": 6,
         "h": 5
       },
@@ -428,7 +568,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 16,
+        "y": 24,
         "w": 6,
         "h": 5
       },
@@ -486,7 +626,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 16,
+        "y": 24,
         "w": 6,
         "h": 5
       },
@@ -535,51 +675,71 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Availability (probe), hourly vs SLO",
-      "description": "Hourly probe success rate. Any dip below the dashed line is budget being spent.\nLook for **patterns**: dips at the same time every day usually mean a cron job, backup or deploy.",
+      "type": "row",
+      "title": "Error budget attribution: who spent it?",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 8
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Reading attribution\nWhen the budget drops, this row answers *what* did it. Two layers:\n\n1. **Raw vs billed.** Every failed 15s probe is a *raw* failure. A *billed* outage is one that lasted a full minute (see the intro). Most blips are raw-only and cost nothing.\n2. **Cause.** The blackbox probe records how far the request got. If `probe_http_status_code` is present, the connection worked and **Cloudflare or the app returned a bad status**. If it is absent while the phase timings stop, the failure was **DNS, TCP or TLS** \u2014 i.e. below our app.\n\nPlayer-facing budgets (join, request, latency, ping) are attributed by the panels in the **Errors** row further down."
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Billed outage, 30d",
+      "description": "Sustained downtime that actually spends the error budget: 15s per billed sample.\nRaw single-scrape blips are excluded here on purpose \u2014 they are not outages a player felt \u2014 but they are counted next door.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
-        "w": 24,
-        "h": 7
+        "y": 38,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "max": 1
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "SLO target"
-            },
-            "properties": [
+          "unit": "s",
+          "noValue": "0 (no sustained outage)",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    10,
-                    10
-                  ]
-                }
+                "color": "green",
+                "value": null
               },
               {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 600
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
-        ]
+        },
+        "overrides": []
       },
       "targets": [
         {
@@ -588,17 +748,298 @@
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "avg_over_time(up{job=\"saucerjam\"}[1h])",
-          "legendFormat": "availability"
+          "expr": "(count_over_time(saucerjam:sli_availability:up1m[30d]) - sum_over_time(saucerjam:sli_availability:up1m[30d])) * 15",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
         },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Single-scrape blips, 30d (ignored)",
+      "description": "Raw probe failures too short to count as downtime \u2014 the ones that used to make the budget look spent.\nA handful is normal internet noise. A steady stream points at a flaky path (Cloudflare edge, DNS, or the VM's network).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 38,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
         {
-          "refId": "B",
+          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "prom"
           },
-          "expr": "0.995",
-          "legendFormat": "SLO target"
+          "expr": "clamp_min((count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d])) - (count_over_time(saucerjam:sli_availability:up1m[30d]) - sum_over_time(saucerjam:sli_availability:up1m[30d])), 0)",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Raw probe failures, 30d",
+      "description": "Every failed 15s probe, billed or not. The union of the two panels to the left.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "count_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d]) - sum_over_time(probe_success{job=\"blackbox-http\",service=\"saucerjam\"}[30d])",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "TLS certificate expires in",
+      "description": "Days until the Cloudflare-served certificate for `qd.menezmethod.com` expires.\nA leading indicator: if it reaches 0 the probe fails with a TLS error and **players cannot connect either**.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 38,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "(probe_ssl_earliest_cert_expiry{job=\"blackbox-http\",service=\"saucerjam\"} - time()) / 86400",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Probe success (each step down = a failure)",
+      "description": "The probe result over time. `0` is a failure. Most dips are a single scrape; a sustained line at 0 is a real outage.\nCross-reference with the panels to the right to see whether it was HTTP, TLS, TCP or DNS.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "probe_success{job=\"blackbox-http\",service=\"saucerjam\"}",
+          "legendFormat": "probe success"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Probe HTTP status code (200 = healthy)",
+      "description": "The status the probe received. A non-200 here means the connection succeeded and the failure was **above** DNS/TCP/TLS: a Cloudflare error page (5xx), a redirect, or the app returning an error.\nIf this line *disappears* during a failure, the request never got a response \u2014 look at the timing panel below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "probe_http_status_code{job=\"blackbox-http\",service=\"saucerjam\"}",
+          "legendFormat": "status"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Probe time by phase (where it failed)",
+      "description": "How long each phase took: `resolve` (DNS), `connect` (TCP), `tls` (handshake), `processing` (server), `transfer` (body).\nOn a failure, whichever phase **stops appearing** is where it broke. A spike in one phase before a failure is your early warning.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "probe_http_duration_seconds{job=\"blackbox-http\",service=\"saucerjam\"}",
+          "legendFormat": "{{phase}}"
         }
       ],
       "options": {
@@ -619,7 +1060,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 58,
         "w": 24,
         "h": 1
       }
@@ -634,7 +1075,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 59,
         "w": 12,
         "h": 7
       },
@@ -694,7 +1135,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 29,
+        "y": 59,
         "w": 12,
         "h": 7
       },
@@ -745,7 +1186,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 66,
         "w": 12,
         "h": 7
       },
@@ -787,7 +1228,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 36,
+        "y": 66,
         "w": 12,
         "h": 7
       },
@@ -826,7 +1267,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 43,
+        "y": 73,
         "w": 24,
         "h": 1
       }
@@ -841,7 +1282,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 74,
         "w": 8,
         "h": 7
       },
@@ -890,7 +1331,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 44,
+        "y": 74,
         "w": 8,
         "h": 7
       },
@@ -939,7 +1380,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 44,
+        "y": 74,
         "w": 8,
         "h": 7
       },
@@ -978,7 +1419,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 81,
         "w": 24,
         "h": 1
       }
@@ -993,7 +1434,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 52,
+        "y": 82,
         "w": 8,
         "h": 7
       },
@@ -1036,7 +1477,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 52,
+        "y": 82,
         "w": 8,
         "h": 7
       },
@@ -1079,7 +1520,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 52,
+        "y": 82,
         "w": 8,
         "h": 7
       },
@@ -1130,7 +1571,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 89,
         "w": 12,
         "h": 7
       },
@@ -1172,7 +1613,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 59,
+        "y": 89,
         "w": 12,
         "h": 7
       },
@@ -1212,7 +1653,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 66,
+        "y": 96,
         "w": 24,
         "h": 1
       }
@@ -1227,7 +1668,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 67,
+        "y": 97,
         "w": 6,
         "h": 7
       },
@@ -1281,7 +1722,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 67,
+        "y": 97,
         "w": 6,
         "h": 7
       },
@@ -1335,7 +1776,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 67,
+        "y": 97,
         "w": 6,
         "h": 7
       },
@@ -1389,7 +1830,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 67,
+        "y": 97,
         "w": 6,
         "h": 7
       },
@@ -1443,7 +1884,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 74,
+        "y": 104,
         "w": 12,
         "h": 7
       },
@@ -1494,7 +1935,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 74,
+        "y": 104,
         "w": 12,
         "h": 7
       },

@@ -269,7 +269,7 @@
     },
     {
       "type": "row",
-      "title": "Audience & retention: are people playing and coming back?",
+      "title": "Playing right now: is anyone on?",
       "collapsed": false,
       "panels": [],
       "gridPos": {
@@ -281,8 +281,8 @@
     },
     {
       "type": "stat",
-      "title": "Active pilots (24h)",
-      "description": "Distinct hashed pilot tokens that joined in the last 24h. *Needs deploy.*",
+      "title": "Humans playing now",
+      "description": "Live human pilots connected this instant. This is the only row here that is **now**, not a window.\n`0` humans + `0` bots = genuinely empty; `0` humans + bots > 0 = arenas are up but only bots are flying.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
@@ -290,6 +290,229 @@
       "gridPos": {
         "x": 0,
         "y": 18,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_players",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Bots filling rooms",
+      "description": "Server-controlled opponents that keep arenas alive when humans are sparse.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 18,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_bots",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Arenas open",
+      "description": "Rooms with at least one human. At 8 (MAX_ROOMS) new joins get `rooms_full`.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_rooms",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Joined (last 15m)",
+      "description": "Fresh joins in a deliberately short, **fixed** window \u2014 the closest thing to \"is someone playing right now\" when traffic is sparse.\nUnlike the panels above it, this one does not follow the time picker: liveness wants a short window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 18,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "sum(increase(saucerjam_joins_total[15m])) or vector(0)",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Online right now (humans vs bots)",
+      "description": "Live concurrency. A human line above zero is a real person in an arena; bots fill the gap.\nThis is the same population the landing page's \"N pilots flying now\" reads.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_players",
+          "legendFormat": "humans"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          },
+          "expr": "saucerjam_bots",
+          "legendFormat": "bots"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Audience & retention: are people playing and coming back?",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active pilots (24h)",
+      "description": "Distinct hashed pilot tokens that joined in the last 24h, computed **server-side** over a trailing window.\nIt **resets when the game process restarts**, and the 24h/7d/30d windows are nested \u2014 so right after a deploy all three read the same number until the process has run longer than a day.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
         "w": 6,
         "h": 5
       },
@@ -330,7 +553,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 18,
+        "y": 32,
         "w": 6,
         "h": 5
       },
@@ -362,14 +585,14 @@
     {
       "type": "stat",
       "title": "Active pilots (30d)",
-      "description": "Distinct pilots in the last 30 days. The bigger the gap to the 7d number, the more casual the audience. *Needs deploy.*",
+      "description": "Distinct pilots in the last 30 days, computed **server-side**. The bigger the gap to the 7d number, the more casual the audience. Resets on restart, like the other windows.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
       },
       "gridPos": {
         "x": 12,
-        "y": 18,
+        "y": 32,
         "w": 6,
         "h": 5
       },
@@ -403,14 +626,14 @@
     {
       "type": "stat",
       "title": "Stickiness (24h / 30d)",
-      "description": "**DAU/MAU**: of everyone who played this month, what share played today?\nA rising line = a habit forming. A high one-off spike = a launch you did not retain.",
+      "description": "**DAU/MAU**: of everyone who played this month, what share played today? A rising value = a habit forming.\n**Reads 100% until the windows differ**: right after a restart the 24h and 30d windows cover the same tokens, so the ratio is 1 by construction.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
       },
       "gridPos": {
         "x": 18,
-        "y": 18,
+        "y": 32,
         "w": 6,
         "h": 5
       },
@@ -447,14 +670,14 @@
     {
       "type": "timeseries",
       "title": "Active pilots by window (24h / 7d / 30d)",
-      "description": "The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.",
+      "description": "The three retention windows together. Watch the **shape**: 24h rising toward 7d means growing engagement; 7d flat while 30d climbs means new players are not returning.\nThese are computed server-side and reset on process restart, so they do not follow the time picker.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 37,
         "w": 12,
         "h": 7
       },
@@ -512,7 +735,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 37,
         "w": 12,
         "h": 7
       },
@@ -551,7 +774,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 44,
         "w": 24,
         "h": 1
       }
@@ -566,7 +789,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 45,
         "w": 6,
         "h": 5
       },
@@ -610,7 +833,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 31,
+        "y": 45,
         "w": 6,
         "h": 5
       },
@@ -652,7 +875,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 31,
+        "y": 45,
         "w": 6,
         "h": 5
       },
@@ -696,7 +919,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 31,
+        "y": 45,
         "w": 6,
         "h": 5
       },
@@ -735,7 +958,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 50,
         "w": 24,
         "h": 7
       },
@@ -799,7 +1022,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 43,
+        "y": 57,
         "w": 24,
         "h": 1
       }
@@ -814,7 +1037,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 58,
         "w": 6,
         "h": 5
       },
@@ -855,7 +1078,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 44,
+        "y": 58,
         "w": 6,
         "h": 5
       },
@@ -894,7 +1117,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 44,
+        "y": 58,
         "w": 12,
         "h": 7
       },
@@ -946,7 +1169,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 65,
         "w": 12,
         "h": 7
       },
@@ -998,7 +1221,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 58,
+        "y": 72,
         "w": 24,
         "h": 7
       },
@@ -1035,7 +1258,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 65,
+        "y": 79,
         "w": 24,
         "h": 1
       }
@@ -1050,7 +1273,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 66,
+        "y": 80,
         "w": 12,
         "h": 7
       },
@@ -1092,7 +1315,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 66,
+        "y": 80,
         "w": 12,
         "h": 7
       },
@@ -1132,7 +1355,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 73,
+        "y": 87,
         "w": 12,
         "h": 7
       },
@@ -1190,7 +1413,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 73,
+        "y": 87,
         "w": 12,
         "h": 7
       },
@@ -1227,7 +1450,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 80,
+        "y": 94,
         "w": 24,
         "h": 1
       }
@@ -1242,7 +1465,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 81,
+        "y": 95,
         "w": 8,
         "h": 7
       },
@@ -1284,7 +1507,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 81,
+        "y": 95,
         "w": 8,
         "h": 7
       },
@@ -1326,7 +1549,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 81,
+        "y": 95,
         "w": 8,
         "h": 7
       },
@@ -1374,7 +1597,7 @@
       "panels": [],
       "gridPos": {
         "x": 0,
-        "y": 88,
+        "y": 102,
         "w": 24,
         "h": 1
       }
@@ -1384,7 +1607,7 @@
       "title": "",
       "gridPos": {
         "x": 0,
-        "y": 89,
+        "y": 103,
         "w": 24,
         "h": 4
       },
@@ -1403,7 +1626,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 93,
+        "y": 107,
         "w": 6,
         "h": 6
       },
@@ -1457,7 +1680,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 93,
+        "y": 107,
         "w": 6,
         "h": 6
       },
@@ -1511,7 +1734,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 93,
+        "y": 107,
         "w": 6,
         "h": 6
       },
@@ -1565,7 +1788,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 93,
+        "y": 107,
         "w": 6,
         "h": 6
       },

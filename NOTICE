@@ -1,0 +1,18 @@
+SaucerJam
+Copyright (C) 2026 Luis Gimenez (Menezmethod) and the SaucerJam contributors.
+
+Released under the MIT License. The verbatim license text is in LICENSE.
+
+The MIT License applies to the source code in this repository. It grants no
+rights in, and does not cover:
+
+  * the SaucerJam name, wordmark, logo or other brand assets -> TRADEMARK.md
+  * in-game art, 3D models, music and sound effects           -> ASSET-LICENSES.md
+  * community and marketplace creations by third parties      -> docs/MARKETPLACE-TERMS.md
+  * contributions offered to this project                     -> CLA.md
+
+LICENSING.md is the authoritative map of what is licensed how and why, and
+documents the staged (not yet adopted) move of future releases to AGPL-3.0.
+
+Third-party components remain the property of their respective authors and are
+used under their own licenses; see "Third-party dependencies" in LICENSING.md.

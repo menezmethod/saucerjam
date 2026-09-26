@@ -1,5 +1,10 @@
 // Package only the runnable application, never local data, credentials or node_modules.
 // Run build/tests and obtain feature acceptance before tagging/publishing this output.
+//
+// `src/` and the build config ship with `dist/` on purpose: the client in the bundle is
+// compiled output, so a recipient must be able to rebuild it from the corresponding
+// source. That is required by the licence in force (and by AGPL-3.0 section 13 if the
+// staged switch is ever executed). See LICENSING.md section 7. Do not remove them.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {execFileSync}=require('node:child_process'),{createHash}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
@@ -10,7 +15,7 @@ execFileSync('npm',['run','build'],{cwd:root,stdio:'inherit'});
 const name=`saucerjam-v${pkg.version}`,tmp=fs.mkdtempSync(path.join(os.tmpdir(),'qd-release-')),stage=path.join(tmp,name),out=path.join(root,'release-artifacts');
 fs.mkdirSync(stage);fs.mkdirSync(out,{recursive:true});
 try{
- for(const f of ['dist','shared','server/server.js','server/rankings','package.json','package-lock.json','LICENSE','README.md','CHANGELOG.md','docs/ROADMAP.md','docs/HOSTING.md']){
+ for(const f of ['dist','src','shared','webpack.config.js','server/server.js','server/rankings','package.json','package-lock.json','LICENSE','NOTICE','LICENSING.md','TRADEMARK.md','ASSET-LICENSES.md','README.md','CHANGELOG.md','docs/ROADMAP.md','docs/HOSTING.md']){
   const dest=path.join(stage,f);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.cpSync(path.join(root,f),dest,{recursive:true});
  }
  const commit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();

@@ -111,8 +111,15 @@ async function main() {
       "PASS: independent browser clients join the same room through an invite",
     );
     const startA = { x: room.sim.players.get(idA).x, z: room.sim.players.get(idA).z };
+    // Input is sampled once per rendered frame (see fireOnce below): a slow
+    // or loaded CI runner delivers fewer frames in a fixed wall-clock hold,
+    // so less real movement accumulates in the same 500ms -- this held
+    // intermittently on CI (never locally) across multiple unrelated PRs.
+    // A longer hold, not a longer post-hoc wait, is the actual margin: once
+    // the key is up, no further movement accrues no matter how long until()
+    // waits afterward.
     await a.keyboard.down("KeyW");
-    await sleep(500);
+    await sleep(900);
     await a.keyboard.up("KeyW");
     await until(
       () =>
@@ -120,6 +127,7 @@ async function main() {
           room.sim.players.get(idA).x - startA.x,
           room.sim.players.get(idA).z - startA.z,
         ) > 2,
+      8000,
     );
     await b.waitForFunction(
       ({ id, x, z }) => {
@@ -332,9 +340,9 @@ async function main() {
     );
     const lagStart = await snapshot(lag);
     await lag.keyboard.down("KeyW");
-    await sleep(500);
+    await sleep(800);
     await lag.keyboard.up("KeyW");
-    await sleep(500);
+    await sleep(800);
     const lagEnd = await snapshot(lag),
       lagServer = room.sim.players.get(lagEnd.playerId);
     assert.ok(

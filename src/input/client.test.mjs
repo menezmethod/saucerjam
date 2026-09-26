@@ -45,7 +45,9 @@ function fixture() {
   const game = Object.create(context.Game.prototype);
   Object.assign(game, {
     mode: "practice", keys: new Set(), touchRoles: new Map(), firePointerId: null,
-    firing: false, stick: { x: 0, z: 0, active: false }, stickOrigin: null,
+    firing: false, autoFire: false, oneHandMode: false,
+    stick: { x: 0, z: 0, active: false }, stickOrigin: null,
+    fireStick: { x: 0, z: 0, active: false }, fireStickOrigin: null,
     mouse: null, aim: null, seq: 0, weapon: "LASER",
     renderer: { screenMovement: (x, z) => ({ x, z }) },
     unlockAudio() {}, bindInputChrome() {},
@@ -64,7 +66,7 @@ test("movement and aim are sampled independently on the next input tick", () => 
   arena.emit("pointermove", pointer(2, 420, 450));
   const input = game.input();
   assert.equal(input.move.x, 1); assert.equal(input.fire, true);
-  assert.equal(game.mouse.x, 420); assert.equal(input.seq, 1);
+  assert.equal(game.fireStick.active, true); assert.equal(input.seq, 1);
   assert.equal(input.thrust, 0); assert.equal(input.turn, 0);
 });
 
@@ -101,7 +103,8 @@ test("extra touch and hybrid mouse cannot steal a firing finger's aim", () => {
   arena.emit("pointerdown", pointer(3, 450));
   arena.emit("pointermove", pointer(3, 490));
   arena.emit("pointermove", pointer(4, 200, 400, "mouse"));
-  assert.equal(game.firePointerId, 2); assert.equal(game.mouse.x, 400);
+  assert.equal(game.firePointerId, 2); assert.equal(game.fireStickOrigin.x, 400);
+  assert.equal(game.mouse, null);
   assert.equal(game.touchRoles.has(3), false);
 });
 

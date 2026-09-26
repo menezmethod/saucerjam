@@ -160,7 +160,7 @@
             >
           </div>
           <span id="connection">Offline practice</span
-          ><button id="menu-button" class="small">Menu <kbd>Esc</kbd></button>
+          ><button id="menu-button" class="small">Menu <kbd class="desktop-key">Esc</kbd></button>
         </div>
       </header>
       <div id="kill-feed" aria-live="polite"></div>
@@ -178,17 +178,17 @@
           >You <i></i> <span id="pilot-count">4 pilots</span> <kbd>M</kbd></span
         >
       </aside>
-      <section id="chat" class="chat-panel" aria-label="Arena chat" hidden>
-        <div class="chat-head">
-          <strong>Comms</strong><button id="chat-close" class="small" type="button">Hide</button>
-        </div>
-        <div id="chat-log" class="chat-log" aria-live="polite" aria-label="Chat messages"></div>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" maxlength="160" autocomplete="off" placeholder="Message your arena…" aria-label="Chat message" />
-          <button class="small" type="submit">Send</button>
-        </form>
-      </section>
-      <button id="chat-toggle" class="chat-toggle small" type="button" aria-expanded="false">Comms</button>
+      <!-- Comms, Command & Conquer style: no panel, no card, no "new window."
+           Lines sit directly over the arena and fade on their own; the
+           input only appears while actually composing a message (Enter on
+           desktop, the chat icon on touch), then disappears again. -->
+      <div id="chat-log" class="chat-log" aria-live="polite" aria-label="Chat messages"></div>
+      <form id="chat-form" class="chat-form" hidden>
+        <input id="chat-input" maxlength="160" autocomplete="off" placeholder="Message your arena… (Enter to send, Esc to cancel)" aria-label="Chat message" />
+      </form>
+      <button id="chat-toggle" class="chat-toggle" type="button" aria-label="Open chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+      </button>
       <div id="hit-marker" hidden>×</div>
       <div id="damage-flash"></div>
       <div id="death-panel" class="center-message" hidden>
@@ -231,11 +231,14 @@
           >WASD / arrows move <span>·</span> Mouse aim <span>·</span> Hold
           click or Space to fire</span
         ><span class="flight-hint-touch" hidden
-          >Left thumb moves <span>·</span> Tap anywhere to fire</span
+          >Left thumb moves <span>·</span> Right thumb pushes to aim & fire</span
         >
       </div>
       <div id="touch-controls">
         <div id="touch-joystick" aria-hidden="true">
+          <div class="stick-knob"></div>
+        </div>
+        <div id="touch-firestick" aria-hidden="true">
           <div class="stick-knob"></div>
         </div>
       </div>
@@ -250,8 +253,8 @@
           <h2>Two thumbs, one arena.</h2>
           <div class="guide-steps">
             <p><b>1</b><span><strong>Left thumb</strong> moves your saucer.</span></p>
-            <p><b>2</b><span><strong>Tap anywhere else</strong> to aim and fire.</span></p>
-            <p><b>3</b><span>Swap weapons <strong>top-right</strong>. Menu holds view, scores, chat and audio.</span></p>
+            <p><b>2</b><span><strong>Press anywhere else</strong> and push to aim and fire.</span></p>
+            <p><b>3</b><span>Swap weapons <strong>top-right</strong>. Tap the chat icon to talk; Menu holds view, scores and audio.</span></p>
           </div>
           <button id="dismiss-touch-onboarding" class="primary" type="button">Got it</button>
         </div>
@@ -262,6 +265,7 @@
         <h2>Flight menu</h2>
         <p id="pause-message">Online matches keep running.</p>
         <button id="resume" class="primary">Resume flight</button
+        ><button id="one-hand-button" class="small" aria-pressed="false">One-hand mode: Off</button
         ><button id="help-button">Controls & weapons</button
         ><button id="report-button">Report feedback</button
         ><button id="leave-game">Leave arena</button>

@@ -379,64 +379,93 @@ body.hud-idle .flight-hint {
 .radar.collapsed {
   display: none;
 }
-.chat-toggle {
-  position: fixed;
-  right: 24px;
-  /* Clear the flight-tools rail pinned to the bottom of .combat-bar (bar
-     bottom 44px, then the 106px stack, then an 8px gap). The compact
-     breakpoints below override this with their own rail heights. */
-  bottom: calc(44px + var(--flight-tools-height) + 8px);
-  z-index: 4;
-}
-.chat-panel {
-  position: fixed;
-  right: 24px;
-  bottom: calc(44px + var(--flight-tools-height) + 50px);
-  width: min(330px, calc(100vw - 32px));
-  padding: 12px;
-  border: 1px solid #35516c;
-  border-radius: 10px;
-  background: #081322e8;
-  box-shadow: 0 16px 45px #0008;
-  z-index: 4;
-  backdrop-filter: blur(12px);
-}
-.chat-head,
-.chat-form {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.chat-head {
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #c7edf8;
-}
+/* Comms, Command & Conquer style (Generals / Tiberian Sun): no card, no
+   border, no background, no "hide" button -- lines sit directly over the
+   arena like subtitles and retire on their own (see .stale below). Only the
+   composing input is a real element that appears/disappears (see
+   openChatPrompt/closeChatPrompt in index.js). */
 .chat-log {
-  min-height: 52px;
-  max-height: 180px;
-  overflow: auto;
+  position: fixed;
+  left: 24px;
+  bottom: calc(44px + var(--flight-tools-height) + 90px);
+  width: min(340px, calc(100vw - 48px));
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 4px 2px 10px;
-  color: #c6d7e6;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #eaf3fb;
+  text-shadow: 0 1px 3px #000c, 0 0 8px #000a;
+  pointer-events: none;
+  z-index: 4;
 }
 .chat-log p {
   margin: 0;
-  line-height: 1.35;
   overflow-wrap: anywhere;
+  opacity: 1;
+  transition: opacity 1s ease;
+}
+.chat-log p.stale {
+  opacity: 0;
+}
+/* Glance-only by default: the last four lines (newest is the last DOM
+   child -- see addChatMessage's append). Composing shows the last eight
+   (stale ones included) as the scrollback, so there is no separate log
+   panel to open. */
+.chat-log p:nth-last-child(n + 5) {
+  display: none;
+}
+.chat-log.expanded p:nth-last-child(n + 9) {
+  display: none;
+}
+.chat-log.expanded p.stale {
+  opacity: 0.55;
 }
 .chat-log b {
   color: #84ebff;
   margin-right: 5px;
 }
+.chat-toggle {
+  position: fixed;
+  right: 24px;
+  bottom: calc(44px + var(--flight-tools-height) + 8px);
+  z-index: 4;
+  display: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+.chat-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+/* Device capability, not the last-input-flavor .touch-active heuristic:
+   the joystick/fire-stick correctly hide the instant a real mouse is used
+   (hybrid trackpad+touch devices), but the chat icon shouldn't blink away
+   just because the last tap happened to be a mouse-flavored dismiss click
+   on a modal button -- it should stay put as long as the device has touch. */
+@media (pointer: coarse) {
+  .chat-toggle {
+    display: flex;
+  }
+}
+.chat-form {
+  position: fixed;
+  left: 24px;
+  bottom: calc(44px + var(--flight-tools-height) + 8px);
+  width: min(340px, calc(100vw - 48px));
+  z-index: 5;
+}
 .chat-form input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  font-size: 12px;
+  width: 100%;
+  padding: 9px 11px;
+  font-size: 16px; /* below 16px iOS Safari zooms in on focus and stays zoomed */
+  background: #081322e8;
+  border: 1px solid #35516c;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px #0008;
 }
 .combat-bar {
   position: fixed;
@@ -879,9 +908,10 @@ th {
     right: 12px;
     bottom: 108px;
   }
-  .chat-panel {
-    right: 12px;
-    bottom: 148px;
+  .chat-log,
+  .chat-form {
+    left: 12px;
+    bottom: 108px;
   }
   .radar kbd,
   .radar > span > i {
@@ -1146,8 +1176,12 @@ th {
   }
 
   /* Keep Comms in the quiet lane immediately above the control rail. */
-  .chat-toggle {
+  .chat-toggle,
+  .chat-form {
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px);
+  }
+  .chat-log {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 172px);
   }
 }
 
@@ -1250,12 +1284,42 @@ body.touch-active #touch-joystick {
   background: #5eeaff55;
   border: 1px solid #5eeaffaa;
 }
-/* There is no Fire button: tapping anywhere on the arena outside the
-   joystick zone aims and fires at that point, via the same pointerdown
-   handler desktop's mouse click already uses. */
+/* There is no Fire button: pressing anywhere on the arena outside the
+   movement zone opens a second, relative aim/fire stick right under the
+   thumb -- push a direction to aim, same pointerdown handler desktop's
+   mouse click already uses for the click-to-fire path. Unlike the
+   movement stick it has no resting "home": it only exists while that
+   thumb is actually down, so it adds no permanent chrome to the screen. */
+#touch-firestick {
+  position: fixed;
+  width: 104px;
+  height: 104px;
+  margin-left: -52px;
+  margin-top: -52px;
+  border-radius: 50%;
+  background: #ff6b8a18;
+  border: 1px solid #ff6b8a55;
+  pointer-events: none;
+  display: none;
+}
+#touch-firestick.dragging {
+  display: block;
+}
+#touch-firestick .stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-radius: 50%;
+  background: #ff6b8a55;
+  border: 1px solid #ff6b8aaa;
+}
 /* Arena/Scores/Sound move into the Flight menu on touch (see
    relocateFlightTools in index.js). The whole bottom of the screen is a
-   gesture surface now (joystick zone bottom-left, tap-to-fire everywhere
+   gesture surface now (joystick zone bottom-left, aim-stick everywhere
    else), so weapons move up to the top-right, clear of both the
    radar (top-left) and every gesture zone. */
 body.touch-active .combat-bar {
@@ -1417,16 +1481,18 @@ button:active { transform: scale(0.97); }
     right: auto;
     bottom: auto;
   }
-  .chat-panel {
-    top: calc(var(--top-bar-height, 64px) + 8px);
+  .chat-log {
+    top: calc(var(--top-bar-height, 64px) + 56px);
     left: max(12px, env(safe-area-inset-left));
-    right: auto;
     bottom: auto;
-    width: min(320px, calc(100vw - 24px));
-    max-height: calc(100vh - var(--top-bar-height, 64px) - 24px);
-    overflow: auto;
+    width: min(280px, calc(100vw - 24px));
   }
-  .chat-log { max-height: 96px; }
+  .chat-form {
+    top: calc(var(--top-bar-height, 64px) + 140px);
+    left: max(12px, env(safe-area-inset-left));
+    bottom: auto;
+    width: min(280px, calc(100vw - 24px));
+  }
 }
 
 /* Narrow landscape phones: the round label makes the centred clock wide enough
@@ -1465,13 +1531,15 @@ button:active { transform: scale(0.97); }
     right: auto;
     bottom: auto;
   }
-  .chat-panel {
-    top: calc(var(--top-bar-height, 90px) + 8px);
+  .chat-log {
+    top: calc(var(--top-bar-height, 90px) + 56px);
     left: max(12px, env(safe-area-inset-left));
-    right: auto;
     bottom: auto;
-    max-height: calc(100vh - var(--top-bar-height, 90px) - 140px);
-    overflow: auto;
+  }
+  .chat-form {
+    top: calc(var(--top-bar-height, 90px) + 220px);
+    left: max(12px, env(safe-area-inset-left));
+    bottom: auto;
   }
 }
 

@@ -431,8 +431,8 @@ body.hud-idle .flight-hint {
   bottom: calc(44px + var(--flight-tools-height) + 8px);
   z-index: 4;
   display: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   align-items: center;
   justify-content: center;
@@ -606,6 +606,36 @@ body.hud-idle .flight-hint {
 }
 #menu-status {
   overflow-wrap: anywhere;
+  order: 10;
+}
+/* Flight menu, grouped by what it actually is rather than DOM/attach order
+   (Resume -> quick settings -> reference/info -> support -> the one
+   destructive action) -- `order` re-sequences without needing every
+   button's insertion point (static HTML, Interface.js, and the
+   touch-relocated .flight-tools row) to agree on layout. `order` alone is
+   enough: .dialog is already a flex column, no display override needed. */
+#resume { order: 1; }
+#one-hand-button { order: 2; }
+#help-button { order: 3; }
+#menu .flight-tools { order: 4; }
+#menu .qd-advanced-camera { order: 5; }
+#report-button { order: 6; }
+.qd-pilot-records { order: 7; }
+.qd-review-button { order: 8; }
+/* The one action that ends the match: visibly quieter than routine
+   buttons (no filled border-box look) and set apart with real space, so
+   it's never the thing a thumb grazes by mistake reaching for Resume. */
+#leave-game {
+  order: 9;
+  margin-top: 10px;
+  background: none;
+  border-color: #6b3d44;
+  color: #e8a3ac;
+}
+#leave-game:hover {
+  background: #3a1a1e;
+  border-color: #ff8792;
+  color: #ffd3d8;
 }
 .report-dialog {
   width: 470px;
@@ -1040,6 +1070,18 @@ th {
   .match-brand > span {
     display: none;
   }
+  /* No physical V/T keys to hint at on touch, on any screen width -- the
+     two existing rules for this only fired on desktop-narrow or
+     under-700px, so a wide touch landscape phone still showed them. */
+  .flight-tools kbd {
+    display: none;
+  }
+  /* Camera view (Flight menu) already covers all four views; the
+     relocated view-cycle button duplicated it with the same "Arena"
+     wording the user found confusing in the first place. */
+  #menu #view-button {
+    display: none;
+  }
   .match-brand {
     font-size: 17px;
   }
@@ -1229,8 +1271,10 @@ th {
 }
 
 /* Combat drags must not select HUD text, trigger pull-to-refresh, or show the
-   iOS text-selection callout. */
-body { user-select: none; -webkit-user-select: none; overscroll-behavior: none; -webkit-touch-callout: none; }
+   iOS text-selection callout. touch-action:manipulation drops the double-tap
+   zoom gesture (the other common way a phone gets stuck zoomed in, alongside
+   pinch, which the viewport meta tag's maximum-scale/user-scalable handle). */
+body { user-select: none; -webkit-user-select: none; overscroll-behavior: none; -webkit-touch-callout: none; touch-action: manipulation; }
 input, textarea { user-select: text; -webkit-user-select: text; }
 
 /* Touch controls: gated on runtime touch detection (a real touch pointerdown
@@ -1464,41 +1508,43 @@ button:active { transform: scale(0.97); }
    Comms top-left (the radar is hidden on touch, so that corner is free). */
 @media (max-height: 480px) and (pointer: coarse) {
   .top-bar {
-    padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+    padding: 4px max(12px, env(safe-area-inset-right)) 4px max(12px, env(safe-area-inset-left));
   }
   .match-brand { font-size: 16px; }
   .match-brand > span { display: none; }
-  .match-clock strong { font-size: 20px; }
-  .match-clock span { font-size: 11px; margin-top: 2px; }
+  .match-clock strong { font-size: 18px; }
+  /* The "Round 1 · RELAY · 4/4 open" subtitle is the single biggest thing
+     costing vertical room on a short landscape screen; the round/mode are
+     still in the scoreboard, so this is redundant here regardless of width
+     (previously only dropped below 700px, leaving it on wider phones). */
+  .match-clock span { display: none; }
   .vitals { flex-direction: row; gap: 8px; }
   .vital-label { display: none; }
   .vital-bar { width: 40px; }
   .vital-num { min-width: 0; }
   .session-tools { flex-direction: row; align-items: center; gap: 8px; }
+  /* Chat sits right under the (now single-line) top bar instead of a full
+     second row below the weapons -- tight enough that it reads as part of
+     the same chrome band, not a separate shelf. */
   .chat-toggle {
-    top: calc(var(--top-bar-height, 64px) + 8px);
+    top: calc(var(--top-bar-height, 56px) + 4px);
     left: max(12px, env(safe-area-inset-left));
     right: auto;
     bottom: auto;
   }
   .chat-log {
-    top: calc(var(--top-bar-height, 64px) + 56px);
+    top: calc(var(--top-bar-height, 56px) + 52px);
     left: max(12px, env(safe-area-inset-left));
     bottom: auto;
-    width: min(280px, calc(100vw - 24px));
+    width: min(240px, calc(100vw - 24px));
+    font-size: 12px;
   }
   .chat-form {
-    top: calc(var(--top-bar-height, 64px) + 140px);
+    top: calc(var(--top-bar-height, 56px) + 120px);
     left: max(12px, env(safe-area-inset-left));
     bottom: auto;
-    width: min(280px, calc(100vw - 24px));
+    width: min(240px, calc(100vw - 24px));
   }
-}
-
-/* Narrow landscape phones: the round label makes the centred clock wide enough
-   to hit the vitals, so drop it (round/district remain in the scoreboard). */
-@media (max-height: 480px) and (max-width: 700px) and (pointer: coarse) {
-  .match-clock span { display: none; }
 }
 
 /* Live population signal on the landing (see loadPopulation in index.js). */
@@ -1558,4 +1604,36 @@ button:active { transform: scale(0.97); }
     mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
     -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
   }
+}
+/* Landscape phones have far less vertical room than the portrait-tuned
+   roomy rows above assume -- both the Flight menu and Scores (same
+   .dialog) need denser padding so less of either sits below the fold. */
+@media (max-height: 480px) and (pointer: coarse) {
+  .dialog { padding: 10px 18px; gap: 4px; }
+  .dialog h2 { font-size: 18px; margin-bottom: 0; }
+  .dialog p { margin-bottom: 3px; }
+  #menu .dialog > button { padding: 8px 14px; font-size: 13px; min-height: 44px; }
+  /* Every direct child keeps its natural (44px-plus) height instead of
+     being squeezed to fit .dialog's max-height cap -- a flex column with
+     overflow:auto will shrink children below their content otherwise,
+     which is what actually happened here the first time (buttons measured
+     16px tall with text spilling past their own border). */
+  #menu .dialog > * { flex-shrink: 0; }
+  #menu .qd-advanced-camera summary { padding: 6px 0; }
+  #scoreboard th, #scoreboard td { padding: 3px 8px; font-size: 13px; }
+  /* Landscape phones are short but wide (852x393, not 393x852) -- use the
+     width instead of fighting for vertical space. A 720px-wide, two-column
+     dialog gives each button ~340px, wide enough that no label wraps. */
+  #menu .dialog {
+    width: min(720px, calc(100vw - 2 * max(16px, env(safe-area-inset-left))));
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  #menu .dialog > * { grid-column: 1 / -1; }
+  #menu .dialog > button:not(.primary) { grid-column: span 1; }
+  /* Stays alone on its own full-width row: still the one button that
+     shouldn't sit shoulder to shoulder with a routine action. (Two ID
+     selectors to out-specify the :not(.primary) rule above.) */
+  #menu .dialog > button#leave-game { grid-column: 1 / -1; }
 }

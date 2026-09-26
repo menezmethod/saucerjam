@@ -446,6 +446,51 @@ async function main() {
     console.log(
       "PASS: mobile layout, HUD overlap-free, move+fire role assignment, and playable missing-model fallback",
     );
+    // Touch fire is a relative stick, not a tap-at-a-point: a quick tap (no
+    // drag) must not throw the grenade a fixed distance in a stale
+    // direction -- it should snap to the nearest visible enemy instead.
+    // Dragging past the dead zone should then scale the throw distance
+    // with how far the stick is pushed, up to the weapon's range.
+    await mobile.tap('[data-weapon="GRENADE"]');
+    await sleep(150);
+    const before = await mobile.evaluate(() => window.__qd.getSnapshot());
+    const me = before.predicted;
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 390 * 0.7, y: 844 * 0.5, id: 3 }],
+    });
+    await sleep(150);
+    const tapped = await mobile.evaluate(() => window.__qd.getSnapshot());
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await sleep(50);
+    assert.ok(tapped.aim, "tap should have set an aim point, not left it null");
+    const tapDist = Math.hypot(tapped.aim.x - me.x, tapped.aim.z - me.z);
+    // Mirror pickTarget's own filters (alive, not spawn-protected) so this
+    // doesn't flake if a bot happens to be mid-respawn at the exact moment.
+    const candidateDists = tapped.state.players
+      .filter((p) => p.id !== tapped.playerId && p.alive && !(p.protectedUntil > tapped.state.time))
+      .map((p) => Math.hypot(p.x - me.x, p.z - me.z));
+    assert.ok(candidateDists.length > 0, "expected at least one live, unprotected enemy for the tap to target");
+    const nearestEnemyDist = Math.min(...candidateDists);
+    assert.ok(
+      Math.abs(tapDist - nearestEnemyDist) < 1,
+      `tap should snap to the nearest enemy (aim ${tapDist.toFixed(1)} vs enemy ${nearestEnemyDist.toFixed(1)})`,
+    );
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 390 * 0.7, y: 844 * 0.5, id: 4 }],
+    });
+    await sleep(40);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: 390 * 0.7 + 200, y: 844 * 0.5, id: 4 }],
+    });
+    await sleep(150);
+    const dragged = await mobile.evaluate(() => window.__qd.getSnapshot());
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const dragDist = Math.hypot(dragged.aim.x - me.x, dragged.aim.z - me.z);
+    assert.ok(Math.abs(dragDist - 20) < 0.5, `full drag should throw at max range 20, got ${dragDist.toFixed(1)}`);
+    console.log("PASS: touch grenade taps snap to the nearest enemy and drag scales throw distance");
     // Regression: an external reset (round recap, blur, death) that fires
     // without a matching pointerup must not permanently lock the joystick
     // out. Headless tests never blur/hide/end a round mid-drag, which is

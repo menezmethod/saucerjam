@@ -456,6 +456,10 @@ class Game {
     $("chat-log").classList.remove("expanded");
     $("chat-input").blur();
     $("chat-input").value = "";
+    // A line that went stale while the scrollback was open (expanded shows
+    // stale lines too) never got its removal timeout's "still expanded?"
+    // check to pass -- clear it now instead of leaving a dead row.
+    $("chat-log").querySelectorAll("p.stale").forEach((line) => line.remove());
   }
   sendChat() {
     const input = $("chat-input"), text = input.value.trim();
@@ -479,6 +483,14 @@ class Game {
     // after a few seconds instead of sitting on screen until someone hides
     // the panel (there is no panel to hide anymore).
     setTimeout(() => line.classList.add("stale"), 8000);
+    // A merely-transparent line still occupies its row in the stack, so a
+    // quiet period leaves an invisible gap instead of the newer lines
+    // settling upward. Remove it once the fade (see .chat-log p.stale in
+    // main.css) has actually finished, unless it's still on view as
+    // scrollback while composing.
+    setTimeout(() => {
+      if (!$("chat-log").classList.contains("expanded")) line.remove();
+    }, 9000);
   }
   updateAuth(session, error = null) {
     this.authSession = session || null;
@@ -1326,13 +1338,27 @@ class Game {
     const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
     if (this.mouse && this.active())
       this.aim = this.renderer.aimAt(this.mouse.x, this.mouse.y);
-    else if (this.fireStick.active && this.active() && me) {
-      // Touch fire is a relative stick, not an absolute point: convert its
-      // screen-space push direction into the same world-space aim target
-      // the keyboard (IJKL) path already produces below, so aiming left
-      // never requires reaching across the phone to the target itself.
-      const dir = this.renderer.screenMovement(this.fireStick.x, this.fireStick.z);
-      if (dir.x || dir.z) this.aim = { x: me.x + dir.x * 14, z: me.z + dir.z * 14 };
+    else if (this.fireStickOrigin && this.active() && me) {
+      if (this.fireStick.active) {
+        // Touch fire is a relative stick, not an absolute point: convert its
+        // screen-space push direction into the same world-space aim target
+        // the keyboard (IJKL) path already produces below, so aiming left
+        // never requires reaching across the phone to the target itself.
+        // Grenade distance scales with how far the stick is pushed (the
+        // old tap-at-a-point gave this for free; direction-only weapons
+        // don't care how far the reference point sits).
+        const dir = this.renderer.screenMovement(this.fireStick.x, this.fireStick.z);
+        if (dir.x || dir.z) {
+          const dist = this.weapon === "GRENADE" ? this.fireStick.m * WEAPONS.GRENADE.range : 14;
+          this.aim = { x: me.x + dir.x * dist, z: me.z + dir.z * dist };
+        }
+      } else if (this.state) {
+        // A quick tap never leaves the dead zone: snap to the nearest
+        // visible enemy (Brawl Stars' tap-to-auto-aim) instead of firing
+        // in whatever stale direction was last aimed.
+        const target = pickTarget(me, this.state.players, this.state.time, this.map);
+        if (target) this.aim = { x: target.x, z: target.z };
+      }
     }
     // One-hand mode: auto-target the nearest visible, unprotected enemy
     // whenever no second thumb is manually firing, so a single finger can
@@ -1347,7 +1373,7 @@ class Game {
       const target = pickTarget(me, this.state.players, this.state.time, this.map);
       if (target) { this.aim = { x: target.x, z: target.z }; this.autoFire = true; }
     }
-    if (!this.mouse && !this.fireStick.active && !keyboardAiming && !this.autoFire && this.firePointerId === null)
+    if (!this.mouse && !this.fireStickOrigin && !keyboardAiming && !this.autoFire && this.firePointerId === null)
       this.aim = null;
     this.accumulator += dt;
     while (this.accumulator >= STEP) {

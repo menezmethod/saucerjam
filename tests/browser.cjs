@@ -575,7 +575,13 @@ async function main() {
       type: "touchStart",
       touchPoints: [{ x: 390 * 0.7, y: 844 * 0.5, id: 4 }],
     });
-    await sleep(40);
+    // Wait for the press to claim the stick before dragging it; a fixed sleep
+    // here let the move arrive before the stick existed on a starved runner.
+    await mobile.waitForFunction(
+      () => document.getElementById("touch-firestick").classList.contains("dragging"),
+      null,
+      { timeout: 10000 },
+    );
     await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [{ x: 390 * 0.7 + 200, y: 844 * 0.5, id: 4 }],
@@ -629,26 +635,46 @@ async function main() {
       type: "touchStart",
       touchPoints: [{ x: originX, y: originY, id: 5 }],
     });
-    await sleep(150);
+    // Every step below waits for its observable effect instead of sleeping a
+    // fixed 150ms. On a starved CI runner WebGL can hold the main thread long
+    // enough that a queued pointermove hasn't run yet -- and worse, two moves
+    // sent back-to-back can coalesce into one, which would skip the "armed"
+    // step entirely and fail a fixed-sleep assertion here. Waiting for the
+    // knob offset proves the out-drag was processed (a non-empty offset ==
+    // stick active == throw armed) before the move back is sent.
+    await mobile.waitForFunction(
+      () => document.getElementById("touch-firestick").classList.contains("dragging"),
+      null,
+      { timeout: 10000 },
+    );
     await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [{ x: originX + 45, y: originY, id: 5 }],
     });
-    await sleep(150);
-    assert.ok(
-      await mobile.evaluate(() => document.getElementById("touch-firestick").classList.contains("dragging")),
-      "dragging past the dead zone should arm the fire stick",
+    await mobile.waitForFunction(
+      () => document.getElementById("touch-firestick").querySelector(".stick-knob").style.transform !== "",
+      null,
+      { timeout: 10000 },
     );
     await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [{ x: originX, y: originY, id: 5 }],
     });
-    await sleep(150);
-    assert.ok(
-      await mobile.evaluate(() => document.getElementById("touch-firestick").classList.contains("cancel-armed")),
-      "dragging back to center should preview the cancel",
+    await mobile.waitForFunction(
+      () => document.getElementById("touch-firestick").classList.contains("cancel-armed"),
+      null,
+      { timeout: 10000 },
     );
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    // Release is processed once the stick stops dragging; after that the
+    // cancel decision is final, so a short settle is enough to prove no throw
+    // packet followed. (If the release never processed, this times out loudly
+    // rather than passing on unchanged energy.)
+    await mobile.waitForFunction(
+      () => !document.getElementById("touch-firestick").classList.contains("dragging"),
+      null,
+      { timeout: 10000 },
+    );
     await sleep(400);
     const afterCancel = await mobile.evaluate(
       () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy,

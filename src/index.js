@@ -57,6 +57,9 @@ class Game {
     this.fireStick = { x: 0, z: 0, active: false };
     this.fireStickOrigin = null;
     this.autoFire = false;
+    this.pendingThrow = false;
+    this.lockedTargetId = null;
+    this.lastTargetSwitch = -Infinity;
     this.oneHandMode = storage.get("qd-one-hand", "off") === "on";
     this.touchRoles = new Map();
     this.idleTimer = null;
@@ -570,7 +573,11 @@ class Game {
         const point = { x: e.clientX, y: e.clientY };
         this.fireStickOrigin = reanchor(this.fireStickOrigin, point, 52);
         this.placeFireStick(this.fireStickOrigin);
-        this.fireStick = stickVector(this.fireStickOrigin, point, 52);
+        // A wider dead zone than the movement stick's default (0.1): a
+        // thumb landing on the fire stick wobbles a few pixels just from
+        // the touch itself, and at the default 5px dead zone that noise
+        // was read as a real (if tiny and random) aim direction.
+        this.fireStick = stickVector(this.fireStickOrigin, point, 52, 0.3);
         const knob = $("touch-firestick").querySelector(".stick-knob");
         knob.style.transform = this.fireStick.active
           ? `translate(${this.fireStick.x * 22}px, ${-this.fireStick.z * 22}px)`
@@ -586,6 +593,12 @@ class Game {
       if (this.touchRoles.get(e.pointerId) === "move") this.resetStick();
       this.touchRoles.delete(e.pointerId);
       if (e.pointerId === this.firePointerId) {
+        // A charging grenade throws exactly once, right now, at wherever
+        // this.aim currently is (the last drag position, or the sticky
+        // auto-target if it was never dragged past the dead zone) --
+        // input() reads and clears this on the very next packet.
+        if (!this.firing && this.weapon === "GRENADE" && e.pointerType !== "mouse")
+          this.pendingThrow = true;
         this.firing = false;
         this.firePointerId = null;
         if (e.pointerType !== "mouse") this.resetFireStick();
@@ -677,7 +690,15 @@ class Game {
     // Mouse aims at the cursor's absolute position; touch aims via the
     // relative fire stick set up by the caller (see pointerDown/pointerMove).
     if (e.pointerType === "mouse") this.mouse = { x: e.clientX, y: e.clientY };
-    this.firing = true;
+    // Grenade on touch charges instead of firing immediately: the very
+    // first frame of a touch-down has no aim commitment yet (the stick is
+    // still in its dead zone), so firing right away threw the one grenade
+    // you have at whatever pickTarget/last-aim happened to be, wasting a
+    // 100-energy, 1s-cooldown shot before you had a chance to aim it.
+    // Laser/Ricochet keep continuous hold-to-fire (direction only matters,
+    // not distance, so there's nothing to lose by firing on touch-down).
+    const charging = e.pointerType !== "mouse" && this.weapon === "GRENADE";
+    this.firing = !charging;
     this.firePointerId = e.pointerId;
     this.telemetry.sawInput = true;
     $("arena").setPointerCapture(e.pointerId);
@@ -752,6 +773,7 @@ class Game {
     this.keys.clear();
     this.firing = false;
     this.autoFire = false;
+    this.pendingThrow = false;
     this.firePointerId = null;
     this.mouse = null;
     this.aim = null;
@@ -896,11 +918,16 @@ class Game {
       const dir = this.renderer.screenMovement(aimH, aimV);
       if (me && (dir.x || dir.z)) this.aim = { x: me.x + dir.x * 14, z: me.z + dir.z * 14 };
     }
+    // One-shot: a charged grenade throws exactly once, on the packet right
+    // after release (see pointerEnd), then this clears itself so holding
+    // the (already-released) pointer state can never fire it again.
+    const throwing = this.pendingThrow;
+    this.pendingThrow = false;
     return {
       seq: ++this.seq,
       move: this.active()?move:{x:0,z:0},
       thrust:0,turn:0,strafe:0,
-      fire: this.active() && (this.firing || this.autoFire || k.has("Space")),
+      fire: this.active() && (this.firing || this.autoFire || throwing || k.has("Space")),
       weapon: this.weapon,
       aim: this.aim,
     };
@@ -920,6 +947,8 @@ class Game {
     this.clearInput();
     this.mouse = null;
     this.aim = null;
+    this.lockedTargetId = null;
+    this.lastTargetSwitch = -Infinity;
     this.selectWeapon("LASER");
     this.setView(0);this.renderer.zoom=1;
     $("lobby").hidden = true;
@@ -1336,6 +1365,31 @@ class Game {
     const keyboardAiming =
       this.keys.has("KeyI") || this.keys.has("KeyJ") || this.keys.has("KeyK") || this.keys.has("KeyL");
     const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
+    // Touch aim is low-pass filtered (~50ms time constant): without this, a
+    // sticky-lock target switch or the dead-zone/drag transition arrives as
+    // a single-frame snap, which reads as glitchy even though each value is
+    // individually correct. Mouse and keyboard stay instant -- precision
+    // there is the point, and there's no target-flip or stick noise to hide.
+    const smoothAimTo = (target) => {
+      if (!this.aim) { this.aim = target; return; }
+      const k = 1 - Math.exp(-dt / 0.05);
+      this.aim = { x: this.aim.x + (target.x - this.aim.x) * k, z: this.aim.z + (target.z - this.aim.z) * k };
+    };
+    // Sticky target lock: keep the previously-picked enemy unless it's
+    // actually gone (dead/protected/out of sight/range) or a new one is
+    // meaningfully closer, and even then no more than once per 300ms.
+    // Without this, two similarly-distant enemies make tap-aim and
+    // one-hand auto-fire flicker between them every single frame.
+    const acquireTarget = () => {
+      if (!this.state) return null;
+      const target = pickTarget(me, this.state.players, this.state.time, this.map, {
+        previousId: this.lockedTargetId,
+        lastSwitchAt: this.lastTargetSwitch,
+      });
+      this.lockedTargetId = target ? target.id : null;
+      if (target?.switched) this.lastTargetSwitch = this.state.time;
+      return target;
+    };
     if (this.mouse && this.active())
       this.aim = this.renderer.aimAt(this.mouse.x, this.mouse.y);
     else if (this.fireStickOrigin && this.active() && me) {
@@ -1350,14 +1404,14 @@ class Game {
         const dir = this.renderer.screenMovement(this.fireStick.x, this.fireStick.z);
         if (dir.x || dir.z) {
           const dist = this.weapon === "GRENADE" ? this.fireStick.m * WEAPONS.GRENADE.range : 14;
-          this.aim = { x: me.x + dir.x * dist, z: me.z + dir.z * dist };
+          smoothAimTo({ x: me.x + dir.x * dist, z: me.z + dir.z * dist });
         }
-      } else if (this.state) {
+      } else {
         // A quick tap never leaves the dead zone: snap to the nearest
         // visible enemy (Brawl Stars' tap-to-auto-aim) instead of firing
         // in whatever stale direction was last aimed.
-        const target = pickTarget(me, this.state.players, this.state.time, this.map);
-        if (target) this.aim = { x: target.x, z: target.z };
+        const target = acquireTarget();
+        if (target) smoothAimTo({ x: target.x, z: target.z });
       }
     }
     // One-hand mode: auto-target the nearest visible, unprotected enemy
@@ -1370,8 +1424,8 @@ class Game {
       typeof me.protectedUntil === "number" && me.protectedUntil > this.state.time;
     if (this.oneHandMode && this.active() && this.firePointerId === null &&
         this.weapon !== "GRENADE" && me && this.state && !selfProtected) {
-      const target = pickTarget(me, this.state.players, this.state.time, this.map);
-      if (target) { this.aim = { x: target.x, z: target.z }; this.autoFire = true; }
+      const target = acquireTarget();
+      if (target) { smoothAimTo({ x: target.x, z: target.z }); this.autoFire = true; }
     }
     if (!this.mouse && !this.fireStickOrigin && !keyboardAiming && !this.autoFire && this.firePointerId === null)
       this.aim = null;

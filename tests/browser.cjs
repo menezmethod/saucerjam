@@ -480,7 +480,11 @@ async function main() {
       type: "touchStart",
       touchPoints: [{ x: 390 * 0.7, y: 844 * 0.5, id: 3 }],
     });
-    await sleep(150);
+    // Poll rather than a fixed sleep: a loaded CI runner can starve
+    // requestAnimationFrame, so "wait exactly 150ms" is itself the kind of
+    // flake that already bit two other tests in this file today. Wait for
+    // the actual condition (aim resolved) instead, generously bounded.
+    await mobile.waitForFunction(() => window.__qd.getSnapshot().aim, null, { timeout: 5000 });
     const tapped = await mobile.evaluate(() => window.__qd.getSnapshot());
     const energyWhileCharging = tapped.state.players.find((p) => p.id === tapped.playerId).energy;
     // Energy regenerates continuously (RULES.energyRegen), so it can only
@@ -491,11 +495,12 @@ async function main() {
       `grenade must not fire while still charging on touch-down (before ${energyBeforeCharge.toFixed(1)}, while charging ${energyWhileCharging.toFixed(1)})`,
     );
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    await sleep(150);
-    const energyAfterRelease = (await mobile.evaluate(() => window.__qd.getSnapshot())).state.players.find(
-      (p) => p.id === tapped.playerId,
-    ).energy;
-    assert.ok(energyAfterRelease < energyWhileCharging, "grenade should throw on release, not before");
+    await mobile.waitForFunction(
+      ({ id, before }) =>
+        window.__qd.getSnapshot().state.players.find((p) => p.id === id).energy < before,
+      { id: tapped.playerId, before: energyWhileCharging },
+      { timeout: 5000 },
+    );
     assert.ok(tapped.aim, "tap should have set an aim point, not left it null");
     const tapDist = Math.hypot(tapped.aim.x - me.x, tapped.aim.z - me.z);
     // Mirror pickTarget's own filters (alive, not spawn-protected) so this
@@ -519,11 +524,24 @@ async function main() {
       touchPoints: [{ x: 390 * 0.7 + 200, y: 844 * 0.5, id: 4 }],
     });
     // Aim eases toward its target (~50ms time constant) instead of
-    // snapping, so this needs a moment to actually converge on 20.
-    await sleep(300);
+    // snapping, so this needs a moment to actually converge on 20 -- poll
+    // for convergence rather than a fixed sleep. Distance is measured
+    // against the ship's *current* position each check, not the `me`
+    // captured before the tap test: drift from the earlier movement test
+    // can still be settling, and the game aims relative to where the ship
+    // actually is right now, not a stale snapshot.
+    await mobile.waitForFunction(
+      () => {
+        const snap = window.__qd.getSnapshot();
+        if (!snap.aim) return false;
+        return Math.abs(Math.hypot(snap.aim.x - snap.predicted.x, snap.aim.z - snap.predicted.z) - 20) < 0.5;
+      },
+      null,
+      { timeout: 5000 },
+    );
     const dragged = await mobile.evaluate(() => window.__qd.getSnapshot());
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    const dragDist = Math.hypot(dragged.aim.x - me.x, dragged.aim.z - me.z);
+    const dragDist = Math.hypot(dragged.aim.x - dragged.predicted.x, dragged.aim.z - dragged.predicted.z);
     assert.ok(Math.abs(dragDist - 20) < 0.5, `full drag should throw at max range 20, got ${dragDist.toFixed(1)}`);
     console.log("PASS: touch grenade taps snap to the nearest enemy and drag scales throw distance");
     // Regression: an external reset (round recap, blur, death) that fires

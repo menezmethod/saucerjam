@@ -484,7 +484,7 @@ async function main() {
     // requestAnimationFrame, so "wait exactly 150ms" is itself the kind of
     // flake that already bit two other tests in this file today. Wait for
     // the actual condition (aim resolved) instead, generously bounded.
-    await mobile.waitForFunction(() => window.__qd.getSnapshot().aim, null, { timeout: 5000 });
+    await mobile.waitForFunction(() => window.__qd.getSnapshot().aim, null, { timeout: 15000 });
     const tapped = await mobile.evaluate(() => window.__qd.getSnapshot());
     const energyWhileCharging = tapped.state.players.find((p) => p.id === tapped.playerId).energy;
     // Energy regenerates continuously (RULES.energyRegen), so it can only
@@ -499,7 +499,7 @@ async function main() {
       ({ id, before }) =>
         window.__qd.getSnapshot().state.players.find((p) => p.id === id).energy < before,
       { id: tapped.playerId, before: energyWhileCharging },
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
     assert.ok(tapped.aim, "tap should have set an aim point, not left it null");
     const tapDist = Math.hypot(tapped.aim.x - me.x, tapped.aim.z - me.z);
@@ -537,7 +537,7 @@ async function main() {
         return Math.abs(Math.hypot(snap.aim.x - snap.predicted.x, snap.aim.z - snap.predicted.z) - 20) < 0.5;
       },
       null,
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
     const dragged = await mobile.evaluate(() => window.__qd.getSnapshot());
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });

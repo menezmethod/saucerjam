@@ -225,15 +225,18 @@ SwiftShader FPS is a regression measure, not a native GPU benchmark.
 ## Deployment
 
 Production runs on **Coolify** as a Dockerfile application, on two branches with two
-environments:
+environments, plus a preview environment per pull request:
 
 | Branch | Environment | Auto-deploys to | Role |
 | --- | --- | --- | --- |
 | `develop` | SaucerJam (dev) | <https://dev.saucerjam.com> | Integration — land work here first |
 | `main` | SaucerJam | <https://saucerjam.com>, `www` | Release — only merge what has passed on dev |
+| any PR | preview | `https://pr<N>.saucerjam.com` | Throwaway environment for that pull request |
 
-Both deploy automatically on push (Coolify GitHub App webhook). A git tag does not deploy on
-its own; the branch has to advance.
+All three deploy automatically (Coolify GitHub App webhook) — a push to `develop`, a push to
+`main`, or a pull request. A git tag does not deploy on its own; the branch has to advance.
+Previews are gated on community support rather than created for every proposal, so an
+unapproved PR may run without one.
 
 Before sharing a public link: check TLS, static assets, `/health` reporting `rankings: ok`, a
 real WebSocket upgrade, two clients on separate networks sharing a room, and a saved round

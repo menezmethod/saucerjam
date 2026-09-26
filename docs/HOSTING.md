@@ -6,6 +6,12 @@
 | --- | --- | --- | --- |
 | `develop` | SaucerJam (dev) — uuid `tspec81varp8ghb8vx33nkgd` | https://dev.saucerjam.com | Integration; land work here first |
 | `main` | SaucerJam — uuid `aoeefnsohotlncnvmpgwmaao` | https://saucerjam.com, https://www.saucerjam.com | Release |
+| pull request | preview of the `main` application | https://pr`<N>`.saucerjam.com | Throwaway per-PR environment |
+
+Deploys are webhook-driven, all three kinds. Preview deployments are enabled and gated on
+community support, so not every pull request gets one. When reading the deployment queue,
+`pull_request_id = 0` rows are real branch deploys; a non-zero `pull_request_id` is a preview
+— do not read a preview row as a production release.
 
 ## Initial deployment
 One Coolify Dockerfile application per environment serves the client and Socket.IO on container port 8080. The intended public ingress is saucerjam.com; verify that it resolves to this application before publishing a play link. No separate game server domain is required. Start with one CPU and 512 MiB RAM, MAX_ROOMS=8, MAX_ROOM_PLAYERS=32, and MAX_CONNECTIONS=96. These are admission limits, not validated capacity claims; set MAX_ROOM_PLAYERS to the measured safe value for the first playtest.

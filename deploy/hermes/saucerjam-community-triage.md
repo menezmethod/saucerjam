@@ -28,9 +28,15 @@ trivial. If there are none, respond `[SILENT]`.
   curl ... /api/community/action -d '{"id":"<id>","action":"open-fix-pr","detail":"<PR url>"}'
   ```
   If you cannot reproduce it, use `request-info` and comment on the Fider post.
-- **prototype-pr** — do **not** target `main`. Open a branch + PR; Coolify
-  publishes a preview at `qd<pr>.menezmethod.com`. Record `open-prototype-pr`
-  with the preview URL, and post a Fider comment inviting votes.
+- **prototype-pr** — do **not** target `main`. Previews are gated, not
+  automatic: a prototype is only opened once the request clears the vote gate in
+  `deploy/hermes/preview-policy.json` (3 distinct voters at seed stage, or a
+  maintainer judgement call for a one-day spike; bugs and security bypass the
+  gate entirely). Open a branch + PR; Coolify publishes the preview at
+  `pr-<pr>.saucerjam.com`. Record `open-prototype-pr` with that URL, and post a
+  Fider comment **on that post only** — do not broadcast. Preview links go to
+  the people who asked, not to everyone: most players want the finished feature,
+  not a beta.
 - **matchmaking-proposal** — never change balance yourself. Draft a short
   proposal (current value, proposed value, what it affects, how to measure it
   with `/metrics`) and escalate to Telegram for a human decision. Record

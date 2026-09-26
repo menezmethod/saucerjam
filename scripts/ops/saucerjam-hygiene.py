@@ -36,7 +36,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 STATE = os.path.expanduser("~/.hermes/data/saucerjam-hygiene-state.json")
-BASE = os.environ.get("SAUCERJAM_URL", "https://qd.menezmethod.com").rstrip("/")
+BASE = os.environ.get("SAUCERJAM_URL", "https://saucerjam.com").rstrip("/")
 REPO = os.environ.get("SAUCERJAM_REPO", os.path.expanduser("~/.hermes/workspace/saucerjam-ops"))
 # "local" (default): Fider and this watchdog are co-located (Oracle) — run docker
 # directly via sudo. Set FIDER_HOST=user@host to check a remote Fider over ssh, as
@@ -114,7 +114,7 @@ def write_state(value):
 def squad_queue():
     """Every item the game currently remembers, regardless of status.
 
-    Uses curl, not urllib: qd.menezmethod.com sits behind Cloudflare, which answers
+    Uses curl, not urllib: saucerjam.com sits behind Cloudflare, which answers
     urllib's default fingerprint with HTTP 403 `error code: 1010`.
     """
     token = os.environ.get("COMMUNITY_ACTION_TOKEN", "")

@@ -107,13 +107,13 @@ Read it **top to bottom**, the way Google SREs triage a page.
 2. **The four golden signals** (Google SRE book, ch. 6): **Latency** (how slow), **Traffic** (how much), **Errors** (how often it fails), **Saturation** (how full). If you can only watch four things, watch these.
 3. Rule of thumb: **alert on symptoms players feel** (top rows), **debug with causes** (bottom rows). A full CPU nobody notices is not an emergency; a failed join is.
 
-**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty ("no players in window" is normal). That's why the headline availability uses a **synthetic probe**: the blackbox exporter fetches `qd.menezmethod.com/health` through Cloudflare every 15s, like a robot player, and records *why* it failed when it does. The SRE workbook recommends this for low-traffic services.
+**Low-traffic caveat:** SaucerJam has only a handful of players, so request-based numbers are noisy or empty ("no players in window" is normal). That's why the headline availability uses a **synthetic probe**: the blackbox exporter fetches `saucerjam.com/health` through Cloudflare every 15s, like a robot player, and records *why* it failed when it does. The SRE workbook recommends this for low-traffic services.
 
 **One failed probe is not an outage.** The availability SLI counts a minute as up if *any* probe in it succeeded, so a single transient network blip does not spend error budget — only a sustained outage does. Every raw failure is still shown in **Error budget attribution**, so nothing is hidden.
 Sources: [SRE book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) · [Workbook: Implementing SLOs](https://sre.google/workbook/implementing-slos/) · [Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) · [Google Cloud SRE blog](https://cloud.google.com/blog/products/devops-sre) · [SRE Weekly](https://sreweekly.com/)""", h=10)
 
 b.row("SLOs: are players OK? (30-day window)")
-b.add("stat", "Availability ($slo_window, SLO 99.5%)", f"""**SLI:** share of minutes a blackbox probe from outside reached `https://qd.menezmethod.com/health` through Cloudflare.
+b.add("stat", "Availability ($slo_window, SLO 99.5%)", f"""**SLI:** share of minutes a blackbox probe from outside reached `https://saucerjam.com/health` through Cloudflare.
 **SLO: {SLO_AVAIL:.1%}**, about 3.6 hours of allowed downtime per month.
 **Blip-tolerant on purpose:** a minute counts as available if *any* 15s probe in it succeeded, so one transient network hiccup is not billed as an outage. Sustained failures still count in full.
 **Why 99.5% and not 99.99%?** One free VM, no redundancy, one developer. Google's advice: set the target to what users need and what you can afford, not "as high as possible". Each extra nine costs about 10x more work.
@@ -186,7 +186,7 @@ A handful is normal internet noise. A steady stream points at a flaky path (Clou
       thresholds=[(None, "green"), (1, "orange"), (10, "red")], no_value="0")
 b.add("stat", "Raw probe failures ($slo_window)", "Every failed 15s probe, billed or not. The union of the two panels to the left.",
       [(f'count_over_time({PROBE}[$slo_window]) - sum_over_time({PROBE}[$slo_window])', "")], w=6, h=6, extra=nodint, no_value="0")
-b.add("stat", "TLS certificate expires in", """Days until the Cloudflare-served certificate for `qd.menezmethod.com` expires.
+b.add("stat", "TLS certificate expires in", """Days until the Cloudflare-served certificate for `saucerjam.com` expires.
 A leading indicator: if it reaches 0 the probe fails with a TLS error and **players cannot connect either**.""",
       [('(probe_ssl_earliest_cert_expiry{job="blackbox-http",service="saucerjam"} - time()) / 86400', "")], w=6, h=6, unit="d",
       thresholds=[(None, "red"), (14, "orange"), (30, "green")])
@@ -442,7 +442,7 @@ Read it when a symptom on **Service health** needs a *cause*, or before a capaci
 **Rule of thumb (Google SRE):** saturation is a *leading* indicator — act before 100%, because latency degrades first and players feel it before a graph turns red.""", h=9)
 
 b.row("Dependency health: can we reach the things we depend on?")
-b.add("stat", "Public path (Cloudflare)", """The outside-in blackbox probe of `https://qd.menezmethod.com/health`. 1 = reachable end to end.
+b.add("stat", "Public path (Cloudflare)", """The outside-in blackbox probe of `https://saucerjam.com/health`. 1 = reachable end to end.
 This is the same signal the availability SLO uses — see Service health for the error budget.""",
       [(f'{PROBE}', "")], w=4, h=5, minv=0, maxv=1, extra=nod, thresholds=[(None, "red"), (1, "green")])
 b.add("stat", "App container", "Prometheus scraping the game's own /metrics. 0 = the process is down or unreachable from the observatory.",

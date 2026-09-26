@@ -72,7 +72,7 @@
     {
       "type": "stat",
       "title": "Public path (Cloudflare)",
-      "description": "The outside-in blackbox probe of `https://qd.menezmethod.com/health`. 1 = reachable end to end.\nThis is the same signal the availability SLO uses \u2014 see Service health for the error budget.",
+      "description": "The outside-in blackbox probe of `https://saucerjam.com/health`. 1 = reachable end to end.\nThis is the same signal the availability SLO uses \u2014 see Service health for the error budget.",
       "datasource": {
         "type": "prometheus",
         "uid": "prom"

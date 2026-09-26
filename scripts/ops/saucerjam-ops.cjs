@@ -37,7 +37,7 @@ const NAMES = {
 };
 
 function base() {
-  return String(process.env.SAUCERJAM_URL || "https://qd.menezmethod.com").replace(/\/+$/, "");
+  return String(process.env.SAUCERJAM_URL || "https://saucerjam.com").replace(/\/+$/, "");
 }
 
 async function get(url, headers = {}) {

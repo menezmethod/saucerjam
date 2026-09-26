@@ -4,7 +4,7 @@
 
 SaucerJam is free browser arena combat: fast neon saucer fights with instant practice against bots and private battles with friends. No download. Open the link and fly.
 
-Primary CTA: **Play now:** https://qd.menezmethod.com
+Primary CTA: **Play now:** https://saucerjam.com
 
 ## Short copy
 
@@ -22,7 +22,7 @@ SaucerJam is live: free browser arena combat with neon saucers, plasma bursts, N
 
 No download. Practice against bots or battle friends online.
 
-Play now: https://qd.menezmethod.com
+Play now: https://saucerjam.com
 
 ### Discord
 
@@ -30,7 +30,7 @@ Play now: https://qd.menezmethod.com
 
 Jump into a free browser arena fight—no install required. Practice against bots, then invite friends for a private room. The first clean bank shot is yours to claim.
 
-Play: https://qd.menezmethod.com
+Play: https://saucerjam.com
 
 ### Reddit / community post
 
@@ -38,7 +38,7 @@ I built SaucerJam, a free browser arena combat game focused on readable movement
 
 It is ready for a small Jam Night and I’m looking for first-time players: what felt immediately fun, what was confusing, and what made you want a rematch?
 
-Play here: https://qd.menezmethod.com
+Play here: https://saucerjam.com
 
 ## Launch sequence
 
@@ -51,12 +51,12 @@ Play here: https://qd.menezmethod.com
 ## Asset
 
 - Social share card: `src/assets/social/saucerjam-share.png` (1200×630)
-- Production URL: `https://qd.menezmethod.com`
+- Production URL: `https://saucerjam.com`
 - Open Graph and Twitter metadata are wired in `src/index.html`.
 
 ## Guardrails
 
-- Keep the CTA to one link: `https://qd.menezmethod.com`.
+- Keep the CTA to one link: `https://saucerjam.com`.
 - Say “free browser game” and “no download”; do not imply a native app.
 - Do not claim a large-player launch or competitive balance before the Jam Night evidence exists.
 - Ask for observations, not generic praise: clarity, first-fight time, memorable moment, and desire to replay.

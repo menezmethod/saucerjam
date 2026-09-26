@@ -61,7 +61,7 @@ monitoring on 2026-09-25 and now only runs Home Assistant. Six containers:
 | `obs-cadvisor` | per-container CPU/memory (the game and DB panels) |
 
 Prometheus config `/opt/observability/prometheus/prometheus.yml` scrapes jobs
-`saucerjam` (`https://qd.menezmethod.com/metrics`, 15s), `blackbox-http`,
+`saucerjam` (`https://saucerjam.com/metrics`, 15s), `blackbox-http`,
 `postgres`, `oci-node`, `oci-cadvisor`, and the LAN hosts over Tailscale. It also
 loads `/etc/prometheus/saucerjam.rules.yml` via `rule_files` (SLI recording
 rules and alerts). Repo mirrors: `deploy/monitoring/scrape.yml`,
@@ -70,7 +70,7 @@ rules and alerts). Repo mirrors: `deploy/monitoring/scrape.yml`,
 The **blackbox exporter** (`obs-blackbox`, config
 `/opt/observability/blackbox/blackbox.yml`, repo mirror
 `deploy/monitoring/blackbox/blackbox.yml`) probes
-`https://qd.menezmethod.com/health` from outside. Unlike a plain scrape, it
+`https://saucerjam.com/health` from outside. Unlike a plain scrape, it
 records *why* a request failed — `probe_http_status_code`, the per-phase
 `probe_http_duration_seconds`, and TLS expiry — which is what makes an error
 budget attributable. Its service block:
@@ -324,7 +324,7 @@ human action (see `docs/COMMUNITY-LOOP-CONTRACT.md` §6).
 ## 5. Runbooks
 
 ### Runbook: SaucerJamDown
-1. `curl -fsS https://qd.menezmethod.com/health` — confirm from off-host.
+1. `curl -fsS https://saucerjam.com/health` — confirm from off-host.
 2. Check the Coolify app status (`GET /api/v1/applications/<uuid>`) and container.
 3. Check RSS before restart — if it was OOM, capture the value for the incident.
 4. Restart via Coolify; re-run `live.cjs`. If it stays down, escalate.

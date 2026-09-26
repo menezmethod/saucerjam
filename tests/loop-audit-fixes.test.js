@@ -141,8 +141,8 @@ test("a non-http(s) url is not handed downstream as the canonical link", () => {
   assert.equal(q.get(3).url, null, "the worker pastes this link into PRs and comments");
   q.ingest({ id: 4, title: "[bug] y", url: "data:text/html,<script>" });
   assert.equal(q.get(4).url, null);
-  q.ingest({ id: 5, title: "[bug] z", url: "https://community.menezmethod.com/posts/5/x" });
-  assert.equal(q.get(5).url, "https://community.menezmethod.com/posts/5/x");
+  q.ingest({ id: 5, title: "[bug] z", url: "https://community.saucerjam.com/posts/5/x" });
+  assert.equal(q.get(5).url, "https://community.saucerjam.com/posts/5/x");
 });
 
 // --- Astra B3: unbounded metric cardinality from anonymous requests ----------

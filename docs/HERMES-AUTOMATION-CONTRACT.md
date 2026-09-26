@@ -21,8 +21,8 @@ Written by Hermes (CEO Mac) on 2026-09-19 after auditing the live fleet. Treat t
 
 | Fact | Value |
 | --- | --- |
-| Production | `https://qd.menezmethod.com` — `/health` 200, `/metrics` **404**, `/api/community/queue` **404** → prod is pre-1.4 |
-| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://qd.menezmethod.com`, branch `main`. **No preview app exists.** |
+| Production | `https://saucerjam.com` — `/health` 200, `/metrics` **404**, `/api/community/queue` **404** → prod is pre-1.4 |
+| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://saucerjam.com`, branch `main`. **No preview app exists.** |
 | Coolify creds | `~/.config/menez/coolify.env` (vars: `COOLIFY_URL`, `COOLIFY_TOKEN`, `COOLIFY_APP_SAUCERJAM`) |
 | Prometheus on Pi5 | `prometheus-prometheus-1`, rules **now load** — 8 alerts / 3 groups verified via `promtool`. Fixed by bind-mounting the rules file. |
 | Prometheus scrape | target `saucerjam` = `down`, `server returned HTTP status 404` (because `/metrics` is not deployed) |
@@ -86,7 +86,7 @@ live behind a `.sh`). Contract:
   Never a silent no-op.
 
 ### D4 — `scripts/ops/contract-check.cjs`
-Asserts, against a URL argument (default `https://qd.menezmethod.com`):
+Asserts, against a URL argument (default `https://saucerjam.com`):
 `/health` 200 · `/metrics` contains `saucerjam_rooms` · `/api/community/queue` 200 with
 the token. One line per check, non-zero exit on failure. Must work against a local
 server too (`npm run serve`), so it is useful before prod is live.
@@ -136,7 +136,7 @@ beats a long final essay. Write files **before** printing a summary.
 2. `npm run ops:selftest` passes — paste raw output.
 3. `node scripts/ops/contract-check.cjs http://127.0.0.1:<port>` passes against a local
    `npm run serve` — paste raw output.
-4. `node scripts/ops/contract-check.cjs https://qd.menezmethod.com` is allowed to
+4. `node scripts/ops/contract-check.cjs https://saucerjam.com` is allowed to
    FAIL (prod is pre-1.4). Report its real output as-is; do not "fix" prod.
 5. `docs/loop/HERMES_SYNC.jsonl` has a closing line with `status: done`.
 

@@ -72,7 +72,7 @@ test("tolerant parse: <no value> body is queued, not rejected (Fider must not au
     async (url) => {
       // Verbatim shape from the incident: Fider rendered the missing post_votes
       // field as the literal <no value>, which is not valid JSON.
-      const body = `{"post_number": 11, "post_title": "[bug] Catcher probe", "post_description": "Capture the exact webhook body.", "post_url": "https://community.menezmethod.com/posts/11/bug-catcher-probe", "post_votes": <no value>, "post_id": 11}`;
+      const body = `{"post_number": 11, "post_title": "[bug] Catcher probe", "post_description": "Capture the exact webhook body.", "post_url": "https://community.saucerjam.com/posts/11/bug-catcher-probe", "post_votes": <no value>, "post_id": 11}`;
       const res = await post(url, "/api/community/webhook", body, { authorization: "Bearer fider-tok" });
       assert.equal(res.status, 202);
       assert.equal((await res.json()).proposal, "fix-pr");

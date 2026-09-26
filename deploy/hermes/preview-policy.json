@@ -1,0 +1,61 @@
+{
+  "$comment": "Preview gate policy. Read by deploy/hermes/saucerjam-community-triage.md and docs/AUTOMATION.md. Change numbers here, not in prose.",
+  "gate": {
+    "metric": "distinct_voters",
+    "rationale": "Distinct voters, not total votes: one person must not be able to stack a request. Maps to 'enough different people want this'.",
+    "tiers": [
+      {
+        "applies_when": { "active_voters": "< 25" },
+        "threshold": 3,
+        "label": "early",
+        "note": "Seed stage. 3 distinct voters is a 'worth about a day of my time' bar, not a demand signal."
+      },
+      {
+        "applies_when": { "active_voters": ">= 25 and < 100" },
+        "threshold": 5,
+        "pct_of_pool": 0.1,
+        "label": "growth",
+        "note": "10% of the active voter pool, floor 5. The floor stops drive-bys from being the whole signal."
+      },
+      {
+        "applies_when": { "active_voters": ">= 100" },
+        "threshold": 10,
+        "pct_of_pool": 0.15,
+        "label": "scaled",
+        "note": "15% of the active voter pool, floor 10. Revisit quarterly."
+      }
+    ]
+  },
+  "bypass": {
+    "_comment": "Categories that do not need votes at all.",
+    "categories": ["bug", "security", "accessibility", "game-breaking"]
+  },
+  "effort_override": {
+    "_comment": "Below the vote bar, still allowed if the spike fits the budget. Larger than this goes on the roadmap instead of getting a preview.",
+    "max_effort": "one_day_spike",
+    "requires": "maintainer_judgment"
+  },
+  "reach": {
+    "_comment": "Who gets told about a preview. Keep it to the people who asked: 100 players of all skills mostly want a finished feature, not a beta. 3-5 real testers is a better instrument than a broadcast.",
+    "audience": "voters_on_that_post_only",
+    "channel": "fider_comment",
+    "broadcast": false
+  },
+  "hostname": {
+    "shape": "pr-{{pr_id}}.saucerjam.com",
+    "coolify_template": "pr-{{pr_id}}.saucerjam.com",
+    "requires": "cloudflare wildcard *.saucerjam.com record (proxied)"
+  },
+  "player_panel": {
+    "_comment": "Method for judgment calls that are not vote-gated. See references/player-panel-method.md.",
+    "n": 100,
+    "up_to": 1000,
+    "weighting": true,
+    "use_for": [
+      "should this be built at all",
+      "does this change feel right",
+      "what should we not ship",
+      "positioning or pricing or first-impression risk"
+    ]
+  }
+}

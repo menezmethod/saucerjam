@@ -40,7 +40,7 @@ deterministically by `propose()` in `server/community.js`:
 | Proposal | Trigger | What AI may do |
 | --- | --- | --- |
 | `fix-pr` | `[bug]` or crash/broken/regression wording | Open a fix PR against `main`; run `npm test`, `test:browser`, `ux-audit`; attach evidence |
-| `prototype-pr` | `[feature]`/`[idea]` | Open a **prototype** branch + Coolify PR preview; do **not** target `main` |
+| `prototype-pr` | `[feature]`/`[idea]` **that clears the vote gate** | Open a **prototype** branch + Coolify PR preview at `pr-<pr>.saucerjam.com`; do **not** target `main` |
 | `matchmaking-proposal` | `[balance]` damage/energy/speed | Draft a proposal doc; escalate — balance changes are human decisions |
 | `discuss` | `[question]` | Answer; no code change |
 
@@ -51,7 +51,21 @@ Hard rules enforced in code and process:
 2. **No auto-merge.** Merging `main` is always a human action (or an explicit
    maintainer approval on the PR).
 3. **Feature ≠ shipped feature.** Feature requests produce a *preview* the
-   community can try and vote on, not a silent release.
+   community can try, not a silent release — but only once they clear the vote
+   gate in `deploy/hermes/preview-policy.json` (distinct voters, tiered by
+   community size). Previews are a signal instrument for the handful of people
+   who asked, not a broadcast.
+
+## Judgment calls: the 100–1000 gamer panel
+
+Vote thresholds decide whether an idea is worth a day of work. They do **not**
+decide whether a design or positioning call is right. For those — "should we
+build this at all", "does this feel right", "what must we not ship" — run the
+panel method in `deploy/hermes/references/player-panel-method.md`: ask what 100
+gamers of all skills would prefer (1000 for consequential calls), split by
+segment, weight it, and ground it in reviews, retention curves and comparable
+titles rather than opinion. Report evidence checked, or say plainly that there
+was none.
 4. **Unknown origin is rejected.** No webhook acts without a valid credential:
    an HMAC signature (`FIDER_WEBHOOK_SECRET`) or the shared bearer token
    (`FIDER_WEBHOOK_TOKEN`). Either one alone opens the gate; both are compared in

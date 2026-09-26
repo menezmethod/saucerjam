@@ -15,14 +15,19 @@ Written by Hermes (CEO Mac) on 2026-09-19 after auditing the live fleet. Treat t
    never touch DNS/TLS, never `docker rm -f`.
 3. Work on branch `chore/hermes-automation-contract`, push it, open a PR against
    `release/1.4.0`. PR only — no merge.
-4. Do not create or use a `qd7.menezmethod.com` preview. It does not exist.
+4. Previews are gated, never automatic. Hostname template is
+   `pr-{{pr_id}}.saucerjam.com` and Coolify previews are enabled on the app, but
+   a preview is only created once the request clears the vote gate in
+   `deploy/hermes/preview-policy.json`. Never guess a preview domain; never
+   enable per-PR automatic previews — that would spin a deployment for typo
+   fixes, which is the opposite of the policy.
 
 ## State as measured (2026-09-19 ~12:10 EDT)
 
 | Fact | Value |
 | --- | --- |
 | Production | `https://saucerjam.com` — `/health` 200, `/metrics` **404**, `/api/community/queue` **404** → prod is pre-1.4 |
-| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://saucerjam.com`, branch `main`. **No preview app exists.** |
+| Coolify apps | exactly one SaucerJam app: uuid `aoeefnsohotlncnvmpgwmaao`, fqdn `https://qd.menezmethod.com, https://saucerjam.com, https://www.saucerjam.com`, branch `main`. Preview deployments enabled, template `pr-{{pr_id}}.saucerjam.com` (gated — see constraint 4). No separate preview app. |
 | Coolify creds | `~/.config/menez/coolify.env` (vars: `COOLIFY_URL`, `COOLIFY_TOKEN`, `COOLIFY_APP_SAUCERJAM`) |
 | Prometheus on Pi5 | `prometheus-prometheus-1`, rules **now load** — 8 alerts / 3 groups verified via `promtool`. Fixed by bind-mounting the rules file. |
 | Prometheus scrape | target `saucerjam` = `down`, `server returned HTTP status 404` (because `/metrics` is not deployed) |

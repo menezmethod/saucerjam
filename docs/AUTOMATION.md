@@ -85,7 +85,7 @@ behaviour per proposal is in `deploy/hermes/saucerjam-community-triage.md`.
 
 1. **Fider webhook** — Admin → Site Settings → Webhooks → Add New:
    - Type: *Post Created* (add *Post Status Changed* as a second webhook).
-   - URL: `https://qd.menezmethod.com/api/community/webhook`
+   - URL: `https://saucerjam.com/api/community/webhook`
    - Method: `POST`, header `Content-Type: application/json`, plus
      `Authorization: Bearer <FIDER_WEBHOOK_TOKEN>`.
    - Content must use `quote` on every free-text field (Fider security note):

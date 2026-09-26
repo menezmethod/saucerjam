@@ -3,7 +3,7 @@
 // exit on any failure. Works against prod or a local `npm run serve`.
 //   node scripts/ops/contract-check.cjs [baseUrl]
 // The community-queue check needs COMMUNITY_ACTION_TOKEN in the environment.
-const base = String(process.argv[2] || "https://qd.menezmethod.com").replace(/\/+$/, "");
+const base = String(process.argv[2] || "https://saucerjam.com").replace(/\/+$/, "");
 const token = process.env.COMMUNITY_ACTION_TOKEN || "";
 
 async function probe(url, headers) {

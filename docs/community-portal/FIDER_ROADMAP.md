@@ -1,6 +1,6 @@
 # SaucerJam Public Game Roadmap (published through Fider)
 
-Status: canonical public game-roadmap source for the live Fider board at `community.menezmethod.com`.
+Status: canonical public game-roadmap source for the live Fider board at `community.saucerjam.com`.
 
 Fider is the presentation and voting surface. The roadmap itself is for SaucerJam: what is shipped, what is next, what is being tested, and what is deferred. Future Menezmethod apps can use the same portal with an `app:<name>` tag.
 
@@ -71,7 +71,7 @@ The branch table is a decision aid, not permission to merge every branch. A bran
 
 The shared portal is ready for public links when:
 
-1. `community.menezmethod.com` serves Fider over HTTPS.
+1. `community.saucerjam.com` serves Fider over HTTPS.
 2. Supabase login works and does not expose secrets.
 3. SaucerJam bug/feature links open the correct category and app tag.
 4. Mobile and desktop submissions work.

@@ -32,7 +32,7 @@ groups:
           service: saucerjam
         annotations:
           summary: "SaucerJam is unreachable"
-          description: "Prometheus has failed to scrape qd.menezmethod.com/metrics for 2m."
+          description: "Prometheus has failed to scrape saucerjam.com/metrics for 2m."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
 
       # The public-path probe (blackbox) is the player-facing counterpart to
@@ -46,7 +46,7 @@ groups:
           service: saucerjam
         annotations:
           summary: "SaucerJam is unreachable from outside"
-          description: "The blackbox probe of https://qd.menezmethod.com/health has failed for 2m. Check probe_http_status_code (HTTP vs TLS/DNS/TCP) on the Service health dashboard."
+          description: "The blackbox probe of https://saucerjam.com/health has failed for 2m. Check probe_http_status_code (HTTP vs TLS/DNS/TCP) on the Service health dashboard."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
 
       - alert: SaucerJamTlsCertExpiring
@@ -57,7 +57,7 @@ groups:
           service: saucerjam
         annotations:
           summary: "SaucerJam TLS certificate expires within 14 days"
-          description: "Cloudflare serves the certificate for qd.menezmethod.com; renew/reissue before expiry or the probe (and players) will start failing TLS."
+          description: "Cloudflare serves the certificate for saucerjam.com; renew/reissue before expiry or the probe (and players) will start failing TLS."
           runbook_url: "https://github.com/menezmethod/saucerjam/blob/main/docs/SRE.md#runbook-saucerjamdown"
 
       - alert: SaucerJamHealthDegraded

@@ -1,6 +1,6 @@
 # SaucerJam Community Portal Plan
 
-Status: live on `community.menezmethod.com`; qd3 has a server-side Fider report bridge.
+Status: live on `community.saucerjam.com`; qd3 has a server-side Fider report bridge.
 
 ## Outcome
 
@@ -39,7 +39,7 @@ Do not add a custom portal before there is enough activity to justify another sy
 
 ### Phase 2: shared Fider portal
 
-Selected direction: self-host one Fider board at `community.menezmethod.com` for SaucerJam and future Menezmethod apps. Separate apps with categories and tags, not extra subdomains. Use Supabase Auth as the OAuth/OIDC identity provider, while Fider keeps its own feedback database. See [`FIDER_SHARED_SERVICE.md`](./FIDER_SHARED_SERVICE.md) for the deployment contract.
+Selected direction: self-host one Fider board at `community.saucerjam.com` for SaucerJam and future Menezmethod apps. Separate apps with categories and tags, not extra subdomains. Use Supabase Auth as the OAuth/OIDC identity provider, while Fider keeps its own feedback database. See [`FIDER_SHARED_SERVICE.md`](./FIDER_SHARED_SERVICE.md) for the deployment contract.
 
 Fider is open source and supports public posts, comments, votes, statuses, OAuth providers, and webhooks. The software is free; hosting, SMTP, backups, updates, and moderation remain operational responsibilities:
 

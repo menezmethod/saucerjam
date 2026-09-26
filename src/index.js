@@ -416,7 +416,7 @@ class Game {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "The community portal is unavailable.");
       status.textContent = "Sent. Thank you for helping tune the next sortie.";
-      $("report-link").href = data.url || "https://community.menezmethod.com";
+      $("report-link").href = data.url || "https://community.saucerjam.com";
       $("report-link").hidden = false;
       $("report-title").value = "";
       $("report-description").value = "";

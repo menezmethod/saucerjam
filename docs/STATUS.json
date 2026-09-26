@@ -188,7 +188,8 @@
     "evidence": "docs/gauntlet/evidence/v1-weapons.png",
     "hosting": {
       "coolifyApp": "aoeefnsohotlncnvmpgwmaao",
-      "publicUrl": "https://qd.menezmethod.com",
+      "publicUrl": "https://saucerjam.com",
+      "communityPortal": "https://community.saucerjam.com",
       "server": "logisticsPc",
       "autoDeploy": {
         "enabled": true,
@@ -269,7 +270,7 @@
     "prometheus": "saucerjam job + 9 alert rules loaded on Pi5 (4 groups)",
     "grafana": "SaucerJam dashboard provisioned (/d/saucerjam-sre/saucerjam)",
     "relay": "grafana-hermes-relay active on Pi5, hermes_reachable=true; alert round-trip proven end-to-end 2026-09-19",
-    "scrape": "UP. Verified 2026-09-20: Prometheus target https://qd.menezmethod.com/metrics health=up, 0 active alerts",
+    "scrape": "UP. Verified 2026-09-20: Prometheus target https://saucerjam.com/metrics health=up, 0 active alerts",
     "secrets": "All server-side secrets ARE configured in Coolify for prod, confirmed inside the running container 2026-09-20: COMMUNITY_ACTION_TOKEN (len 64), FIDER_WEBHOOK_TOKEN (43), FIDER_WEBHOOK_SECRET (64), FIDER_BASE_URL (33), FIDER_API_KEY (64). Earlier notes claiming the token was unset were wrong.",
     "contractCheck": "PASS 3/3 exit 0, verified 2026-09-20 with COMMUNITY_ACTION_TOKEN exported. contract-check.cjs reads the token from ITS OWN environment, so running it without exporting reports a false failure about the shell, not the server.",
     "communityRoute": "GET /api/community/queue returns 200 {\"items\":[]} with the real token, verified 2026-09-20.",

@@ -12,7 +12,7 @@
   metrics_path: /metrics
   scrape_interval: 15s
   static_configs:
-    - targets: ["qd.menezmethod.com"]
+    - targets: ["saucerjam.com"]
       labels:
         env: production
         service: saucerjam
@@ -24,7 +24,7 @@
   params:
     module: [http_2xx]
   static_configs:
-    - targets: ["https://qd.menezmethod.com/health"]
+    - targets: ["https://saucerjam.com/health"]
       labels:
         service: saucerjam
         env: production

@@ -2,9 +2,9 @@
 
 Fider is the public feedback portal for SaucerJam and future Menezmethod apps. GitHub remains the source of truth for code, reviews, CI, provenance, and releases.
 
-- [Play online](https://qd.menezmethod.com)
-- [Community roadmap, feature suggestions, and voting](https://community.menezmethod.com)
-- [Report a bug or suggest an idea from the game](https://qd.menezmethod.com)
+- [Play online](https://saucerjam.com)
+- [Community roadmap, feature suggestions, and voting](https://community.saucerjam.com)
+- [Report a bug or suggest an idea from the game](https://saucerjam.com)
 - [GitHub issue forms](https://github.com/menezmethod/saucerjam/issues) (engineering and security fallback)
 - [Read the roadmap](../ROADMAP.md)
 - [Shared Fider deployment and Supabase integration](./FIDER_SHARED_SERVICE.md)

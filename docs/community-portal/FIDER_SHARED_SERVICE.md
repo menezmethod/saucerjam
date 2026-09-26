@@ -4,7 +4,7 @@ Fider is the shared feedback portal for SaucerJam and future Menezmethod apps. T
 
 Suggested URLs:
 
-- `https://community.menezmethod.com` — the shared community portal
+- `https://community.saucerjam.com` — the shared community portal
 - `app:saucerjam` — SaucerJam posts
 - `app:<future-app>` — future app posts
 
@@ -18,7 +18,7 @@ Required infrastructure:
 
 1. A Coolify Docker Compose application using `deploy/fider/docker-compose.yml`.
 2. Persistent storage for `fider_pg_data`.
-3. DNS: `community.menezmethod.com` to the Fider application.
+3. DNS: `community.saucerjam.com` to the Fider application.
 4. HTTPS at the reverse proxy.
 5. SMTP credentials for sign-in and verification email.
 6. Keep the public board available, but keep engineering/security reports on GitHub and preserve the moderation controls below.
@@ -39,9 +39,9 @@ Never place the Supabase secret/service-role key in the browser, Fider public se
 
 The first app integration is a normal external link; Fider is not a runtime dependency for joining or playing a match.
 
-- `Community` → `https://community.menezmethod.com`
+- `Community` → `https://community.saucerjam.com`
 - `Report feedback` → the in-game bridge, with bug, feature, balance, or question type
-- `Suggest an idea` → the Fider board and roadmap at `https://community.menezmethod.com`
+- `Suggest an idea` → the Fider board and roadmap at `https://community.saucerjam.com`
 
 Pass only non-sensitive context such as app name, release version, device category, and map/mode as a prefilled form hint. Never pass pilot tokens, access tokens, player names, precise locations, or private gameplay data.
 

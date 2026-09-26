@@ -11,7 +11,7 @@ unreviewed code. Read `docs/AUTOMATION.md` and `docs/SRE.md` first.
 ## Read the queue
 
 ```bash
-GAME="${SAUCERJAM_URL:-https://qd.menezmethod.com}"
+GAME="${SAUCERJAM_URL:-https://saucerjam.com}"
 curl -fsS "$GAME/api/community/queue?status=new" \
   -H "x-community-token: $COMMUNITY_ACTION_TOKEN"
 ```

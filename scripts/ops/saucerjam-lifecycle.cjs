@@ -30,7 +30,7 @@
 //   node scripts/ops/saucerjam-lifecycle.cjs --apply     # performs ack + expire
 //   node scripts/ops/saucerjam-lifecycle.cjs --json      # machine-readable plan
 
-const BASE_URL = (process.env.FIDER_BASE_URL || "https://community.menezmethod.com").replace(/\/+$/, "");
+const BASE_URL = (process.env.FIDER_BASE_URL || "https://community.saucerjam.com").replace(/\/+$/, "");
 const API_KEY = process.env.FIDER_API_KEY || "";
 const REQUEST_TIMEOUT_MS = Number(process.env.LIFECYCLE_TIMEOUT_MS || 20000);
 

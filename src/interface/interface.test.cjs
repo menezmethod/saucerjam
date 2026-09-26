@@ -63,11 +63,11 @@ test('interface preserves host controls, safe records, async ordering, recap and
     assert.equal(await page.locator('#next-round').textContent(), 'Next launch in 5s');
     await page.evaluate(() => { document.getElementById('menu').hidden = false; });
     assert.equal(await page.locator('.qd-advanced-camera').evaluate(element => element.open), false);
-    assert.deepEqual(await page.locator('#qd-camera option').allTextContents(), ['Arena (recommended)', 'Chase', 'Full map', 'Isometric']);
-    await page.getByText('Advanced camera views', { exact: true }).click();
+    assert.deepEqual(await page.locator('#qd-camera option').allTextContents(), ['Arena', 'Chase', 'Full map', 'Isometric']);
+    await page.getByText('Camera view', { exact: true }).click();
     await page.locator('#qd-camera').selectOption('3');
     assert.equal(await page.evaluate(() => window.cameraValue), 3);
-    await page.getByRole('button', { name: 'Arena (recommended)', exact: true }).click();
+    await page.locator('#qd-camera').selectOption('0');
     assert.equal(await page.evaluate(() => window.cameraValue), 0);
     await page.evaluate(() => { const zoom = document.getElementById('qd-zoom'); zoom.value = '1.4'; zoom.dispatchEvent(new Event('input')); });
     assert.equal(await page.evaluate(() => window.zoomValue), 1.4);

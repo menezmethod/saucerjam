@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T14:04:44.946Z",
+  "generatedAt": "2026-09-26T03:55:15.054Z",
   "devices": [
     {
       "name": "phone-se-375x667",
@@ -109,9 +109,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -236,9 +236,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -363,9 +363,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -490,9 +490,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -617,9 +617,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -744,9 +744,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -871,9 +871,9 @@
           "comms": {
             "left": 12,
             "top": 124,
-            "right": 76,
+            "right": 56,
             "bottom": 168,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -967,47 +967,47 @@
             "left": 0,
             "top": 0,
             "right": 844,
-            "bottom": 56,
+            "bottom": 52,
             "w": 844,
-            "h": 56
+            "h": 52
           },
           "brand": {
             "left": 12,
-            "top": 6,
+            "top": 4,
             "right": 29,
-            "bottom": 28,
+            "bottom": 26,
             "w": 17,
             "h": 22
           },
           "clock": {
-            "left": 354,
-            "top": 6,
-            "right": 490,
-            "bottom": 43,
-            "w": 137,
-            "h": 37
+            "left": 405,
+            "top": 4,
+            "right": 439,
+            "bottom": 22,
+            "w": 35,
+            "h": 18
           },
           "vitals": {
-            "left": 596,
-            "top": 21,
-            "right": 734,
-            "bottom": 36,
+            "left": 632,
+            "top": 19,
+            "right": 770,
+            "bottom": 34,
             "w": 138,
             "h": 15
           },
           "comms": {
             "left": 12,
-            "top": 64,
-            "right": 76,
-            "bottom": 108,
-            "w": 64,
+            "top": 56,
+            "right": 56,
+            "bottom": 100,
+            "w": 44,
             "h": 44
           },
           "weapons": {
             "left": 660,
-            "top": 64,
+            "top": 60,
             "right": 828,
-            "bottom": 108,
+            "bottom": 104,
             "w": 168,
             "h": 44
           }
@@ -1094,47 +1094,47 @@
             "left": 0,
             "top": 0,
             "right": 932,
-            "bottom": 56,
+            "bottom": 52,
             "w": 932,
-            "h": 56
+            "h": 52
           },
           "brand": {
             "left": 12,
-            "top": 6,
+            "top": 4,
             "right": 29,
-            "bottom": 28,
+            "bottom": 26,
             "w": 17,
             "h": 22
           },
           "clock": {
-            "left": 398,
-            "top": 6,
-            "right": 534,
-            "bottom": 43,
-            "w": 137,
-            "h": 37
+            "left": 449,
+            "top": 4,
+            "right": 483,
+            "bottom": 22,
+            "w": 35,
+            "h": 18
           },
           "vitals": {
-            "left": 684,
-            "top": 21,
-            "right": 822,
-            "bottom": 36,
+            "left": 720,
+            "top": 19,
+            "right": 858,
+            "bottom": 34,
             "w": 138,
             "h": 15
           },
           "comms": {
             "left": 12,
-            "top": 64,
-            "right": 76,
-            "bottom": 108,
-            "w": 64,
+            "top": 56,
+            "right": 56,
+            "bottom": 100,
+            "w": 44,
             "h": 44
           },
           "weapons": {
             "left": 748,
-            "top": 64,
+            "top": 60,
             "right": 916,
-            "bottom": 108,
+            "bottom": 104,
             "w": 168,
             "h": 44
           }
@@ -1221,47 +1221,47 @@
             "left": 0,
             "top": 0,
             "right": 852,
-            "bottom": 56,
+            "bottom": 52,
             "w": 852,
-            "h": 56
+            "h": 52
           },
           "brand": {
             "left": 12,
-            "top": 6,
+            "top": 4,
             "right": 29,
-            "bottom": 28,
+            "bottom": 26,
             "w": 17,
             "h": 22
           },
           "clock": {
-            "left": 358,
-            "top": 6,
-            "right": 494,
-            "bottom": 43,
-            "w": 137,
-            "h": 37
+            "left": 409,
+            "top": 4,
+            "right": 443,
+            "bottom": 22,
+            "w": 35,
+            "h": 18
           },
           "vitals": {
-            "left": 604,
-            "top": 21,
-            "right": 742,
-            "bottom": 36,
+            "left": 640,
+            "top": 19,
+            "right": 778,
+            "bottom": 34,
             "w": 138,
             "h": 15
           },
           "comms": {
             "left": 12,
-            "top": 64,
-            "right": 76,
-            "bottom": 108,
-            "w": 64,
+            "top": 56,
+            "right": 56,
+            "bottom": 100,
+            "w": 44,
             "h": 44
           },
           "weapons": {
             "left": 668,
-            "top": 64,
+            "top": 60,
             "right": 836,
-            "bottom": 108,
+            "bottom": 104,
             "w": 168,
             "h": 44
           }
@@ -1348,47 +1348,47 @@
             "left": 0,
             "top": 0,
             "right": 851,
-            "bottom": 56,
+            "bottom": 52,
             "w": 851,
-            "h": 56
+            "h": 52
           },
           "brand": {
             "left": 12,
-            "top": 6,
+            "top": 4,
             "right": 29,
-            "bottom": 28,
+            "bottom": 26,
             "w": 17,
             "h": 22
           },
           "clock": {
-            "left": 357,
-            "top": 6,
-            "right": 494,
-            "bottom": 43,
-            "w": 137,
-            "h": 37
+            "left": 408,
+            "top": 4,
+            "right": 443,
+            "bottom": 22,
+            "w": 35,
+            "h": 18
           },
           "vitals": {
-            "left": 603,
-            "top": 21,
-            "right": 741,
-            "bottom": 36,
+            "left": 639,
+            "top": 19,
+            "right": 777,
+            "bottom": 34,
             "w": 138,
             "h": 15
           },
           "comms": {
             "left": 12,
-            "top": 64,
-            "right": 76,
-            "bottom": 108,
-            "w": 64,
+            "top": 56,
+            "right": 56,
+            "bottom": 100,
+            "w": 44,
             "h": 44
           },
           "weapons": {
             "left": 667,
-            "top": 64,
+            "top": 60,
             "right": 835,
-            "bottom": 108,
+            "bottom": 104,
             "w": 168,
             "h": 44
           }
@@ -1475,47 +1475,47 @@
             "left": 0,
             "top": 0,
             "right": 568,
-            "bottom": 56,
+            "bottom": 52,
             "w": 568,
-            "h": 56
+            "h": 52
           },
           "brand": {
             "left": 12,
-            "top": 6,
+            "top": 4,
             "right": 29,
-            "bottom": 28,
+            "bottom": 26,
             "w": 17,
             "h": 22
           },
           "clock": {
-            "left": 265,
-            "top": 6,
-            "right": 303,
-            "bottom": 26,
-            "w": 39,
-            "h": 20
+            "left": 267,
+            "top": 4,
+            "right": 301,
+            "bottom": 22,
+            "w": 35,
+            "h": 18
           },
           "vitals": {
-            "left": 320,
-            "top": 21,
-            "right": 458,
-            "bottom": 36,
+            "left": 356,
+            "top": 19,
+            "right": 494,
+            "bottom": 34,
             "w": 138,
             "h": 15
           },
           "comms": {
             "left": 12,
-            "top": 64,
-            "right": 76,
-            "bottom": 108,
-            "w": 64,
+            "top": 56,
+            "right": 56,
+            "bottom": 100,
+            "w": 44,
             "h": 44
           },
           "weapons": {
             "left": 388,
-            "top": 64,
+            "top": 60,
             "right": 552,
-            "bottom": 108,
+            "bottom": 104,
             "w": 164,
             "h": 44
           }
@@ -1633,9 +1633,9 @@
           "comms": {
             "left": 12,
             "top": 128,
-            "right": 76,
+            "right": 56,
             "bottom": 172,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -1760,9 +1760,9 @@
           "comms": {
             "left": 12,
             "top": 128,
-            "right": 76,
+            "right": 56,
             "bottom": 172,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -1887,9 +1887,9 @@
           "comms": {
             "left": 12,
             "top": 128,
-            "right": 76,
+            "right": 56,
             "bottom": 172,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -2014,9 +2014,9 @@
           "comms": {
             "left": 12,
             "top": 128,
-            "right": 76,
+            "right": 56,
             "bottom": 172,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -2131,9 +2131,9 @@
             "h": 52
           },
           "vitals": {
-            "left": 762,
+            "left": 798,
             "top": 27,
-            "right": 1064,
+            "right": 1100,
             "bottom": 42,
             "w": 302,
             "h": 15
@@ -2141,9 +2141,9 @@
           "comms": {
             "left": 12,
             "top": 84,
-            "right": 76,
+            "right": 56,
             "bottom": 128,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -2258,9 +2258,9 @@
             "h": 52
           },
           "vitals": {
-            "left": 606,
+            "left": 642,
             "top": 27,
-            "right": 908,
+            "right": 944,
             "bottom": 42,
             "w": 302,
             "h": 15
@@ -2268,9 +2268,9 @@
           "comms": {
             "left": 12,
             "top": 84,
-            "right": 76,
+            "right": 56,
             "bottom": 128,
-            "w": 64,
+            "w": 44,
             "h": 44
           },
           "weapons": {
@@ -2400,14 +2400,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 1192,
-            "top": 493,
-            "right": 1256,
-            "bottom": 525,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 611,
@@ -2425,11 +2417,11 @@
             "h": 143
           },
           "hint": {
-            "left": 463,
+            "left": 419,
             "top": 691,
-            "right": 817,
+            "right": 861,
             "bottom": 706,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -2438,12 +2430,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -2588,14 +2574,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 1278,
-            "top": 541,
-            "right": 1342,
-            "bottom": 573,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 659,
@@ -2613,11 +2591,11 @@
             "h": 143
           },
           "hint": {
-            "left": 506,
+            "left": 462,
             "top": 739,
-            "right": 860,
+            "right": 904,
             "bottom": 754,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -2626,12 +2604,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -2776,14 +2748,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 1352,
-            "top": 673,
-            "right": 1416,
-            "bottom": 705,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 791,
@@ -2801,11 +2765,11 @@
             "h": 143
           },
           "hint": {
-            "left": 543,
+            "left": 499,
             "top": 871,
-            "right": 897,
+            "right": 941,
             "bottom": 886,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -2814,12 +2778,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -2964,14 +2922,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 1832,
-            "top": 853,
-            "right": 1896,
-            "bottom": 885,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 971,
@@ -2989,11 +2939,11 @@
             "h": 143
           },
           "hint": {
-            "left": 783,
+            "left": 739,
             "top": 1051,
-            "right": 1137,
+            "right": 1181,
             "bottom": 1066,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -3002,12 +2952,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -3152,14 +3096,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 2472,
-            "top": 1213,
-            "right": 2536,
-            "bottom": 1245,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 1331,
@@ -3177,11 +3113,11 @@
             "h": 143
           },
           "hint": {
-            "left": 1103,
+            "left": 1059,
             "top": 1411,
-            "right": 1457,
+            "right": 1501,
             "bottom": 1426,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -3190,12 +3126,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -3340,14 +3270,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 3352,
-            "top": 1213,
-            "right": 3416,
-            "bottom": 1245,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 1331,
@@ -3365,11 +3287,11 @@
             "h": 143
           },
           "hint": {
-            "left": 1543,
+            "left": 1499,
             "top": 1411,
-            "right": 1897,
+            "right": 1941,
             "bottom": 1426,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -3378,12 +3300,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -3528,14 +3444,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 3752,
-            "top": 1933,
-            "right": 3816,
-            "bottom": 1965,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 2051,
@@ -3553,11 +3461,11 @@
             "h": 143
           },
           "hint": {
-            "left": 1743,
+            "left": 1699,
             "top": 2131,
-            "right": 2097,
+            "right": 2141,
             "bottom": 2146,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -3566,12 +3474,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {
@@ -3716,14 +3618,6 @@
             "w": 178,
             "h": 209
           },
-          "comms": {
-            "left": 3752,
-            "top": 1933,
-            "right": 3816,
-            "bottom": 1965,
-            "w": 64,
-            "h": 32
-          },
           "weapons": {
             "left": 24,
             "top": 2051,
@@ -3741,11 +3635,11 @@
             "h": 143
           },
           "hint": {
-            "left": 1743,
+            "left": 1699,
             "top": 2131,
-            "right": 2097,
+            "right": 2141,
             "bottom": 2146,
-            "w": 355,
+            "w": 442,
             "h": 15
           }
         },
@@ -3754,12 +3648,6 @@
             "id": "menu-button",
             "label": "Menu Esc",
             "w": 90,
-            "h": 32
-          },
-          {
-            "id": "chat-toggle",
-            "label": "Comms",
-            "w": 64,
             "h": 32
           },
           {

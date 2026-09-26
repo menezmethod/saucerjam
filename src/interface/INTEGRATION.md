@@ -77,7 +77,7 @@ Validation: syntax check passes; `node --test src/interface/interface.test.cjs` 
 
 ## Camera simplification handoff
 
-Flight menu now offers one immediate **Arena (recommended)** action (`onCamera(0)`). Camera selection and zoom are inside a native, initially collapsed **Advanced camera views** disclosure. Existing IDs/ranges remain unchanged: `qd-camera` values `0` Arena (recommended), `1` Chase, `2` Full map, `3` Isometric; `qd-zoom` 0.7–1.5. Selecting Arena does not reset zoom. Parent owns camera geometry and the V Arena/Full map toggle. Browser flows targeting legacy views must open `.qd-advanced-camera` via its summary before selecting `#qd-camera`. Module tests assert collapsed default, exact option labels, advanced selection and Arena callback.
+Flight menu has a single camera control: a native, initially collapsed **Camera view** disclosure (`.qd-advanced-camera`, previously labeled "Advanced camera views"). The standalone "Arena (recommended)" button that duplicated the dropdown's first option (and the HUD's own Arena/Chase/Full map/Isometric view-cycle button) was removed as confusing redundancy. Existing IDs/ranges remain unchanged: `qd-camera` values `0` Arena, `1` Chase, `2` Full map, `3` Isometric (labels no longer say "(recommended)", matching the HUD view-button's own naming); `qd-zoom` 0.7–1.5. Selecting Arena does not reset zoom. Parent owns camera geometry and the V Arena/Full map toggle. Browser flows must open `.qd-advanced-camera` via its summary before selecting `#qd-camera`. Module tests assert collapsed default, exact option labels, and dropdown-driven camera callback.
 
 ## Play-first landing handoff
 

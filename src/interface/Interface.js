@@ -126,18 +126,20 @@ export class Interface {
 
   mountFlightControls() {
     const menu = $('menu')?.querySelector('.dialog');
-    this.arenaButton = this.attach(menu, this.button('Arena (recommended)', () => this.callbacks.onCamera?.(0)));
-    this.arenaButton.disabled = typeof this.callbacks.onCamera !== 'function';
-    this.arenaButton.setAttribute('aria-pressed', 'true');
+    // A single camera control, not the previous standalone "Arena
+    // (recommended)" button duplicating the first option of this same
+    // dropdown (and the Arena/Chase/Full map/Isometric cycle already in
+    // the Arena button on the HUD) -- one place to change the view, one
+    // label per view, matching how the HUD's own view button names them.
     this.advancedCamera = this.attach(menu, node('details', 'qd-advanced-camera'));
-    this.advancedCamera.append(node('summary', '', 'Advanced camera views'));
+    this.advancedCamera.append(node('summary', '', 'Camera view'));
     this.controls = node('div', 'qd-camera-controls');
     this.advancedCamera.append(this.controls);
     const cameraLabel = node('label', '', 'Flight camera');
     this.camera = node('select');
     this.camera.id = 'qd-camera';
     cameraLabel.htmlFor = this.camera.id;
-    ['Arena (recommended)', 'Chase', 'Full map', 'Isometric'].forEach((name, index) => {
+    ['Arena', 'Chase', 'Full map', 'Isometric'].forEach((name, index) => {
       const option = node('option', '', name); option.value = index; this.camera.append(option);
     });
     this.camera.disabled = typeof this.callbacks.onCamera !== 'function';
@@ -149,8 +151,8 @@ export class Interface {
     this.zoom.disabled = typeof this.callbacks.onZoom !== 'function';
     this.listen(this.zoom, 'input', () => this.callbacks.onZoom?.(Number(this.zoom.value)));
     this.controls.append(cameraLabel, this.camera, zoomLabel, this.zoom);
-    this.attach(menu, this.button('Pilot records', () => this.loadLeaderboard('overall')));
-    this.reviewButton = this.attach(menu, this.button('Review previous round', () => this.showPreviousRound()));
+    this.attach(menu, this.button('Pilot records', () => this.loadLeaderboard('overall'), 'qd-button qd-pilot-records'));
+    this.reviewButton = this.attach(menu, this.button('Review previous round', () => this.showPreviousRound(), 'qd-button qd-review-button'));
     this.reviewButton.hidden = true;
   }
 
@@ -485,7 +487,6 @@ export class Interface {
     this.careerError = error;
     const mapId = typeof map === 'string' ? map : map?.id;
     if (mapId && mapId !== this.selectedId && !this.selecting) { this.selectedId = mapId; this.syncSelection(); }
-    this.arenaButton.setAttribute('aria-pressed', String(Number(view) === 0));
     if (document.activeElement !== this.camera) this.camera.value = String(view);
     if (document.activeElement !== this.zoom) this.zoom.value = String(Math.min(1.5, Math.max(.7, Number(zoom) || 1)));
     this.syncRecordActions();

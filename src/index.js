@@ -1,6 +1,7 @@
 import "./styles/main.css";
 import { io } from "socket.io-client";
 import { stickVector, reanchor } from "./input/stick";
+import { pickTarget } from "./input/targeting";
 import { ArenaRenderer } from "./core/ArenaRenderer";
 import { ThreatArrows } from "./view/ThreatArrows";
 import {Interface} from "./interface/Interface";
@@ -53,6 +54,10 @@ class Game {
     this.aim = null;
     this.stick = { x: 0, z: 0, active: false };
     this.stickOrigin = null;
+    this.fireStick = { x: 0, z: 0, active: false };
+    this.fireStickOrigin = null;
+    this.autoFire = false;
+    this.oneHandMode = storage.get("qd-one-hand", "off") === "on";
     this.touchRoles = new Map();
     this.idleTimer = null;
     this.ping = 0;
@@ -96,6 +101,7 @@ class Game {
     this.auth.onChange((session) => this.updateAuth(session));
     this.authReady = this.auth.init().then((session) => this.updateAuth(session)).catch((error) => this.updateAuth(null, error));
     this.updateSound();
+    this.updateOneHand();
     this.loadCareer();
     this.loadPopulation();
     // Funnel top: one landing view per page load, so the Product & growth board
@@ -267,18 +273,27 @@ class Game {
       this.updateSound();
       this.unlockAudio();
     };
+    $("one-hand-button").onclick = () => {
+      this.oneHandMode = !this.oneHandMode;
+      storage.set("qd-one-hand", this.oneHandMode ? "on" : "off");
+      this.updateOneHand();
+    };
     $("dismiss-touch-onboarding").onclick = () => {
       $("touch-onboarding").hidden = true;
       storage.set("qd-touch-guide", "seen");
       this.track("touch_guide_dismissed");
       this.flushInsights();
     };
-    $("chat-toggle").onclick = () => { this.track("chat_opened"); this.toggleChat(); };
-    $("chat-close").onclick = () => this.toggleChat(false);
+    $("chat-toggle").onclick = () => { this.track("chat_opened"); this.openChatPrompt(); };
     $("chat-form").addEventListener("submit", (event) => {
       event.preventDefault();
       this.sendChat();
+      this.closeChatPrompt();
     });
+    $("chat-input").addEventListener("keydown", (e) => {
+      if (e.code === "Escape") { e.preventDefault(); this.closeChatPrompt(); }
+    });
+    $("chat-input").addEventListener("blur", () => this.closeChatPrompt());
     $("share-room").onclick = () => this.share();
     document.querySelectorAll("[data-weapon]").forEach((button) => {
       button.onclick = () => this.selectWeapon(button.dataset.weapon);
@@ -426,10 +441,25 @@ class Game {
       button.disabled = false;
     }
   }
-  toggleChat(open = $("chat").hidden) {
-    $("chat").hidden = !open;
-    $("chat-toggle").setAttribute("aria-expanded", String(open));
-    if (open) $("chat-input").focus();
+  // The input only exists while actually composing -- opening it focuses it
+  // (which the existing global focusin listener already reads as "clear held
+  // movement/fire", so summoning chat can never leave a key or thumb stuck).
+  // Expanding #chat-log shows the recent scrollback (stale lines included)
+  // while composing, since there is no separate log panel to check instead.
+  openChatPrompt() {
+    $("chat-form").hidden = false;
+    $("chat-log").classList.add("expanded");
+    $("chat-input").focus();
+  }
+  closeChatPrompt() {
+    $("chat-form").hidden = true;
+    $("chat-log").classList.remove("expanded");
+    $("chat-input").blur();
+    $("chat-input").value = "";
+    // A line that went stale while the scrollback was open (expanded shows
+    // stale lines too) never got its removal timeout's "still expanded?"
+    // check to pass -- clear it now instead of leaving a dead row.
+    $("chat-log").querySelectorAll("p.stale").forEach((line) => line.remove());
   }
   sendChat() {
     const input = $("chat-input"), text = input.value.trim();
@@ -449,7 +479,18 @@ class Game {
     line.append(name, document.createTextNode(` ${message.text || ""}`));
     log.append(line);
     while (log.children.length > 40) log.firstElementChild.remove();
-    log.scrollTop = log.scrollHeight;
+    // Ambient overlay, not a log you manage: a line quietly retires itself
+    // after a few seconds instead of sitting on screen until someone hides
+    // the panel (there is no panel to hide anymore).
+    setTimeout(() => line.classList.add("stale"), 8000);
+    // A merely-transparent line still occupies its row in the stack, so a
+    // quiet period leaves an invisible gap instead of the newer lines
+    // settling upward. Remove it once the fade (see .chat-log p.stale in
+    // main.css) has actually finished, unless it's still on view as
+    // scrollback while composing.
+    setTimeout(() => {
+      if (!$("chat-log").classList.contains("expanded")) line.remove();
+    }, 9000);
   }
   updateAuth(session, error = null) {
     this.authSession = session || null;
@@ -479,12 +520,16 @@ class Game {
       }
       this.telemetry.sawInput = true;
       // Left thumb always moves, right thumb (or anything else) always
-      // shoots wherever it lands -- a fixed split, not "whichever touch
-      // came first," so it's exactly as predictable as the two-joystick
-      // reference: the left side is always the stick, full stop.
+      // aims/shoots as a second floating stick -- a fixed split, not
+      // "whichever touch came first," so it's exactly as predictable as the
+      // two-joystick reference. One-hand mode drops the left-half
+      // requirement so a single thumb anywhere claims the move stick;
+      // auto-fire (see frame()) covers aiming while only one thumb is free.
       const movementClaimed = [...this.touchRoles.values()].includes("move");
       const rect = $("arena").getBoundingClientRect();
-      if (!movementClaimed && e.clientX < rect.left + rect.width * 0.5) {
+      const claimsMove = !movementClaimed &&
+        (this.oneHandMode || e.clientX < rect.left + rect.width * 0.5);
+      if (claimsMove) {
         this.touchRoles.set(e.pointerId, "move");
         this.unlockAudio();
         this.stickOrigin = { x: e.clientX, y: e.clientY };
@@ -493,6 +538,9 @@ class Game {
         $("arena").setPointerCapture(e.pointerId);
       } else if (this.firePointerId === null) {
         this.touchRoles.set(e.pointerId, "fire");
+        this.fireStickOrigin = { x: e.clientX, y: e.clientY };
+        this.placeFireStick(this.fireStickOrigin);
+        $("touch-firestick").classList.add("dragging");
         this.startFire(e);
       }
   }
@@ -513,10 +561,23 @@ class Game {
           : "";
         return;
       }
-      // Only the firing pointer owns aim during a shot. Hover remains
-      // available for mouse aim, but stale/extra touches cannot steal it.
-      if (e.pointerId === this.firePointerId ||
-          (e.pointerType === "mouse" && this.firePointerId === null))
+      // The firing pointer drives a relative aim stick on touch (see
+      // frame() for the screen-direction-to-world-aim conversion) so aiming
+      // never requires reaching across the phone to the target's exact
+      // position -- only mouse hover still aims at an absolute point.
+      if (e.pointerId === this.firePointerId) {
+        if (e.pointerType === "mouse") { this.mouse = { x: e.clientX, y: e.clientY }; return; }
+        const point = { x: e.clientX, y: e.clientY };
+        this.fireStickOrigin = reanchor(this.fireStickOrigin, point, 52);
+        this.placeFireStick(this.fireStickOrigin);
+        this.fireStick = stickVector(this.fireStickOrigin, point, 52);
+        const knob = $("touch-firestick").querySelector(".stick-knob");
+        knob.style.transform = this.fireStick.active
+          ? `translate(${this.fireStick.x * 22}px, ${-this.fireStick.z * 22}px)`
+          : "";
+        return;
+      }
+      if (e.pointerType === "mouse" && this.firePointerId === null)
         this.mouse = { x: e.clientX, y: e.clientY };
   }
   pointerEnd(e) {
@@ -527,6 +588,7 @@ class Game {
       if (e.pointerId === this.firePointerId) {
         this.firing = false;
         this.firePointerId = null;
+        if (e.pointerType !== "mouse") this.resetFireStick();
       }
       const arena = $("arena");
       if (arena.hasPointerCapture(e.pointerId)) arena.releasePointerCapture(e.pointerId);
@@ -612,7 +674,9 @@ class Game {
   startFire(e) {
     if (this.firePointerId !== null) return;
     this.unlockAudio();
-    this.mouse = { x: e.clientX, y: e.clientY };
+    // Mouse aims at the cursor's absolute position; touch aims via the
+    // relative fire stick set up by the caller (see pointerDown/pointerMove).
+    if (e.pointerType === "mouse") this.mouse = { x: e.clientX, y: e.clientY };
     this.firing = true;
     this.firePointerId = e.pointerId;
     this.telemetry.sawInput = true;
@@ -652,6 +716,23 @@ class Game {
     this.stick = { x: 0, z: 0, active: false };
     this.stickOrigin = null;
   }
+  placeFireStick(o) {
+    const stick = $("touch-firestick");
+    stick.style.left = `${o.x}px`;
+    stick.style.top = `${o.y}px`;
+  }
+  // Unlike the movement stick, the fire stick has no fixed home -- it only
+  // exists while a thumb is actually down (see the CSS), so resetting means
+  // fully hiding it rather than snapping to a resting position.
+  resetFireStick() {
+    const stick = $("touch-firestick");
+    stick.classList.remove("dragging");
+    stick.style.left = "";
+    stick.style.top = "";
+    stick.querySelector(".stick-knob").style.transform = "";
+    this.fireStick = { x: 0, z: 0, active: false };
+    this.fireStickOrigin = null;
+  }
   vibrate(pattern) {
     try { navigator.vibrate?.(pattern); } catch {}
   }
@@ -670,11 +751,13 @@ class Game {
     if (this.firePointerId !== null) pointers.add(this.firePointerId);
     this.keys.clear();
     this.firing = false;
+    this.autoFire = false;
     this.firePointerId = null;
     this.mouse = null;
     this.aim = null;
     this.touchRoles.clear();
     this.resetStick();
+    this.resetFireStick();
     const arena = $("arena");
     for (const id of pointers)
       if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
@@ -711,6 +794,7 @@ class Game {
       "ArrowRight",
       "Space",
       "KeyT",
+      "Enter",
       "Escape",
       "KeyV",
       "KeyM",
@@ -747,6 +831,11 @@ class Game {
     if (!["practice", "online"].includes(this.mode)) return;
     if (e.code === "KeyT") {
       this.scores(!$("scoreboard").hidden);
+      return;
+    }
+    if (e.code === "Enter") {
+      this.track("chat_opened");
+      this.openChatPrompt();
       return;
     }
     if (e.code === "KeyC") {
@@ -811,7 +900,7 @@ class Game {
       seq: ++this.seq,
       move: this.active()?move:{x:0,z:0},
       thrust:0,turn:0,strafe:0,
-      fire: this.active() && (this.firing || k.has("Space")),
+      fire: this.active() && (this.firing || this.autoFire || k.has("Space")),
       weapon: this.weapon,
       aim: this.aim,
     };
@@ -844,7 +933,7 @@ class Game {
       storage.get("qd-touch-guide") === "seen";
     $("kill-feed").replaceChildren();
     $("chat-log").replaceChildren();
-    this.toggleChat(false);
+    this.closeChatPrompt();
     $("notice").textContent = "";
     $("room-label").textContent =
       mode === "practice"
@@ -1060,6 +1149,12 @@ class Game {
     this.clearInput();
   }
   scores(close) {
+    // On touch, Scores lives inside the relocated Flight menu (see
+    // relocateFlightTools); opening it there left the menu stacked
+    // underneath -- both "open" at once, rendering as an overlapping mess.
+    // Closing the menu first (a harmless no-op when it wasn't open, as on
+    // desktop) makes Scores a clean full replacement, not a second layer.
+    if (!close) this.panel("menu", false);
     this.panel("scoreboard",!close);
     this.clearInput();
     this.renderScores();
@@ -1196,6 +1291,10 @@ class Game {
     this.music?.setSfxMuted(!this.sfxOn);
     this.music?.setMusicMuted(!this.musicOn);
   }
+  updateOneHand() {
+    $("one-hand-button").textContent = this.oneHandMode ? "One-hand mode: On" : "One-hand mode: Off";
+    $("one-hand-button").setAttribute("aria-pressed", String(this.oneHandMode));
+  }
   playSound(weapon, volume) {
     if (!this.sfxOn) return;
     const now = this.audio?.currentTime ?? 0;
@@ -1236,9 +1335,46 @@ class Game {
     this.lastFrame = now;
     const keyboardAiming =
       this.keys.has("KeyI") || this.keys.has("KeyJ") || this.keys.has("KeyK") || this.keys.has("KeyL");
+    const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
     if (this.mouse && this.active())
       this.aim = this.renderer.aimAt(this.mouse.x, this.mouse.y);
-    else if (!this.mouse && !keyboardAiming) this.aim = null;
+    else if (this.fireStickOrigin && this.active() && me) {
+      if (this.fireStick.active) {
+        // Touch fire is a relative stick, not an absolute point: convert its
+        // screen-space push direction into the same world-space aim target
+        // the keyboard (IJKL) path already produces below, so aiming left
+        // never requires reaching across the phone to the target itself.
+        // Grenade distance scales with how far the stick is pushed (the
+        // old tap-at-a-point gave this for free; direction-only weapons
+        // don't care how far the reference point sits).
+        const dir = this.renderer.screenMovement(this.fireStick.x, this.fireStick.z);
+        if (dir.x || dir.z) {
+          const dist = this.weapon === "GRENADE" ? this.fireStick.m * WEAPONS.GRENADE.range : 14;
+          this.aim = { x: me.x + dir.x * dist, z: me.z + dir.z * dist };
+        }
+      } else if (this.state) {
+        // A quick tap never leaves the dead zone: snap to the nearest
+        // visible enemy (Brawl Stars' tap-to-auto-aim) instead of firing
+        // in whatever stale direction was last aimed.
+        const target = pickTarget(me, this.state.players, this.state.time, this.map);
+        if (target) this.aim = { x: target.x, z: target.z };
+      }
+    }
+    // One-hand mode: auto-target the nearest visible, unprotected enemy
+    // whenever no second thumb is manually firing, so a single finger can
+    // move and fight at once. Never overrides a real manual shot, never
+    // fires a grenade (close blasts hurt the shooter), and holds off while
+    // this player's own spawn protection is still up (firing ends it).
+    this.autoFire = false;
+    const selfProtected = me && this.state &&
+      typeof me.protectedUntil === "number" && me.protectedUntil > this.state.time;
+    if (this.oneHandMode && this.active() && this.firePointerId === null &&
+        this.weapon !== "GRENADE" && me && this.state && !selfProtected) {
+      const target = pickTarget(me, this.state.players, this.state.time, this.map);
+      if (target) { this.aim = { x: target.x, z: target.z }; this.autoFire = true; }
+    }
+    if (!this.mouse && !this.fireStickOrigin && !keyboardAiming && !this.autoFire && this.firePointerId === null)
+      this.aim = null;
     this.accumulator += dt;
     while (this.accumulator >= STEP) {
       if (this.mode === "lobby" || this.mode === "connecting") {

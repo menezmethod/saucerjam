@@ -3,7 +3,13 @@ import './indicators.css';
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const intersects = (a, b) => a.left < b.right + 5 && a.right > b.left - 5 && a.top < b.bottom + 5 && a.bottom > b.top - 5;
-const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .vitals, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-controls';
+// #touch-controls itself is a full-viewport (inset:0) wrapper purely so its
+// children can be positioned anywhere without a bounded hit-region -- its own
+// rect is the whole screen, which made every placement candidate "obstructed"
+// on any touch device (this is why hull labels never appeared on mobile).
+// The actual visible controls are #touch-joystick/#touch-firestick, sized to
+// their real on-screen footprint.
+const HUD_SELECTOR = '[data-ship-indicator-obstacle], .top-bar, .radar, .vitals, .weapons, .flight-tools, .flight-hint, #kill-feed, #notice, .center-message, #touch-joystick, #touch-firestick';
 
 export function hullState(player, time = 0) {
   const max = Number.isFinite(player.maxHealth) && player.maxHealth > 0 ? player.maxHealth : 100;

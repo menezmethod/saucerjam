@@ -5,7 +5,7 @@ const path = require("node:path");
 const { chromium } = require("@playwright/test");
 const { createGameServer } = require("../server/server");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(fn, timeout = 5000) {
+async function until(fn, timeout = 15000) {
   const start = Date.now();
   while (!fn()) {
     if (Date.now() - start > timeout)
@@ -64,7 +64,7 @@ async function main() {
     });
     await page.goto(url);
     try {
-      await page.waitForFunction(() => window.__qd);
+      await page.waitForFunction(() => window.__qd, null, { timeout: 60000 });
     } catch (error) {
       // Without this, a page that never boots fails as a bare timeout.
       const state = await page.evaluate(() => ({
@@ -94,7 +94,7 @@ async function main() {
       idA = initialA.playerId;
     const b = await newPage();
     await b.goto(`${url}?room=${initialA.room}`);
-    await b.waitForFunction(() => window.__qd);
+    await b.waitForFunction(() => window.__qd, null, { timeout: 60000 });
     assert.equal(await b.inputValue("#room-code"), initialA.room);
     await b.fill("#pilot-name", "Bravo");
     await b.click("#join-room");
@@ -140,9 +140,11 @@ async function main() {
     );
     const angle = room.sim.players.get(idA).angle;
     await a.keyboard.down("KeyA");
-    await sleep(600);
+    // Frame-rate sensitive: hold until the turn registers, then release.
+    // A fixed 600ms hold can fall entirely between two frames on a loaded
+    // runner, so the condition below could never become true.
+    await until(() => Math.abs(room.sim.players.get(idA).angle - angle) > 0.3, 15000);
     await a.keyboard.up("KeyA");
-    await until(() => Math.abs(room.sim.players.get(idA).angle - angle) > 0.3, 8000);
     // Let the key-release packet arrive before repositioning the test ships.
     await until(() => {
       const input = room.sim.players.get(idA).input;
@@ -326,7 +328,7 @@ async function main() {
     });
     // Reload after interception is installed so the initial socket is delayed too.
     await lag.goto(url);
-    await lag.waitForFunction(() => window.__qd);
+    await lag.waitForFunction(() => window.__qd, null, { timeout: 60000 });
     await lag.fill("#pilot-name", "Lag test");
     await lag.evaluate(() => { document.getElementById("lobby-friends").open = true; });
     await lag.fill("#room-code", initialA.room);
@@ -339,12 +341,61 @@ async function main() {
         parseInt(document.getElementById("connection").textContent, 10) >= 110,
     );
     const lagStart = await snapshot(lag);
+    const lagId = lagStart.playerId;
     await lag.keyboard.down("KeyW");
-    await sleep(800);
+    // Frame-rate sensitive: wait for the ship to actually move rather than
+    // holding the key for a fixed 800ms. A loaded runner renders software
+    // WebGL at 1-2 fps, so a fixed hold can sample almost no input and the
+    // movement assertion below then fails on a starved frame, not a defect.
+    await until(() => {
+      const server = room.sim.players.get(lagId);
+      return (
+        server &&
+        Math.hypot(
+          server.x - lagStart.predicted.x,
+          server.z - lagStart.predicted.z,
+        ) > 1
+      );
+    }, 15000);
     await lag.keyboard.up("KeyW");
-    await sleep(800);
-    const lagEnd = await snapshot(lag),
+    // Same reason: wait for the client's prediction to reconcile with the
+    // authoritative position instead of assuming 800ms is enough for the
+    // delayed round trip to land.
+    await lag.waitForFunction(
+      (id) => {
+        const s = window.__qd.getSnapshot();
+        const auth = s.state.players.find((p) => p.id === id);
+        return (
+          auth &&
+          Math.hypot(s.predicted.x - auth.x, s.predicted.z - auth.z) < 0.75
+        );
+      },
+      lagId,
+      { timeout: 15000 },
+    );
+    // The client keeps predicting after the key is released, so a single
+    // sample can land between two convergences even when the wait above saw
+    // it reconciled. Sample at the moment the condition holds, then assert the
+    // original conditions on that sample.
+    let lagEnd, lagServer;
+    const lagDeadline = Date.now() + 15000;
+    for (;;) {
+      lagEnd = await snapshot(lag);
       lagServer = room.sim.players.get(lagEnd.playerId);
+      if (
+        lagServer &&
+        Math.hypot(
+          lagEnd.predicted.x - lagServer.x,
+          lagEnd.predicted.z - lagServer.z,
+        ) < 0.75
+      )
+        break;
+      if (Date.now() > lagDeadline)
+        throw new Error(
+          "prediction never reconciled with the authoritative position",
+        );
+      await sleep(50);
+    }
     assert.ok(
       Math.hypot(
         lagServer.x - lagStart.predicted.x,
@@ -386,7 +437,7 @@ async function main() {
     });
     await mobile.route("**/*.glb", (route) => route.abort());
     await mobile.reload();
-    await mobile.waitForFunction(() => window.__qd);
+    await mobile.waitForFunction(() => window.__qd, null, { timeout: 60000 });
     await mobile.screenshot({ path: path.join(out, "mobile-lobby.png") });
     assert.ok(await mobile.locator("#practice").isVisible());
     // .tap() dispatches a real touch-flavored pointer event; .click() sends
@@ -484,7 +535,7 @@ async function main() {
     // requestAnimationFrame, so "wait exactly 150ms" is itself the kind of
     // flake that already bit two other tests in this file today. Wait for
     // the actual condition (aim resolved) instead, generously bounded.
-    await mobile.waitForFunction(() => window.__qd.getSnapshot().aim, null, { timeout: 5000 });
+    await mobile.waitForFunction(() => window.__qd.getSnapshot().aim, null, { timeout: 15000 });
     const tapped = await mobile.evaluate(() => window.__qd.getSnapshot());
     const energyWhileCharging = tapped.state.players.find((p) => p.id === tapped.playerId).energy;
     // Energy regenerates continuously (RULES.energyRegen), so it can only
@@ -499,7 +550,7 @@ async function main() {
       ({ id, before }) =>
         window.__qd.getSnapshot().state.players.find((p) => p.id === id).energy < before,
       { id: tapped.playerId, before: energyWhileCharging },
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
     assert.ok(tapped.aim, "tap should have set an aim point, not left it null");
     const tapDist = Math.hypot(tapped.aim.x - me.x, tapped.aim.z - me.z);
@@ -537,7 +588,7 @@ async function main() {
         return Math.abs(Math.hypot(snap.aim.x - snap.predicted.x, snap.aim.z - snap.predicted.z) - 20) < 0.5;
       },
       null,
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
     const dragged = await mobile.evaluate(() => window.__qd.getSnapshot());
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });

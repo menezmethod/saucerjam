@@ -1,0 +1,19 @@
+# Git author/committer mapping.
+#
+# One person and their agent automation committed under several identities. This file
+# collapses them to two canonical names so that `git shortlog -sne` and any provenance
+# audit report the truth: the project has exactly one copyright holder and one agent.
+# It rewrites nothing and changes no history; it only affects how Git displays authors.
+#
+# See docs/LEGAL-REVIEW.md §3.
+
+# Luis Gimenez — canonical identity
+Luis Gimenez <menezfd@gmail.com> <luisgimenezdev@gmail.com>
+Luis Gimenez <menezfd@gmail.com> <72755559+menezmethod@users.noreply.github.com>
+Luis Gimenez <menezfd@gmail.com> MenezMethod <72755559+menezmethod@users.noreply.github.com>
+
+# Hermes — the project's agent automation, acting under the owner's direction
+Hermes <hermes@menezmethod.com> <hermes@menezmethod.local>
+Hermes <hermes@menezmethod.com> <hermes@local>
+Hermes <hermes@menezmethod.com> Hermes SaucerJam <hermes@menezmethod.com>
+Hermes <hermes@menezmethod.com> hermes <hermes@local>

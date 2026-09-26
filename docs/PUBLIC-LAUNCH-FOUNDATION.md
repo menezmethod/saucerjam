@@ -48,6 +48,27 @@ AGPL-3.0 is revisited only when all four are true:
 
 Until then, treat AGPL as an option under consideration, not an adopted direction. If maximum adoption keeps mattering more than reciprocity, staying on MIT permanently is also defensible; the moat then comes from the official brand, servers, community, moderation, marketplace, and physical products rather than the license.
 
+### Review status — September 2026
+
+The four gates were assessed against the repository for the first time. Full evidence in
+[`LEGAL-REVIEW.md`](LEGAL-REVIEW.md); licensing map in [`../LICENSING.md`](../LICENSING.md).
+
+| Gate | State |
+| --- | --- |
+| Code ownership verified | **Clean** — every commit is first-party (one owner, plus the project's own agent). `.mailmap` now collapses the six author identities to two. |
+| CLA vs DCO chosen and implemented | **CLA chosen** ([`../CLA.md`](../CLA.md)); signing tooling still to wire up |
+| Effective version/date fixed | **Not fixed** — propose "the first release after the attorney review clears" |
+| IP attorney review completed | **Outstanding** — `LEGAL-REVIEW.md` is the input to it |
+
+Two findings block a commercial posture until they are closed, and neither is a code
+problem: the legacy `quantum-drift` repository is still public and still hosts the three
+flagged ship models (`LEGAL-REVIEW.md` §8), and the commercial-rights evidence for the
+Suno soundtrack is not recorded (`LEGAL-REVIEW.md` §6.2).
+
+The verbatim AGPL-3.0 text is staged at [`licenses/AGPL-3.0.txt`](licenses/AGPL-3.0.txt) so the
+switch is a reviewable commit, and the exact procedure is in `LICENSING.md` §6. Staging it
+grants nobody anything: MIT in `../LICENSE` remains the only operative grant.
+
 ### Current reality
 
 The repo is already MIT licensed. Existing MIT releases remain usable under MIT.
@@ -160,11 +181,16 @@ Maintainers may reject proposals for:
 - breaking the game's identity
 
 Before broad contributor outreach, add:
-- `CONTRIBUTING.md`
-- Code of Conduct
-- CLA/DCO decision
-- PR template with provenance + AI disclosure
-- `SECURITY.md`
+- [x] `CONTRIBUTING.md` — branch model, evidence requirements, asset and AI rules
+- [x] Code of Conduct — `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
+- [x] CLA/DCO decision — **CLA**, [`CLA.md`](../CLA.md); signing tooling still to wire up
+- [x] PR template with provenance + AI disclosure — `.github/pull_request_template.md`
+- [x] `SECURITY.md` — private advisory flow, scope, safe harbour
+
+All five exist as of September 2026. Remaining before the first outside contribution lands:
+wire up CLA signing (or require the acceptance comment), and replace the CoC reporting
+placeholder with a project address rather than a personal account. See
+[`LEGAL-REVIEW.md`](LEGAL-REVIEW.md) §9 and §13.
 
 ## Monetization
 

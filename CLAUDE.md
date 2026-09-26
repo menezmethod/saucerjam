@@ -5,8 +5,10 @@ working in this repo). Keep it short; delete entries once they're stale.
 
 ## ACTIVE — grenade cancel gesture (`feat/grenade-cancel`)
 
-**Status: 2026-09-26.** Implemented, `npm test` 228/228 green, browser suite
-green 5/5 locally. **Not yet merged and not yet playtested on a real device.**
+**Status: 2026-09-26.** Committed and pushed. PR **#40**
+(https://github.com/menezmethod/saucerjam/pull/40), rebased onto `main`.
+`npm test` 228/228 green; browser suite green 5/5 locally. **Not yet merged and
+not yet playtested on a real device.**
 
 A previous `claude --resume` session (7b45e801) hit its weekly usage limit
 mid-verification on this branch. An OpenCode/DeepSeek session picked it up,
@@ -14,7 +16,7 @@ finished the verification, and fixed the flaky test. **Do not revert,
 re-implement, or "clean up" the items below without reading them first —
 each one is a deliberate fix, several of them for real bugs found by CI.**
 
-What's on the branch (uncommitted at handoff):
+What's on the branch:
 
 1. **Grenade cancel gesture** (`src/index.js`): hold to charge. Drag past the
    dead zone = armed; drag back to center before releasing = cancel (tracked as

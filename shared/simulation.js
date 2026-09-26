@@ -354,6 +354,11 @@ class Simulation {
       nextFire: 0,
       respawnAt: 0,
       protectedUntil: 0,
+      // Harness/dev-only (see makePractice): a practice pilot that can't be
+      // killed, so a test can exercise aim/throw mechanics without an
+      // unlucky bot clearing held input by killing the player mid-gesture.
+      // Never set for online players.
+      invulnerable: false,
       lastDamage: -100,
       input: sanitizeInput(),
       ack: 0,
@@ -547,6 +552,7 @@ class Simulation {
   damage(target, amount, shot) {
     if (
       !target.alive ||
+      target.invulnerable ||
       target.protectedUntil > this.time ||
       this.restartAt ||
       (shot.weapon === "BOUNCE" && samePilot(target.id, shot.owner))

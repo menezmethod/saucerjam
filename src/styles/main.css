@@ -1360,6 +1360,17 @@ body.touch-active #touch-joystick {
   border-radius: 50%;
   background: #ff6b8a55;
   border: 1px solid #ff6b8aaa;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+/* A charged grenade dragged back to center previews the cancel: dim to
+   grey so releasing right now reads as "nothing happens," not a guess. */
+#touch-firestick.cancel-armed {
+  background: #8a94a018;
+  border-color: #8a94a055;
+}
+#touch-firestick.cancel-armed .stick-knob {
+  background: #8a94a055;
+  border-color: #8a94a0aa;
 }
 /* Arena/Scores/Sound move into the Flight menu on touch (see
    relocateFlightTools in index.js). The whole bottom of the screen is a
@@ -1428,6 +1439,23 @@ body.touch-active .combat-bar {
 #vital-hull[data-condition="damaged"] .vital-bar i { background: #ffcc76; }
 #vital-hull[data-condition="critical"] .vital-bar i { background: #ff8792; }
 #vital-energy .vital-bar i { background: #5eeaff; }
+/* Replaces the old centered "Recharging energy…" banner: the bar itself
+   pulses amber (the hull bar's own "damaged" color) while you're holding
+   fire without enough energy, right where you'd already be looking. */
+@keyframes qd-energy-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+#vital-energy.insufficient .vital-bar i {
+  background: #ffcc76;
+  animation: qd-energy-pulse 0.6s ease-in-out infinite;
+}
+#vital-energy.insufficient .vital-num {
+  color: #ffcc76;
+}
+@media (prefers-reduced-motion: reduce) {
+  #vital-energy.insufficient .vital-bar i { animation: none; }
+}
 body.hud-idle .vitals { opacity: 1; }
 
 /* ---- Off-screen threat arrows -------------------------------------- */

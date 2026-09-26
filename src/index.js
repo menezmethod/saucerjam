@@ -58,6 +58,8 @@ class Game {
     this.fireStickOrigin = null;
     this.autoFire = false;
     this.pendingThrow = false;
+    this.pendingThrowAim = null;
+    this.grenadeArmed = false;
     this.lockedTargetId = null;
     this.lastTargetSwitch = -Infinity;
     this.oneHandMode = storage.get("qd-one-hand", "off") === "on";
@@ -221,6 +223,16 @@ class Game {
   makePractice(demo = false) {
     const sim = new Simulation({map:getWorld(3),populationExpansion:false});
     if (!demo) sim.addPlayer("local", $("pilot-name").value);
+    // Harness/dev affordance, mirroring __SAUCERJAM_LOWGFX/?lowgfx: keep the
+    // practice pilot unkillable so automated aim/throw checks aren't racing
+    // a bot that happens to land the kill mid-gesture. No effect online.
+    if (
+      !demo &&
+      typeof window !== "undefined" &&
+      (window.__SAUCERJAM_PRACTICE_INVULNERABLE === true ||
+        new URLSearchParams(location.search).has("invulnerable"))
+    )
+      sim.players.get("local").invulnerable = true;
     for (let i = 0; i < (demo ? 4 : 3); i++)
       sim.addPlayer(`bot-${i}`, ["Vector", "Nova", "Echo", "Flux"][i], true);
     // Practice used to spawn you alone in the far corner of the full world.
@@ -582,6 +594,15 @@ class Game {
         knob.style.transform = this.fireStick.active
           ? `translate(${this.fireStick.x * 22}px, ${-this.fireStick.z * 22}px)`
           : "";
+        // A charging grenade: dragging out arms the throw; dragging back
+        // to center (still held) previews a cancel, so pulling your thumb
+        // back in is a deliberate "changed my mind," not a forced choice
+        // between throwing wherever you happen to be aimed and doing
+        // nothing. The knob dims to confirm what release will do right now.
+        if (this.weapon === "GRENADE" && !this.firing) {
+          if (this.fireStick.active) this.grenadeArmed = true;
+          $("touch-firestick").classList.toggle("cancel-armed", this.grenadeArmed && !this.fireStick.active);
+        }
         return;
       }
       if (e.pointerType === "mouse" && this.firePointerId === null)
@@ -593,12 +614,50 @@ class Game {
       if (this.touchRoles.get(e.pointerId) === "move") this.resetStick();
       this.touchRoles.delete(e.pointerId);
       if (e.pointerId === this.firePointerId) {
-        // A charging grenade throws exactly once, right now, at wherever
-        // this.aim currently is (the last drag position, or the sticky
-        // auto-target if it was never dragged past the dead zone) --
-        // input() reads and clears this on the very next packet.
-        if (!this.firing && this.weapon === "GRENADE" && e.pointerType !== "mouse")
-          this.pendingThrow = true;
+        if (!this.firing && this.weapon === "GRENADE" && e.pointerType !== "mouse") {
+          if (this.grenadeArmed && !this.fireStick.active) {
+            // Dragged out (armed), then dragged back to center before
+            // releasing: a deliberate "changed my mind," not a throw.
+            this.track("grenade_cancelled");
+          } else {
+            // Throws exactly once, right now. this.aim is low-pass smoothed
+            // for how it *looks* while charging, which lags a real target
+            // by design -- using it here on a fast tap-then-release could
+            // still be mid-transition from wherever it last pointed
+            // (sometimes the *opposite* way), so the actual throw is
+            // computed fresh and unsmoothed at this exact instant instead.
+            const me = this.predicted || this.state?.players?.find((p) => p.id === this.playerId);
+            if (me && this.state) {
+              let raw = null;
+              if (this.fireStick.active) {
+                const dir = this.renderer.screenMovement(this.fireStick.x, this.fireStick.z);
+                if (dir.x || dir.z) raw = { x: me.x + dir.x * this.fireStick.m * WEAPONS.GRENADE.range, z: me.z + dir.z * this.fireStick.m * WEAPONS.GRENADE.range };
+              } else {
+                // Same sticky selection the on-screen aim preview uses, so
+                // the thrown grenade lands on the enemy the player was
+                // actually watching the reticle converge on, not whichever
+                // of two near-equal targets a fresh pick happens to rank
+                // first this instant.
+                const target = pickTarget(me, this.state.players, this.state.time, this.map, {
+                  previousId: this.lockedTargetId,
+                  lastSwitchAt: this.lastTargetSwitch,
+                });
+                if (target) raw = { x: target.x, z: target.z };
+              }
+              if (raw) { this.pendingThrowAim = raw; this.pendingThrow = true; }
+              else if (this.aim) {
+                // No fresh target this exact instant (the only enemy died,
+                // got spawn-protected, or broke line of sight between the
+                // preview and the release): still throw where the reticle
+                // actually was, rather than a released grenade silently
+                // doing nothing. The cancel gesture above is the explicit
+                // way to not throw.
+                this.pendingThrowAim = { x: this.aim.x, z: this.aim.z };
+                this.pendingThrow = true;
+              }
+            }
+          }
+        }
         this.firing = false;
         this.firePointerId = null;
         if (e.pointerType !== "mouse") this.resetFireStick();
@@ -698,6 +757,7 @@ class Game {
     // Laser/Ricochet keep continuous hold-to-fire (direction only matters,
     // not distance, so there's nothing to lose by firing on touch-down).
     const charging = e.pointerType !== "mouse" && this.weapon === "GRENADE";
+    if (charging) this.grenadeArmed = false;
     this.firing = !charging;
     this.firePointerId = e.pointerId;
     this.telemetry.sawInput = true;
@@ -747,12 +807,13 @@ class Game {
   // fully hiding it rather than snapping to a resting position.
   resetFireStick() {
     const stick = $("touch-firestick");
-    stick.classList.remove("dragging");
+    stick.classList.remove("dragging", "cancel-armed");
     stick.style.left = "";
     stick.style.top = "";
     stick.querySelector(".stick-knob").style.transform = "";
     this.fireStick = { x: 0, z: 0, active: false };
     this.fireStickOrigin = null;
+    this.grenadeArmed = false;
   }
   vibrate(pattern) {
     try { navigator.vibrate?.(pattern); } catch {}
@@ -774,6 +835,7 @@ class Game {
     this.firing = false;
     this.autoFire = false;
     this.pendingThrow = false;
+    this.pendingThrowAim = null;
     this.firePointerId = null;
     this.mouse = null;
     this.aim = null;
@@ -920,16 +982,20 @@ class Game {
     }
     // One-shot: a charged grenade throws exactly once, on the packet right
     // after release (see pointerEnd), then this clears itself so holding
-    // the (already-released) pointer state can never fire it again.
+    // the (already-released) pointer state can never fire it again. Uses
+    // the unsmoothed aim computed fresh at release (pendingThrowAim), not
+    // the visual this.aim -- see pointerEnd for why.
     const throwing = this.pendingThrow;
     this.pendingThrow = false;
+    const throwAim = this.pendingThrowAim;
+    this.pendingThrowAim = null;
     return {
       seq: ++this.seq,
       move: this.active()?move:{x:0,z:0},
       thrust:0,turn:0,strafe:0,
       fire: this.active() && (this.firing || this.autoFire || throwing || k.has("Space")),
       weapon: this.weapon,
-      aim: this.aim,
+      aim: throwing && throwAim ? throwAim : this.aim,
     };
   }
   begin(mode, playerId, state, map = MAP) {
@@ -1547,13 +1613,15 @@ class Game {
     $("hit-marker").hidden = now > this.hitUntil;
     $("damage-flash").style.opacity = now < this.damageUntil ? "1" : "0";
     if (this.noticeUntil < now) $("notice").textContent = "";
-    if (
-      p.alive &&
-      this.active() &&
-      (this.firing || this.keys.has("Space")) &&
-      p.energy < WEAPONS[this.weapon].cost
-    )
-      this.notice("Recharging energy…", 0.3);
+    // A centered banner every time you hold fire without enough energy
+    // competed with the arena on a small screen and fired constantly (any
+    // continuous hold-to-fire weapon re-triggers it). The energy bar
+    // itself pulsing amber says the same thing without adding a second
+    // thing to look at -- it's exactly where you'd check anyway.
+    $("vital-energy").classList.toggle(
+      "insufficient",
+      p.alive && this.active() && (this.firing || this.keys.has("Space")) && p.energy < WEAPONS[this.weapon].cost,
+    );
     if (!$("scoreboard").hidden) this.renderScores();
     this.radar(p);
     this.updateMusic(state, p);

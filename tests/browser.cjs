@@ -49,7 +49,13 @@ async function main() {
     });
     contexts.push(ctx);
     // Software WebGL on a CI runner draws 1-2 fps at full quality; input is sampled per frame.
-    await ctx.addInitScript(() => { window.__SAUCERJAM_LOWGFX = true; });
+    // Also keep the offline practice pilot unkillable: a bot landing the kill
+    // mid-gesture clears held input, which made the grenade charge/aim checks
+    // race a death that has nothing to do with the mechanic under test.
+    await ctx.addInitScript(() => {
+      window.__SAUCERJAM_LOWGFX = true;
+      window.__SAUCERJAM_PRACTICE_INVULNERABLE = true;
+    });
     const page = await ctx.newPage();
     // Poll on a timer, not requestAnimationFrame: with several WebGL pages open,
     // headless Chromium stalls frames and a rAF poll never re-checks a true condition.
@@ -595,6 +601,63 @@ async function main() {
     const dragDist = Math.hypot(dragged.aim.x - dragged.predicted.x, dragged.aim.z - dragged.predicted.z);
     assert.ok(Math.abs(dragDist - 20) < 0.5, `full drag should throw at max range 20, got ${dragDist.toFixed(1)}`);
     console.log("PASS: touch grenade taps snap to the nearest enemy and drag scales throw distance");
+    // Cancel: drag out (arms the throw), then drag back to center before
+    // releasing -- must not throw at all, even though the thumb left the
+    // dead zone at some point during the hold.
+    await sleep(100); // let the previous touchend's pointerup finish processing
+    await mobile.waitForFunction(
+      () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy >= 100,
+      null,
+      { timeout: 8000 },
+    );
+    const beforeCancel = await mobile.evaluate(
+      () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy,
+    );
+    // The cancel decision is pure stick-position math (armed once dragged
+    // past the dead zone, cancels if back inside it at release) -- it has
+    // no dependency on aim/pickTarget, so this doesn't wait on either;
+    // whether a bot happens to be a valid auto-aim target right now is
+    // irrelevant and was the actual source of an earlier flake here.
+    // 45px stays inside the 52px stick radius, so reanchor() never fires
+    // and the origin never moves -- dragging back to this exact point is
+    // unambiguously "back to center." (200px, as the drag-distance test
+    // above uses, exceeds the radius and trails the origin toward the
+    // thumb, so "back to the original point" would actually be a swing to
+    // the opposite side relative to the new origin, not a return to it.)
+    const originX = 390 * 0.7, originY = 844 * 0.5;
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: originX, y: originY, id: 5 }],
+    });
+    await sleep(150);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: originX + 45, y: originY, id: 5 }],
+    });
+    await sleep(150);
+    assert.ok(
+      await mobile.evaluate(() => document.getElementById("touch-firestick").classList.contains("dragging")),
+      "dragging past the dead zone should arm the fire stick",
+    );
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: originX, y: originY, id: 5 }],
+    });
+    await sleep(150);
+    assert.ok(
+      await mobile.evaluate(() => document.getElementById("touch-firestick").classList.contains("cancel-armed")),
+      "dragging back to center should preview the cancel",
+    );
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await sleep(400);
+    const afterCancel = await mobile.evaluate(
+      () => window.__qd.getSnapshot().state.players.find((p) => p.id === "local").energy,
+    );
+    assert.ok(
+      afterCancel >= beforeCancel - 1,
+      `dragging back to center then releasing should cancel, not throw (before ${beforeCancel.toFixed(1)}, after ${afterCancel.toFixed(1)})`,
+    );
+    console.log("PASS: dragging a charged grenade back to center cancels it instead of throwing");
     // Regression: an external reset (round recap, blur, death) that fires
     // without a matching pointerup must not permanently lock the joystick
     // out. Headless tests never blur/hide/end a round mid-drag, which is

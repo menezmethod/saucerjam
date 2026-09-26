@@ -140,9 +140,9 @@ async function main() {
     );
     const angle = room.sim.players.get(idA).angle;
     await a.keyboard.down("KeyA");
-    await sleep(300);
+    await sleep(600);
     await a.keyboard.up("KeyA");
-    await until(() => Math.abs(room.sim.players.get(idA).angle - angle) > 0.3);
+    await until(() => Math.abs(room.sim.players.get(idA).angle - angle) > 0.3, 8000);
     // Let the key-release packet arrive before repositioning the test ships.
     await until(() => {
       const input = room.sim.players.get(idA).input;

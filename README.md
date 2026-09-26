@@ -199,10 +199,11 @@ It also asserts that no browser exception or broken application request occurred
 land in `test-results/`. `CHROME_BACKEND=native` drops the SwiftShader flags for real-GPU
 rendering.
 
-On a small host (2 vCPU), the suite's default 30-second page-boot budget is tight — several
-software-WebGL Chromium instances boot slowly and it can fail as a bare timeout. Raise the
-wait budget rather than assuming a regression, and check that the client actually boots first
-(`window.__qd` becomes true).
+On a small host the suite is slow rather than wrong: several software-WebGL Chromium instances
+boot and render concurrently, so it uses a 60-second page-boot budget and 15-second budgets for
+conditions that `requestAnimationFrame` drives (input sampling, prediction reconciliation). If
+it fails as a bare timeout, check that the client actually boots first (`window.__qd` becomes
+true) before suspecting a regression.
 
 `npm test` also launches Chromium (the interface tests), so install the browser before running
 it on a fresh machine.

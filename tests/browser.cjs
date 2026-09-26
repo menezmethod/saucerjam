@@ -373,8 +373,29 @@ async function main() {
       lagId,
       { timeout: 15000 },
     );
-    const lagEnd = await snapshot(lag),
+    // The client keeps predicting after the key is released, so a single
+    // sample can land between two convergences even when the wait above saw
+    // it reconciled. Sample at the moment the condition holds, then assert the
+    // original conditions on that sample.
+    let lagEnd, lagServer;
+    const lagDeadline = Date.now() + 15000;
+    for (;;) {
+      lagEnd = await snapshot(lag);
       lagServer = room.sim.players.get(lagEnd.playerId);
+      if (
+        lagServer &&
+        Math.hypot(
+          lagEnd.predicted.x - lagServer.x,
+          lagEnd.predicted.z - lagServer.z,
+        ) < 0.75
+      )
+        break;
+      if (Date.now() > lagDeadline)
+        throw new Error(
+          "prediction never reconciled with the authoritative position",
+        );
+      await sleep(50);
+    }
     assert.ok(
       Math.hypot(
         lagServer.x - lagStart.predicted.x,
